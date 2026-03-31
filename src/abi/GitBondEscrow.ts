@@ -1,3 +1,5 @@
+// Auto-generated from gitbondhq/escrow — do not edit manually.
+// Source commit: 680b1adca204580bf12502b9e93e64fa598f00e1
 import type { Abi } from 'viem'
 
 export const GitBondEscrowAbi = [
@@ -161,7 +163,7 @@ export const GitBondEscrowAbi = [
       {
         name: 'permit_',
         type: 'tuple',
-        internalType: 'struct GitBondEscrow.PermitParams',
+        internalType: 'struct GitSwarmEscrow.PermitParams',
         components: [
           {
             name: 'deadline',
@@ -216,7 +218,7 @@ export const GitBondEscrowAbi = [
       {
         name: '',
         type: 'tuple',
-        internalType: 'struct GitBondEscrowStorage.Escrow',
+        internalType: 'struct GitSwarmEscrowStorage.Escrow',
         components: [
           {
             name: 'payer',
@@ -904,17 +906,17 @@ export const GitBondEscrowAbi = [
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__EscrowAlreadyExists',
+    name: 'GitSwarmEscrow__EscrowAlreadyExists',
     inputs: [],
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__EscrowNotActive',
+    name: 'GitSwarmEscrow__EscrowNotActive',
     inputs: [],
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__FlatRefundFeeTooHigh',
+    name: 'GitSwarmEscrow__FlatRefundFeeTooHigh',
     inputs: [
       {
         name: 'requestedFee',
@@ -930,7 +932,7 @@ export const GitBondEscrowAbi = [
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__FlatRefundFeeTooHighForMinimum',
+    name: 'GitSwarmEscrow__FlatRefundFeeTooHighForMinimum',
     inputs: [
       {
         name: 'requestedFee',
@@ -946,17 +948,17 @@ export const GitBondEscrowAbi = [
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__InvalidAddress',
+    name: 'GitSwarmEscrow__InvalidAddress',
     inputs: [],
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__InvalidAmount',
+    name: 'GitSwarmEscrow__InvalidAmount',
     inputs: [],
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__InvalidPlatformCut',
+    name: 'GitSwarmEscrow__InvalidPlatformCut',
     inputs: [
       {
         name: 'requestedBps',
@@ -967,7 +969,7 @@ export const GitBondEscrowAbi = [
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__MinimumEscrowAmountTooLow',
+    name: 'GitSwarmEscrow__MinimumEscrowAmountTooLow',
     inputs: [
       {
         name: 'requestedAmount',
@@ -983,7 +985,7 @@ export const GitBondEscrowAbi = [
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__TokenNotWhitelisted',
+    name: 'GitSwarmEscrow__TokenNotWhitelisted',
     inputs: [
       {
         name: 'token',
@@ -994,7 +996,7 @@ export const GitBondEscrowAbi = [
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__TokenTransferFailed',
+    name: 'GitSwarmEscrow__TokenTransferFailed',
     inputs: [
       {
         name: 'token',
@@ -1005,7 +1007,7 @@ export const GitBondEscrowAbi = [
   },
   {
     type: 'error',
-    name: 'GitBondEscrow__UnsupportedTokenDecimals',
+    name: 'GitSwarmEscrow__UnsupportedTokenDecimals',
     inputs: [
       {
         name: 'token',
