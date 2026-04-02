@@ -16,6 +16,7 @@ Use this repo to deploy and use `MPPEscrow` across chains with Foundry and encry
 - [Repository structure](#repository-structure)
 - [Deploy MPPEscrow (any chain)](#deploy-mppeescrow-any-chain)
 - [Contract deployment skill](#contract-deployment-skill)
+- [Agent skills](#agent-skills)
 - [Contracts](#contracts)
 - [Packages](#packages)
 - [License](#license)
@@ -124,6 +125,12 @@ MPPEscrow deployed to: 0x...
 
 For agent-focused deployment workflows (Claude/Codex-friendly), use:
 [CONTRACTS_DEPLOY_MPPESCROW](skills/CONTRACTS_DEPLOY_MPPESCROW.md).
+
+## Agent skills
+
+- Smart contracts deployment and cast-wallet workflow: [CONTRACTS_DEPLOY_MPPESCROW](skills/CONTRACTS_DEPLOY_MPPESCROW.md)
+- CLI workflow and command tasks: [CLI_DEPLOY_MPPX](skills/CLI_DEPLOY_MPPX.md)
+- MPP package and SDK guidance: [MPP_PACKAGE_OVERVIEW](skills/MPP_PACKAGE_OVERVIEW.md)
 
 ## Contracts
 

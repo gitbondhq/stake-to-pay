@@ -26,8 +26,8 @@ This file gives agent operators quick routing for work in this repository.
 When a request is received, apply the relevant skill first:
 
 1. Smart-contract deploy or cast-wallet transaction workflow: use `skills/CONTRACTS_DEPLOY_MPPESCROW.md`.
-2. CLI command or agent-tooling work: create/use a `skills/CLI_*.md` playbook (not yet present).
-3. Package/SDK work (`@gitbondhq/mppx-escrow` APIs, ABI, build artifacts): create/use a `skills/MPP_*` playbook (not yet present).
+2. CLI command or agent-tooling work: use `skills/CLI_DEPLOY_MPPX.md` for deploy-facing CLI tasks and create/use other `skills/CLI_*.md` files for broader CLI workflows.
+3. Package/SDK work (`@gitbondhq/mppx-escrow` APIs, ABI, build artifacts): use `skills/MPP_PACKAGE_OVERVIEW.md`.
 
 ## Deployment playbook usage
 

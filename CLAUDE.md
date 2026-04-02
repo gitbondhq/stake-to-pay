@@ -20,14 +20,16 @@
 This repo uses task-specific skills in `skills/`:
 
 - `skills/CONTRACTS_DEPLOY_MPPESCROW.md` — use when asked to deploy `MPPEscrow` (any chain) or to prepare/validate cast-wallet deployment state.
+- `skills/CLI_DEPLOY_MPPX.md` — use for CLI-focused agent tasks related to stake-mpp tooling and CLI verification/commands.
+- `skills/MPP_PACKAGE_OVERVIEW.md` — use for `packages/mppx-escrow` SDK/API package work, ABI updates, or client/server integration changes.
 
 ## How to choose a skill
 
 Use a skill when the task is operational and repeatable:
 
 1. Contract deployment request (`forge script`, cast wallets, env prep): use `skills/CONTRACTS_DEPLOY_MPPESCROW.md`.
-2. CLI workflow request (tooling UX, commands, auth, integrations): add/use a dedicated `skills/CLI_*.md` file when available.
-3. Package SDK request (`@gitbondhq/mppx-escrow` behavior, examples, exports, ABI updates): add/use a dedicated `skills/MPP_PACKAGE_*.md` file when available.
+2. CLI workflow request (tooling UX, commands, auth, integrations): use `skills/CLI_DEPLOY_MPPX.md` (add/use other `skills/CLI_*.md` files as needed).
+3. Package SDK request (`@gitbondhq/mppx-escrow` behavior, examples, exports, ABI updates): use `skills/MPP_PACKAGE_OVERVIEW.md`.
 
 If a relevant skill file exists, read it before running deployment-like or operational commands.
 
