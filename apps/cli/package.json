@@ -1,13 +1,40 @@
 {
   "name": "@stake-mpp/cli",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "version": "0.1.0",
+  "description": "Command-line interface for the MPPEscrow contract",
+  "type": "module",
+  "bin": {
+    "stake-mpp": "./dist/index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "generate:abi": "forge build --root ../.. && node scripts/generate-abi.mjs",
+    "build": "npm run generate:abi && tsc -p tsconfig.json",
+    "check-types": "npm run generate:abi && tsc -p tsconfig.json --noEmit",
+    "dev": "npm run generate:abi && tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "test": "npm run check-types"
+  },
+  "keywords": [
+    "cli",
+    "ethereum",
+    "escrow",
+    "viem"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "viem": "^2.47.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.3"
+  }
 }

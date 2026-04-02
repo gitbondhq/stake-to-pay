@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "mppx": {
+      "source": "tempoxyz/mpp",
+      "sourceType": "github",
+      "computedHash": "169a6ca5e8824a430f35257384c67f9a5f8621e490df0f43d2a8299c6b6ff6af"
+    },
+    "solidity": {
+      "source": "cyfrin/solskill",
+      "sourceType": "github",
+      "computedHash": "4b7dc0a44669bdbd7112eee1381c675e5cb204902c92ff6b901bdaa283b5c371"
+    },
+    "tempo": {
+      "source": "tempoxyz/wallet",
+      "sourceType": "github",
+      "computedHash": "e0dc314861a4857ec9669202bf0362e9b92780b6fd8915b086623f3f39b4b520"
+    },
+    "tempo-docs": {
+      "source": "tempoxyz/docs",
+      "sourceType": "github",
+      "computedHash": "241e5ebbdfa60ec83ba89f1191607cd11e6aceee3cfd88178d8ef38a05d00c75"
+    },
+    "upgrade-solidity-contracts": {
+      "source": "openzeppelin/openzeppelin-skills",
+      "sourceType": "github",
+      "computedHash": "ef8776be9fd2ee6721f6b6b29992bf6029a6122797b3cec6fe3ce185b22be4ef"
+    }
+  }
+}
