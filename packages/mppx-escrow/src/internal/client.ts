@@ -180,6 +180,27 @@ export const prepareAndProviderSign = async (
   })) as Hex
 }
 
+// Signs and submits each call individually via an EIP-1193 provider.
+// Used when the provider only supports standard EIP-1559 transactions and
+// cannot batch multiple calls into a single Tempo 0x76 transaction.
+export const providerSubmitCalls = async (
+  client: TempoClient,
+  account: Account,
+  calls: readonly Call[],
+  provider: EIP1193Provider,
+): Promise<Hex> => {
+  let lastHash: Hex | undefined
+  for (const call of calls) {
+    const signed = await prepareAndProviderSign(client, account, call, provider)
+    const receipt = await submitRawSyncAction(client, {
+      serializedTransaction: signed,
+    })
+    lastHash = receipt.transactionHash
+  }
+  if (!lastHash) throw new Error('No transaction hash returned.')
+  return lastHash
+}
+
 export const cosignWithFeePayer = async (
   client: TempoClient,
   serializedTransaction: Hex,

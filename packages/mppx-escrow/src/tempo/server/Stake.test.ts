@@ -3,7 +3,7 @@ import type { Address, Hex, TransactionReceipt } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { MPPEscrowAbi } from '../../abi/MPPEscrow.js'
+import { GitBondEscrowAbi } from '../../abi/GitBondEscrow.js'
 import { buildLegacyCalls } from '../../internal/tx.js'
 import * as Methods from '../Methods.js'
 import { stake } from './Stake.js'
@@ -246,7 +246,7 @@ describe('tempo server stake', () => {
       it('accepts standard transactions for single-call permit flow', async () => {
         const standardTx = '0x02aabbcc' as Hex
         const permitCallData = encodeFunctionData({
-          abi: MPPEscrowAbi,
+          abi: GitBondEscrowAbi,
           args: [
             stakeKey,
             payer,

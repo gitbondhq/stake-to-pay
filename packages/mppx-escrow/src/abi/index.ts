@@ -1,1 +1,1 @@
-export { MPPEscrowAbi } from './MPPEscrow.js'
+export { GitBondEscrowAbi } from './GitBondEscrow.js'

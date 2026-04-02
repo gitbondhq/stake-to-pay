@@ -8,7 +8,7 @@ import {
 } from 'viem'
 import { readContract } from 'viem/actions'
 
-import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
+import { GitBondEscrowAbi } from '../abi/GitBondEscrow.js'
 import { erc20ApproveAbi } from './abi.js'
 import type { Account } from './account.js'
 
@@ -72,7 +72,7 @@ export const buildPermitCalls = (parameters: {
         [
           {
             data: encodeFunctionData({
-              abi: MPPEscrowAbi,
+              abi: GitBondEscrowAbi,
               args: [
                 stakeKey,
                 account.address,
@@ -111,7 +111,7 @@ export const buildLegacyCalls = (parameters: {
     },
     {
       data: encodeFunctionData({
-        abi: MPPEscrowAbi,
+        abi: GitBondEscrowAbi,
         args: [stakeKey, counterparty, beneficiary, currency, amount],
         functionName: 'createEscrow',
       }),
@@ -161,7 +161,7 @@ export const matchStakeCalls = (parameters: {
       throw new Error('Invalid permit transaction: wrong target contract.')
 
     const { args, functionName } = decodeFunctionData({
-      abi: MPPEscrowAbi,
+      abi: GitBondEscrowAbi,
       data: call.data,
     })
 
@@ -218,7 +218,7 @@ export const matchStakeCalls = (parameters: {
     assertMatch('approve.amount', approvedAmount, amount)
 
     const escrow = decodeFunctionData({
-      abi: MPPEscrowAbi,
+      abi: GitBondEscrowAbi,
       data: createEscrowCall.data,
     })
     if (escrow.functionName !== 'createEscrow')
@@ -269,7 +269,7 @@ export const assertEscrowCreatedReceipt = (
     value,
   } = parameters
   const logs = parseEventLogs({
-    abi: MPPEscrowAbi,
+    abi: GitBondEscrowAbi,
     eventName: 'EscrowCreated',
     logs: receipt.logs,
   })
@@ -317,7 +317,7 @@ export const assertEscrowOnChain = async (
   parameters: EscrowVerificationParams,
 ) => {
   const escrow = (await readContract(client, {
-    abi: MPPEscrowAbi,
+    abi: GitBondEscrowAbi,
     address: contract,
     args: [stakeKey],
     functionName: 'getEscrow',

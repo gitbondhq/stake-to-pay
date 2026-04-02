@@ -2,15 +2,12 @@ import { Credential, Method, z } from 'mppx'
 import type { Address } from 'viem'
 
 import * as Account from '../../internal/account.js'
-import {
-  resolveTransportPolicy,
-  transportPolicySchema,
-} from '../../internal/chains.js'
+import { detectTransportPolicy } from '../../internal/chains.js'
 import type { EIP1193Provider } from '../../internal/client.js'
 import {
   createClient,
-  prepareAndProviderSign,
   prepareAndSign,
+  providerSubmitCalls,
   submitCalls,
 } from '../../internal/client.js'
 import { createPermitParams } from '../../internal/permit.js'
@@ -20,10 +17,7 @@ import * as Methods from '../Methods.js'
 
 export type StakeParameters = {
   feeToken?: Address | undefined
-  mode?: 'push' | 'pull' | undefined
-  permitDeadlineSeconds?: number | undefined
   provider?: EIP1193Provider | undefined
-  transportPolicy?: 'auto' | 'permit' | 'legacy' | undefined
 } & Account.GetResolverParameters
 
 export const stake = (parameters: StakeParameters = {}) => {
@@ -33,8 +27,6 @@ export const stake = (parameters: StakeParameters = {}) => {
     context: z.strictObject({
       account: z.optional(z.custom<Account.GetResolverParameters['account']>()),
       feeToken: z.optional(z.address()),
-      mode: z.optional(z.enum(['push', 'pull'])),
-      transportPolicy: z.optional(transportPolicySchema),
     }),
 
     async createCredential({ challenge, context }) {
@@ -45,13 +37,12 @@ export const stake = (parameters: StakeParameters = {}) => {
       const beneficiary = typed.beneficiary ?? account.address
       const feeToken =
         (context?.feeToken as Address | undefined) ?? parameters.feeToken
-      const mode =
-        context?.mode ??
-        parameters.mode ??
-        (account.type === 'json-rpc' ? 'push' : 'pull')
-      const transportPolicy = resolveTransportPolicy({
+      const submission = typed.submission ?? 'push'
+      const transportPolicy = await detectTransportPolicy({
         chainId: typed.chainId,
-        transportPolicy: context?.transportPolicy ?? parameters.transportPolicy,
+        client,
+        currency: typed.currency,
+        owner: account.address,
       })
 
       const calls =
@@ -65,7 +56,6 @@ export const stake = (parameters: StakeParameters = {}) => {
               contract: typed.contract,
               counterparty: typed.counterparty,
               currency: typed.currency,
-              deadlineSeconds: parameters.permitDeadlineSeconds,
               permitFactory: createPermitParams,
               stakeKey: typed.stakeKey,
             })
@@ -79,9 +69,12 @@ export const stake = (parameters: StakeParameters = {}) => {
             })
 
       const source = `did:pkh:eip155:${typed.chainId}:${account.address}`
+      const provider = parameters.provider
 
-      if (mode === 'push') {
-        const hash = await submitCalls(client, account, calls, feeToken)
+      if (submission === 'push') {
+        const hash = provider
+          ? await providerSubmitCalls(client, account, calls, provider)
+          : await submitCalls(client, account, calls, feeToken)
         return Credential.serialize({
           challenge,
           payload: { hash, type: 'hash' },
@@ -89,11 +82,17 @@ export const stake = (parameters: StakeParameters = {}) => {
         })
       }
 
-      const provider = parameters.provider
-      const signature =
-        provider && calls.length === 1
-          ? await prepareAndProviderSign(client, account, calls[0]!, provider)
-          : await prepareAndSign(client, account, calls, feeToken)
+      // Pull mode requires Tempo batch transactions (0x76) which wallet
+      // providers cannot sign. Pull is only triggered when the server has a
+      // fee payer configured, and fee payer cosigning requires 0x76.
+      if (provider)
+        throw new Error(
+          'Pull mode is not supported with a wallet provider. ' +
+            'Wallet providers can only produce standard EIP-1559 transactions ' +
+            'which cannot be cosigned by a fee payer.',
+        )
+
+      const signature = await prepareAndSign(client, account, calls, feeToken)
       return Credential.serialize({
         challenge,
         payload: { signature, type: 'transaction' },
