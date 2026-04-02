@@ -52,8 +52,8 @@ interface IMPPEscrow {
     error MPPEscrow__InvalidAddress();
     error MPPEscrow__InvalidAmount();
     error MPPEscrow__TokenNotWhitelisted(address token);
-    error MPPEscrow__TokenTransferFailed(address token);
     error MPPEscrow__NotAuthorized();
+    error MPPEscrow__PayerMustBeCaller();
 
     // ─── Escrow lifecycle ────────────────────────────────────────────────
 
@@ -88,7 +88,6 @@ interface IMPPEscrow {
     // ─── Views ───────────────────────────────────────────────────────────
 
     function getEscrow(bytes32 key) external view returns (Escrow memory);
-    function USDC_E() external view returns (address);
     function tokenWhitelist(address token) external view returns (bool);
     function totalEscrowedByToken(address token) external view returns (uint256);
     function totalEscrowed() external view returns (uint256);

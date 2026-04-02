@@ -7,10 +7,6 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 contract MockUSDToken is ERC20 {
-    bytes32 public lastTransferMemo;
-
-    event TransferWithMemo(address indexed from, address indexed to, uint256 value, bytes32 indexed memo);
-
     constructor() ERC20("Mock USDC", "mUSDC") {}
 
     function decimals() public pure override returns (uint8) {
@@ -20,25 +16,9 @@ contract MockUSDToken is ERC20 {
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
-
-    function transferWithMemo(address to, uint256 amount, bytes32 memo) public returns (bool) {
-        lastTransferMemo = memo;
-        emit TransferWithMemo(msg.sender, to, amount, memo);
-        return transfer(to, amount);
-    }
-
-    function transferFromWithMemo(address from, address to, uint256 amount, bytes32 memo) public returns (bool) {
-        lastTransferMemo = memo;
-        emit TransferWithMemo(from, to, amount, memo);
-        return transferFrom(from, to, amount);
-    }
 }
 
 contract MockUSDPermitToken is ERC20Permit {
-    bytes32 public lastTransferMemo;
-
-    event TransferWithMemo(address indexed from, address indexed to, uint256 value, bytes32 indexed memo);
-
     constructor() ERC20("Mock USDC Permit", "mUSDCp") ERC20Permit("Mock USDC Permit") {}
 
     function decimals() public pure override returns (uint8) {
@@ -47,18 +27,6 @@ contract MockUSDPermitToken is ERC20Permit {
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
-    }
-
-    function transferWithMemo(address to, uint256 amount, bytes32 memo) public returns (bool) {
-        lastTransferMemo = memo;
-        emit TransferWithMemo(msg.sender, to, amount, memo);
-        return transfer(to, amount);
-    }
-
-    function transferFromWithMemo(address from, address to, uint256 amount, bytes32 memo) public returns (bool) {
-        lastTransferMemo = memo;
-        emit TransferWithMemo(from, to, amount, memo);
-        return transferFrom(from, to, amount);
     }
 }
 
@@ -159,10 +127,6 @@ contract MPPEscrowTest is Test {
         vm.expectRevert(MPPEscrow.MPPEscrow__InvalidAddress.selector);
         vm.prank(payer);
         escrow.createEscrow(KEY, address(0), beneficiary, address(token), AMOUNT);
-
-        vm.expectRevert(MPPEscrow.MPPEscrow__InvalidAddress.selector);
-        vm.prank(payer);
-        escrow.createEscrow(KEY, counterparty, address(0), address(token), AMOUNT);
     }
 
     function test_createEscrow_revertsUnwhitelistedToken() public {
@@ -186,13 +150,42 @@ contract MPPEscrowTest is Test {
 
         MPPEscrow.PermitParams memory permit_ = MPPEscrow.PermitParams(deadline, v, r, s);
 
-        vm.prank(payer); // relayer
-        escrow.createEscrowWithPermit(KEY, permitPayer, counterparty, beneficiary, address(permitToken), AMOUNT, permit_);
+        vm.prank(permitPayer);
+        escrow.createEscrowWithPermit(
+            KEY, permitPayer, counterparty, beneficiary, address(permitToken), AMOUNT, permit_
+        );
 
         MPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
         assertEq(e.payer, permitPayer);
         assertTrue(e.isActive);
         assertEq(permitToken.balanceOf(address(escrow)), AMOUNT);
+    }
+
+    function test_createEscrowWithPermit_revertsIfPayerIsNotCaller() public {
+        (address permitPayer, uint256 permitPayerPk) = makeAddrAndKey("permitPayer");
+        permitToken.mint(permitPayer, AMOUNT);
+
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = _getPermitDigest(
+            address(permitToken), permitPayer, address(escrow), AMOUNT, permitToken.nonces(permitPayer), deadline
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(permitPayerPk, digest);
+
+        MPPEscrow.PermitParams memory permit_ = MPPEscrow.PermitParams(deadline, v, r, s);
+
+        vm.expectRevert(MPPEscrow.MPPEscrow__PayerMustBeCaller.selector);
+        vm.prank(payer);
+        escrow.createEscrowWithPermit(
+            KEY, permitPayer, counterparty, beneficiary, address(permitToken), AMOUNT, permit_
+        );
+    }
+
+    function test_createEscrow_defaultsZeroBeneficiaryToPayer() public {
+        vm.prank(payer);
+        escrow.createEscrow(KEY, counterparty, address(0), address(token), AMOUNT);
+
+        MPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
+        assertEq(e.beneficiary, payer);
     }
 
     // ─── Refund ──────────────────────────────────────────────────────────
@@ -471,11 +464,14 @@ contract MPPEscrowTest is Test {
         escrow.createEscrow(KEY, counterparty, beneficiary, address(token), AMOUNT);
     }
 
-    function _getPermitDigest(address token_, address owner_, address spender, uint256 value, uint256 nonce, uint256 deadline)
-        internal
-        view
-        returns (bytes32)
-    {
+    function _getPermitDigest(
+        address token_,
+        address owner_,
+        address spender,
+        uint256 value,
+        uint256 nonce,
+        uint256 deadline
+    ) internal view returns (bytes32) {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),

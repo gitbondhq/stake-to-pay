@@ -2,9 +2,11 @@
 pragma solidity ^0.8.32;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
-import {ITIP20} from "tempo-std/interfaces/ITIP20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract MPPEscrow {
+    using SafeERC20 for IERC20;
     struct Escrow {
         address payer;
         address beneficiary;
@@ -22,9 +24,12 @@ contract MPPEscrow {
         bytes32 s;
     }
 
-    address public constant USDC_E = 0x20C000000000000000000000b9537d11c60E8b50;
-
     mapping(bytes32 => Escrow) internal s_escrows;
+    // Template safety note:
+    // Only whitelist tokens you have reviewed carefully for exact-transfer
+    // ERC20 behavior. Fee-on-transfer, rebasing/share-based, callback-heavy,
+    // or otherwise non-standard tokens can break escrow accounting and
+    // settlement assumptions in this template.
     mapping(address => bool) public tokenWhitelist;
     mapping(address => uint256) public totalEscrowedByToken;
     uint256 public totalEscrowed;
@@ -62,8 +67,8 @@ contract MPPEscrow {
     error MPPEscrow__InvalidAddress();
     error MPPEscrow__InvalidAmount();
     error MPPEscrow__TokenNotWhitelisted(address token);
-    error MPPEscrow__TokenTransferFailed(address token);
     error MPPEscrow__NotAuthorized();
+    error MPPEscrow__PayerMustBeCaller();
 
     modifier onlyRefundAuthorized(bytes32 key) {
         address counterparty = s_escrows[key].counterparty;
@@ -82,6 +87,10 @@ contract MPPEscrow {
     }
 
     constructor(address[] memory _whitelistedTokens) {
+        // Review each token before whitelisting. Different decimals do not
+        // break the math by themselves if all callers use base units
+        // correctly, but fee mechanics, rebases, callbacks, and other
+        // non-standard transfer semantics can produce unexpected behavior.
         for (uint256 i = 0; i < _whitelistedTokens.length; i++) {
             tokenWhitelist[_whitelistedTokens[i]] = true;
         }
@@ -105,7 +114,23 @@ contract MPPEscrow {
         uint256 amount,
         PermitParams calldata permit_
     ) external {
-        _createEscrowFrom(payer, key, counterparty, beneficiary, token, amount, true, permit_);
+        // Security note:
+        // ERC-2612 permit only authorizes this contract to spend `amount`
+        // from `payer`. It does not authorize the escrow terms (`key`,
+        // `counterparty`, `beneficiary`).
+        //
+        // If this function allowed third-party relayers, anyone who obtained a
+        // valid permit signature could submit attacker-chosen escrow terms and
+        // redirect the deposited funds. We therefore require the payer to be
+        // the caller for now.
+        //
+        // If relayed/gasless creation is needed later, add a second EIP-712
+        // signature that binds the full escrow intent (payer, key,
+        // counterparty, beneficiary, token, amount, deadline, chainId,
+        // contract, nonce), or use a trusted forwarder/meta-tx pattern that
+        // verifies those parameters explicitly.
+        if (payer != msg.sender) revert MPPEscrow__PayerMustBeCaller();
+        _createEscrowFrom(msg.sender, key, counterparty, beneficiary, token, amount, true, permit_);
     }
 
     function refundEscrow(bytes32 key) external onlyRefundAuthorized(key) {
@@ -121,7 +146,7 @@ contract MPPEscrow {
 
         _beforeRefund(key, e.token, e.beneficiary, e.principal);
 
-        ITIP20(e.token).transferWithMemo(e.beneficiary, e.principal, key);
+        IERC20(e.token).safeTransfer(e.beneficiary, e.principal);
 
         emit EscrowRefunded(key, e.payer, e.beneficiary, e.token, e.principal);
     }
@@ -139,7 +164,7 @@ contract MPPEscrow {
 
         _beforeSlash(key, e.token, e.counterparty, e.principal);
 
-        ITIP20(e.token).transferWithMemo(e.counterparty, e.principal, key);
+        IERC20(e.token).safeTransfer(e.counterparty, e.principal);
 
         emit EscrowSlashed(key, e.beneficiary, e.counterparty, e.token, e.principal);
     }
@@ -225,7 +250,9 @@ contract MPPEscrow {
         PermitParams memory permit_
     ) internal {
         if (s_escrows[key].isActive) revert MPPEscrow__EscrowAlreadyExists();
-        if (payer == address(0) || counterparty == address(0) || beneficiary == address(0) || token == address(0)) {
+        address resolvedBeneficiary = beneficiary == address(0) ? payer : beneficiary;
+
+        if (payer == address(0) || counterparty == address(0) || token == address(0)) {
             revert MPPEscrow__InvalidAddress();
         }
         if (amount == 0) revert MPPEscrow__InvalidAmount();
@@ -233,7 +260,7 @@ contract MPPEscrow {
 
         Escrow storage e = s_escrows[key];
         e.payer = payer;
-        e.beneficiary = beneficiary;
+        e.beneficiary = resolvedBeneficiary;
         e.counterparty = counterparty;
         e.token = token;
         e.principal = amount;
@@ -247,12 +274,10 @@ contract MPPEscrow {
             IERC20Permit(token).permit(payer, address(this), amount, permit_.deadline, permit_.v, permit_.r, permit_.s);
         }
 
-        if (!ITIP20(token).transferFromWithMemo(payer, address(this), amount, key)) {
-            revert MPPEscrow__TokenTransferFailed(token);
-        }
+        IERC20(token).safeTransferFrom(payer, address(this), amount);
 
         _afterDeposit(key, token, amount);
 
-        emit EscrowCreated(key, payer, beneficiary, counterparty, token, amount);
+        emit EscrowCreated(key, payer, resolvedBeneficiary, counterparty, token, amount);
     }
 }
