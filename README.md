@@ -3,6 +3,9 @@
 Stake-based access control for the [MPP (Micropayment Protocol)](https://github.com/gitbondhq/mppx-escrow), built for [GitBond](https://gitbond.com).  
 Use this repo to deploy and use `MPPEscrow` across chains with Foundry and encrypted cast wallets.
 
+> [!WARNING]
+> Experimental and unaudited. This repo is for demo and template purposes only. Do not treat it as production-ready smart contract infrastructure without your own review, testing, and professional security assessment.
+
 ## Overview
 
 - This repo includes Solidity contracts, a TypeScript SDK, a demo app, and CLI tooling.
