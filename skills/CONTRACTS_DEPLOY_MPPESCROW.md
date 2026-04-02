@@ -55,6 +55,33 @@ export RPC_URL=<selected-rpc-url>
 
 Do not write these exports back to `.env` unless explicitly requested later for non-sensitive metadata only.
 
+## Tempo-specific toolchain check
+
+If the user asks for deployment on **tempo**, add this mandatory preflight before running any forge script:
+
+```sh
+forge --version
+```
+
+Interpretation:
+
+- If the output indicates the Tempo-supported Foundry fork is active, continue.
+- If output is standard upstream `forge` (or a version string the team does not recognize for tempo), stop and ask the user to approve an upgrade before making any toolchain changes.
+
+If approval is granted, install/upgrade with the `-n` flag before deployment:
+
+```sh
+foundryup -n <tempo-foundry-version-or-tag>
+```
+
+Then re-run:
+
+```sh
+forge --version
+```
+
+and confirm the forked binary is active before moving to dry-run/broadcast.
+
 ## Base chain defaults
 
 - Base mainnet: `CHAIN_ID=8453`
