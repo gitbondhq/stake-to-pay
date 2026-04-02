@@ -100,7 +100,6 @@ Client parameters:
 | `account` | `viem` account or address | Default payer account used to create stake credentials |
 | `provider` | `EIP1193Provider` | Optional wallet provider for signing (see [Embedded Wallet Support](#embedded-wallet-support)) |
 | `feeToken` | address | Optional fee token forwarded to Tempo transaction submission |
-| `permitDeadlineSeconds` | number | Optional override for permit expiry when using permit flow |
 
 Client behavior:
 

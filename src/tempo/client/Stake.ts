@@ -17,7 +17,6 @@ import * as Methods from '../Methods.js'
 
 export type StakeParameters = {
   feeToken?: Address | undefined
-  permitDeadlineSeconds?: number | undefined
   provider?: EIP1193Provider | undefined
 } & Account.GetResolverParameters
 
@@ -57,7 +56,6 @@ export const stake = (parameters: StakeParameters = {}) => {
               contract: typed.contract,
               counterparty: typed.counterparty,
               currency: typed.currency,
-              deadlineSeconds: parameters.permitDeadlineSeconds,
               permitFactory: createPermitParams,
               stakeKey: typed.stakeKey,
             })
