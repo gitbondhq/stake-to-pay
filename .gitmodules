@@ -4,6 +4,3 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "lib/tempo-std"]
-	path = lib/tempo-std
-	url = https://github.com/tempoxyz/tempo-std

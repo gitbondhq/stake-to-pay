@@ -1,17 +1,24 @@
 # stake-mpp
 
-Stake-based access control using the [MPP (Micropayment Protocol)](https://github.com/gitbondhq/mppx-escrow) and on-chain escrow contracts. Built for [GitBond](https://gitbond.com).
+Stake-based access control for the [MPP (Micropayment Protocol)](https://github.com/gitbondhq/mppx-escrow), built for [GitBond](https://gitbond.com).  
+Use this repo to deploy and use `MPPEscrow` across chains with Foundry and encrypted cast wallets.
 
-This monorepo combines the escrow smart contracts, the MPP stake TypeScript SDK, a demo app, and CLI tooling into a single workspace.
+## Overview
 
-## How it works
+- This repo includes Solidity contracts, a TypeScript SDK, a demo app, and CLI tooling.
+- A protected request creates an on-chain escrow, then the server verifies the escrow proof on-chain.
+- After validation, the resource is granted and the escrow is resolved out-of-band.
 
-1. A client requests a protected resource
-2. The server responds with `402 Payment Required` and an MPP challenge (`method="tempo"`, `intent="stake"`)
-3. The client creates an on-chain escrow (stablecoin deposit) via the GitSwarm Escrow contract
-4. The client retries the request with a credential proving the escrow was created
-5. The server verifies the escrow on-chain and grants access
-6. The escrow is later resolved out-of-band — refunded if the action was legitimate, slashed if not
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Getting started](#getting-started)
+- [Repository structure](#repository-structure)
+- [Deploy MPPEscrow (any chain)](#deploy-mppeescrow-any-chain)
+- [Contract deployment skill](#contract-deployment-skill)
+- [Contracts](#contracts)
+- [Packages](#packages)
+- [License](#license)
 
 ## Repository structure
 
@@ -62,13 +69,74 @@ forge build
 forge test
 ```
 
+## Deploy MPPEscrow (any chain)
+
+Deployment uses a cast keystore account, no raw private keys in scripts.
+
+1. Prepare `.env` from the template:
+
+```sh
+cp example.env .env
+```
+
+2. Edit `.env`:
+
+```dotenv
+RPC_URL=https://your-rpc-endpoint
+CHAIN_ID=8453
+CAST_ACCOUNT=base-deployer
+SENDER_ADDRESS=0x0000000000000000000000000000000000000000
+WHITELISTED_TOKENS=0x0000000000000000000000000000000000000000,0x1111111111111111111111111111111111111111
+```
+
+3. Set up a cast wallet if needed:
+
+```sh
+cast wallet import base-deployer --interactive
+```
+
+4. Confirm wallet and sender:
+
+```sh
+cast wallet list
+cast wallet inspect base-deployer
+```
+
+5. Deploy:
+
+```sh
+source .env
+forge script contracts/script/DeployMPPEscrow.s.sol \
+  --rpc-url "$RPC_URL" \
+  --chain "$CHAIN_ID" \
+  --account "$CAST_ACCOUNT" \
+  --sender "$SENDER_ADDRESS" \
+  --broadcast
+```
+
+6. Capture the deployed address from output:
+
+```text
+MPPEscrow deployed to: 0x...
+```
+
+## Contract deployment skill
+
+For agent-focused deployment workflows (Claude/Codex-friendly), use:
+[CONTRACTS_DEPLOY_MPPESCROW](skills/CONTRACTS_DEPLOY_MPPESCROW.md).
+
 ## Contracts
 
-The escrow contracts use the UUPS upgradeable proxy pattern and are designed for the [Tempo](https://tempo.xyz) blockchain. Key operations:
+The escrow contracts are shipped as a simple escrow template for the [Tempo](https://tempo.xyz) blockchain. Key operations:
 
-- `createEscrow` / `createEscrowWithPermit` — deposit stablecoins into escrow
-- `refundEscrow` — return principal minus fee to beneficiary
-- `slashEscrow` — split principal between counterparty and treasury
+- `createEscrow` / `createEscrowWithPermit` — deposit whitelisted ERC20 principal into escrow. If `beneficiary` is `address(0)`, the contract defaults it to the payer.
+- `refundEscrow` — return the escrow principal to the beneficiary
+- `slashEscrow` — send the escrow principal to the counterparty
+
+Template warning:
+
+- Only whitelist tokens you have reviewed carefully for decimals and base-unit handling, fee-on-transfer behavior, rebasing/share mechanics, hooks/callbacks, and any other non-standard settlement logic.
+- This template assumes exact-transfer ERC20 behavior for escrow accounting. Non-standard tokens can produce undercollateralization, stuck funds, or incorrect totals unless you customize the contract accordingly.
 
 See `contracts/` for sources and `contracts/script/` for deployment helpers.
 
