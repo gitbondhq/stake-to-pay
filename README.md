@@ -177,7 +177,7 @@ Server parameters:
 | `currency` | address | Stake token |
 | `beneficiary` | address | Optional route-level beneficiary |
 | `description` | string | Optional route-level payment description |
-| `feePayer` | `viem` account or URL | Optional fee payer for pull transactions |
+| `feePayer` | `viem` account or URL | Optional fee payer for pull transactions. Only works with clients that sign Tempo batch transactions (`0x76`). Clients using an EIP-1193 provider (e.g. Privy) produce standard `0x02` transactions which cannot be cosigned, and verification will fail. |
 
 Server behavior:
 
