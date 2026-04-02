@@ -107,13 +107,16 @@ Client behavior:
   method.
 - The client reads the `submission` field from the server's challenge to decide
   whether to push or pull. If the server omits it, the client defaults to push.
-- `submission: 'push'` submits calls with `sendCallsSync` and returns a
-  credential with `payload.type = 'hash'`.
+- `submission: 'push'` submits calls and returns a credential with
+  `payload.type = 'hash'`. Without a provider, calls are batched via
+  `sendCallsSync`. With a provider, each call is signed and submitted
+  individually as a standard EIP-1559 transaction.
 - `submission: 'pull'` signs a transaction request and returns a credential with
-  `payload.type = 'transaction'`. When a `provider` is given and the transaction
-  is a single call (permit flow), signing uses the provider's
-  `eth_signTransaction`, producing a standard EIP-1559 transaction. Otherwise,
-  signing uses viem's `signTransaction`, producing a Tempo batch transaction.
+  `payload.type = 'transaction'`. Without a provider, signing uses viem's
+  `signTransaction`, producing a Tempo batch transaction. With a provider,
+  signing uses `eth_signTransaction`, producing a standard EIP-1559 transaction.
+  Pull mode with a provider requires a single call (permit flow); multi-call
+  legacy transactions will throw.
 - Transport policy (permit vs legacy) is auto-detected by probing the token's
   `nonces()` function on-chain. If the token supports EIP-2612 permit, a single
   `createEscrowWithPermit` call is built. Otherwise, `approve` plus
@@ -210,15 +213,20 @@ Additionally, Tempo's RPC rejects standard EIP-1559 transactions sent via
 
 To work around this, the client SDK accepts an optional `provider` parameter
 (any EIP-1193 compatible provider, such as Privy's `getEthereumProvider()`).
-When a provider is given and the transaction is a single call (permit flow in
-pull mode), the SDK:
+When a provider is given, all signing goes through the provider's
+`eth_signTransaction`, producing standard EIP-1559 (`0x02`) transactions.
+
+For each call, the SDK:
 
 1. Uses viem's `prepareTransactionRequest` with the Tempo client for gas
    estimation (Tempo's chain hooks handle the RPC format)
 2. Converts the prepared transaction to a plain hex-encoded parameter object
 3. Calls `eth_signTransaction` on the provider, which produces a standard
    EIP-1559 signed transaction (`0x02` prefix)
-4. Returns the signed transaction as the credential payload
+
+In push mode, each call is signed and submitted individually. Pull mode is not
+supported with a provider — it will throw, since pull requires fee payer
+cosigning which only works with Tempo batch transactions.
 
 The server accepts both Tempo batch (`0x76`) and standard EIP-1559 (`0x02`)
 transactions in the `transaction` credential type.
@@ -240,9 +248,9 @@ const mppx = Mppx.create({
 
 Limitations:
 
-- Provider-based signing only works for single-call transactions (permit flow).
-  Multi-call transactions (legacy approve + createEscrow) still require Tempo
-  batch format and a wallet that supports type `0x76`.
+- Pull mode is not supported with a provider. The server sets `submission: 'pull'`
+  when a fee payer is configured, but fee payer cosigning requires Tempo batch
+  transactions (`0x76`) which providers cannot sign.
 - Fee payer cosigning is not available for standard EIP-1559 transactions. The
   server will reject standard transactions when a fee payer is configured.
 

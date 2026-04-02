@@ -6,8 +6,8 @@ import { detectTransportPolicy } from '../../internal/chains.js'
 import type { EIP1193Provider } from '../../internal/client.js'
 import {
   createClient,
-  prepareAndProviderSign,
   prepareAndSign,
+  providerSubmitCalls,
   submitCalls,
 } from '../../internal/client.js'
 import { createPermitParams } from '../../internal/permit.js'
@@ -69,9 +69,12 @@ export const stake = (parameters: StakeParameters = {}) => {
             })
 
       const source = `did:pkh:eip155:${typed.chainId}:${account.address}`
+      const provider = parameters.provider
 
       if (submission === 'push') {
-        const hash = await submitCalls(client, account, calls, feeToken)
+        const hash = provider
+          ? await providerSubmitCalls(client, account, calls, provider)
+          : await submitCalls(client, account, calls, feeToken)
         return Credential.serialize({
           challenge,
           payload: { hash, type: 'hash' },
@@ -79,11 +82,17 @@ export const stake = (parameters: StakeParameters = {}) => {
         })
       }
 
-      const provider = parameters.provider
-      const signature =
-        provider && calls.length === 1
-          ? await prepareAndProviderSign(client, account, calls[0]!, provider)
-          : await prepareAndSign(client, account, calls, feeToken)
+      // Pull mode requires Tempo batch transactions (0x76) which wallet
+      // providers cannot sign. Pull is only triggered when the server has a
+      // fee payer configured, and fee payer cosigning requires 0x76.
+      if (provider)
+        throw new Error(
+          'Pull mode is not supported with a wallet provider. ' +
+            'Wallet providers can only produce standard EIP-1559 transactions ' +
+            'which cannot be cosigned by a fee payer.',
+        )
+
+      const signature = await prepareAndSign(client, account, calls, feeToken)
       return Credential.serialize({
         challenge,
         payload: { signature, type: 'transaction' },
