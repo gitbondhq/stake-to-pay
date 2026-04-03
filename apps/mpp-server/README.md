@@ -41,7 +41,7 @@ Common optional settings:
 
 - `PORT` / `HOST`
 - `STAKE_CHAIN_ID`
-- `STAKE_CURRENCY`
+- `STAKE_TOKEN`
 - `STAKE_AMOUNT`
 - `DOCUMENT_TITLE`
 - `DOCUMENT_SLUG`

@@ -1,0 +1,18 @@
+{
+  "methodName": "tempo",
+  "network": "tempoModerato",
+  "chainId": 42431,
+  "rpcUrl": "https://rpc.moderato.tempo.xyz",
+  "escrow": {
+    "contract": "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
+    "counterparty": null,
+    "beneficiary": null,
+    "token": "0x20c0000000000000000000000000000000000000",
+    "tokenWhitelist": [
+      "0x20c0000000000000000000000000000000000000"
+    ],
+    "amount": "5000000",
+    "description": "Stake required to unlock the full incident report",
+    "policy": "demo-document-v1"
+  }
+}

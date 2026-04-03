@@ -84,9 +84,17 @@ Read methods:
 - `escrow refund-delegates`
 - `escrow slash-delegates`
 
+Challenge flow:
+
+- `challenge fetch`
+- `challenge inspect`
+- `challenge respond`
+- `challenge submit`
+
 ## Notes
 
 - All token amounts must be provided in base units.
 - The CLI uses `viem` for contract reads, simulation, and writes.
 - `create-escrow-with-permit` expects a permit signature to be supplied explicitly as `--deadline`, `--v`, `--r`, and `--s`.
 - Write commands wait for a receipt by default. Pass `--no-wait` to return immediately after broadcast.
+- `challenge respond` is currently limited to signed transaction credentials (`payload.type = "transaction"`). It forces `submission: 'pull'` when creating the credential so the server can inspect and submit the signed transaction on retry.

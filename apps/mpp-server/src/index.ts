@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto'
 import process from 'node:process'
 
-import { stake, Mppx } from '@gitbondhq/mppx-escrow/server'
 import { Credential } from 'mppx'
+import { Mppx } from 'mppx/server'
+import { stake } from '@gitbondhq/mppx-escrow/server'
 import express from 'express'
 
 import { loadConfig, toPublicConfig, type AppConfig } from './config.js'
@@ -29,20 +30,21 @@ type StakeChallengeRequest = {
 
 const config = loadConfig()
 const fakeDocument = createFakeDocument(config.documentTitle)
+const configuredStakeMethod = stake({
+  ...(config.stakeBeneficiary
+    ? { beneficiary: config.stakeBeneficiary }
+    : {}),
+  chainId: config.stakeChainId,
+  contract: config.stakeContract,
+  counterparty: config.stakeCounterparty,
+  token: config.stakeToken,
+  description: config.stakeDescription,
+  name: config.methodName,
+})
+const stakeIntent = `${configuredStakeMethod.name}/${configuredStakeMethod.intent}`
 
 const mppx = Mppx.create({
-  methods: [
-    stake({
-      ...(config.stakeBeneficiary
-        ? { beneficiary: config.stakeBeneficiary }
-        : {}),
-      chainId: config.stakeChainId,
-      contract: config.stakeContract,
-      counterparty: config.stakeCounterparty,
-      currency: config.stakeCurrency,
-      description: config.stakeDescription,
-    }),
-  ],
+  methods: [configuredStakeMethod],
   secretKey: config.mppSecretKey,
 })
 
@@ -59,7 +61,7 @@ app.get('/', (req, res) => {
   res.json({
     service: 'stake-mpp-demo-server',
     paywall: {
-      intent: 'tempo/stake',
+      intent: stakeIntent,
       ...toPublicConfig(config),
     },
     example: {
@@ -80,7 +82,12 @@ app.get(config.documentPreviewPath, (_req, res) => {
 
 app.get(config.documentPath, async (req, res) => {
   try {
-    const result = await mppx.stake(resolveStakeRouteOptions(req, config))(
+    const stakeMethod = mppx.stake
+    if (!stakeMethod) {
+      throw new Error('Stake method is not configured.')
+    }
+
+    const result = await stakeMethod(resolveStakeRouteOptions(req, config))(
       toWebRequest(req, config),
     )
 
@@ -122,7 +129,7 @@ app.listen(config.port, config.host, () => {
   console.log(`[mpp-server] preview route: ${origin}${config.documentPreviewPath}`)
   console.log(`[mpp-server] protected route: ${origin}${config.documentPath}`)
   console.log(
-    `[mpp-server] stake amount=${config.stakeAmount} chainId=${config.stakeChainId} contract=${config.stakeContract}`,
+    `[mpp-server] network=${config.network} stake amount=${config.stakeAmount} chainId=${config.stakeChainId} contract=${config.stakeContract}`,
   )
 })
 
@@ -213,7 +220,7 @@ const resolveStakeRouteOptions = (
 
   if (
     credential?.challenge.intent === 'stake' &&
-    credential.challenge.method === 'tempo' &&
+    credential.challenge.method === configuredStakeMethod.name &&
     isStakeChallengeRequest(credential.challenge.request) &&
     credential.challenge.request.methodDetails.counterparty ===
       config.stakeCounterparty &&

@@ -30,6 +30,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@gitbondhq/mppx-escrow": "*",
     "commander": "^13.1.0",
     "viem": "^2.47.6"
   },
