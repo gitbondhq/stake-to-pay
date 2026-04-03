@@ -2,6 +2,10 @@ import { writeFile } from 'node:fs/promises'
 
 import { Command } from 'commander'
 import { Credential } from 'mppx'
+import {
+  type StakeCredentialPayload,
+  withStakeSubmission,
+} from '@gitbondhq/mppx-escrow'
 import { stake as createStakeMethod } from '@gitbondhq/mppx-escrow/client'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -10,13 +14,11 @@ import {
   loadStakeChallengeFromFile,
   resolveSerializedCredential,
   resolveStakeChallengeForRespond,
-  withPushSubmission,
 } from '../cli/challenge.js'
 import { PRIVATE_KEY_ENV, repoConfig } from '../cli/context.js'
 import { printJson, writeJsonFile } from '../cli/format.js'
 import { collectRepeatableOption, fetchWithOptions, serializeHttpResponse } from '../cli/http.js'
 import { asHex32, requiredString } from '../cli/parsing.js'
-import type { StakeCredentialPayload } from '../cli/types.js'
 
 export function registerChallengeCommands(program: Command): void {
   const challenge = program
@@ -116,7 +118,7 @@ export function registerChallengeCommands(program: Command): void {
         },
       ) => {
         const challengeValue = await resolveStakeChallengeForRespond(options)
-        const forcedChallenge = withPushSubmission(challengeValue)
+        const forcedChallenge = withStakeSubmission(challengeValue, 'push')
         const account = privateKeyToAccount(
           asHex32(options.privateKey ?? process.env[PRIVATE_KEY_ENV], '--private-key'),
         )

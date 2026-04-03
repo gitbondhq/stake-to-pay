@@ -1,16 +1,14 @@
 import { readFile } from 'node:fs/promises'
 
-import { Challenge, Credential } from 'mppx'
+import { Credential } from 'mppx'
+import {
+  parseStakeChallenge,
+  type StakeChallenge,
+} from '@gitbondhq/mppx-escrow'
 
-import { stakeMethod } from './context.js'
+import { repoConfig } from './context.js'
 import { fetchWithOptions } from './http.js'
 import { requiredString } from './parsing.js'
-import type {
-  StakeChallengeRequest,
-  StakeMethodInput,
-} from './types.js'
-
-type StakeChallenge = Challenge.Challenge<StakeChallengeRequest, 'stake', string>
 
 export async function resolveStakeChallengeForRespond(options: {
   challengeFile?: string
@@ -56,29 +54,14 @@ export async function loadStakeChallengeFromFile(path: string): Promise<StakeCha
       ? parsed.challenge
       : parsed
 
-  return normalizeStakeChallenge(challenge)
+  return parseStakeChallenge(challenge, {
+    methodName: repoConfig.methodName,
+  })
 }
 
 export function getStakeChallengeFromResponse(response: Response): StakeChallenge {
-  return Challenge.fromResponse(response, {
-    methods: [stakeMethod],
-  }) as StakeChallenge
-}
-
-export function withPushSubmission(challenge: StakeChallenge): StakeChallenge {
-  const request = toStakeMethodInput(challenge.request)
-
-  return Challenge.fromMethod(stakeMethod, {
-    description: challenge.description,
-    digest: challenge.digest,
-    expires: challenge.expires,
-    id: challenge.id,
-    ...(challenge.opaque ? { meta: challenge.opaque } : {}),
-    realm: challenge.realm,
-    request: {
-      ...request,
-      submission: 'push',
-    },
+  return parseStakeChallenge(response, {
+    methodName: repoConfig.methodName,
   }) as StakeChallenge
 }
 
@@ -103,47 +86,6 @@ export async function resolveSerializedCredential(options: {
 
   Credential.deserialize(value)
   return value
-}
-
-function normalizeStakeChallenge(value: unknown): StakeChallenge {
-  const parsed = Challenge.Schema.parse(value)
-
-  if (parsed.method !== stakeMethod.name || parsed.intent !== stakeMethod.intent) {
-    throw new Error(
-      `Expected a ${stakeMethod.name}/${stakeMethod.intent} challenge, received ${parsed.method}/${parsed.intent}.`,
-    )
-  }
-
-  return Challenge.fromMethod(stakeMethod, {
-    description: parsed.description,
-    digest: parsed.digest,
-    expires: parsed.expires,
-    id: parsed.id,
-    ...(parsed.opaque ? { meta: parsed.opaque } : {}),
-    realm: parsed.realm,
-    request: toStakeMethodInput(parsed.request as StakeChallengeRequest),
-  }) as StakeChallenge
-}
-
-function toStakeMethodInput(request: StakeChallengeRequest): StakeMethodInput {
-  return {
-    amount: request.amount,
-    ...(request.methodDetails.beneficiary
-      ? { beneficiary: request.methodDetails.beneficiary }
-      : {}),
-    chainId: request.methodDetails.chainId,
-    contract: request.contract,
-    counterparty: request.methodDetails.counterparty,
-    token: request.token,
-    ...(request.description ? { description: request.description } : {}),
-    ...(request.externalId ? { externalId: request.externalId } : {}),
-    ...(request.methodDetails.policy ? { policy: request.methodDetails.policy } : {}),
-    ...(request.methodDetails.resource ? { resource: request.methodDetails.resource } : {}),
-    stakeKey: request.methodDetails.stakeKey,
-    ...(request.methodDetails.submission
-      ? { submission: request.methodDetails.submission }
-      : {}),
-  }
 }
 
 async function readSerializedCredentialFromFile(path: string): Promise<string> {

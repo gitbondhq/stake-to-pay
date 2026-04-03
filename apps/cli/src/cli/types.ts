@@ -10,43 +10,6 @@ export type WriteCommandOptions = BaseCommandOptions & {
   privateKey?: string
 }
 
-export type StakeChallengeRequest = {
-  amount: string
-  contract: Address
-  token: Address
-  description?: string | undefined
-  externalId?: string | undefined
-  methodDetails: {
-    action?: 'createEscrow' | undefined
-    beneficiary?: Address | undefined
-    chainId: number
-    counterparty: Address
-    policy?: string | undefined
-    resource?: string | undefined
-    stakeKey: Hex
-    submission?: 'push' | 'pull' | undefined
-  }
-}
-
-export type StakeMethodInput = {
-  amount: string
-  beneficiary?: Address | undefined
-  chainId: number
-  contract: Address
-  counterparty: Address
-  token: Address
-  description?: string | undefined
-  externalId?: string | undefined
-  policy?: string | undefined
-  resource?: string | undefined
-  stakeKey: Hex
-  submission?: 'push' | 'pull' | undefined
-}
-
-export type StakeCredentialPayload =
-  | { hash: Hex; type: 'hash' }
-  | { signature: Hex; type: 'transaction' }
-
 export type RepoConfig = {
   chainId: number
   escrow: {
