@@ -22,11 +22,13 @@ You should keep deployment secrets out of `.env` for execution.
 - `CAST_ACCOUNT` — cast keystore account name.
 - `SENDER_ADDRESS` — deployment sender address.
 - `WHITELISTED_TOKENS` — comma-separated token addresses.
+- `ETH_PASSWORD` — optional path to a file containing the keystore password for non-interactive runs.
 
 Important:
 - Never read `.env` contents during deployment.
 - Never store private keys, mnemonics, or plaintext secrets in `.env`.
 - Use cast keystore wallets only (`cast wallet import` + passphrase flow).
+- `ETH_PASSWORD` is a file path, not the password string. Prefer a temporary `chmod 600` file outside the repo.
 
 ## Chain metadata lookup
 
@@ -82,6 +84,13 @@ forge --version
 
 and confirm the forked binary is active before moving to dry-run/broadcast.
 
+## Tempo testnet defaults
+
+- Tempo testnet (`Moderato`): `CHAIN_ID=42431`
+- Tempo testnet RPC: `https://rpc.moderato.tempo.xyz`
+- Confirmed faucet token: `pathUSD=0x20c0000000000000000000000000000000000000`
+- Do not assume `USDC.e` exists on Tempo testnet without verifying on-chain first.
+
 ## Base chain defaults
 
 - Base mainnet: `CHAIN_ID=8453`
@@ -103,17 +112,22 @@ and confirm the forked binary is active before moving to dry-run/broadcast.
    - `SENDER_ADDRESS` is not `0x0000000000000000000000000000000000000000`
 3. Confirm selected account exists:
    ```sh
-   cast wallet list | rg -q "^$CAST_ACCOUNT$" || (echo "Account not found"; exit 1)
+   cast wallet list | rg -q "^${CAST_ACCOUNT}( \\(Local\\))?$" || (echo "Account not found"; exit 1)
    ```
 4. Confirm sender matches account:
    ```sh
-   cast wallet inspect "$CAST_ACCOUNT" | rg -q "$SENDER_ADDRESS" || (echo "Sender mismatch"; exit 1)
+   [ "$(cast wallet address --account "$CAST_ACCOUNT")" = "$SENDER_ADDRESS" ] || (echo "Sender mismatch"; exit 1)
    ```
 5. Confirm sender has balance for deployment:
    ```sh
    cast balance "$SENDER_ADDRESS" --rpc-url "$RPC_URL"
    ```
-6. Optional dry-run:
+6. Optional non-interactive password setup for automation:
+   ```sh
+   export ETH_PASSWORD=/absolute/path/to/keystore-password.txt
+   ```
+   Use `--keystore "$HOME/.foundry/keystores/$CAST_ACCOUNT"` with `--password-file "$ETH_PASSWORD"` when a TTY prompt is not available.
+7. Optional dry-run:
    ```sh
    forge script contracts/script/DeployMPPEscrow.s.sol \
      --rpc-url "$RPC_URL" \
@@ -129,6 +143,18 @@ forge script contracts/script/DeployMPPEscrow.s.sol \
   --rpc-url "$RPC_URL" \
   --chain "$CHAIN_ID" \
   --account "$CAST_ACCOUNT" \
+  --sender "$SENDER_ADDRESS" \
+  --broadcast
+```
+
+Non-interactive equivalent:
+
+```sh
+forge script contracts/script/DeployMPPEscrow.s.sol \
+  --rpc-url "$RPC_URL" \
+  --chain "$CHAIN_ID" \
+  --keystore "$HOME/.foundry/keystores/$CAST_ACCOUNT" \
+  --password-file "$ETH_PASSWORD" \
   --sender "$SENDER_ADDRESS" \
   --broadcast
 ```
