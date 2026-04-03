@@ -10,7 +10,7 @@ import {
   loadStakeChallengeFromFile,
   resolveSerializedCredential,
   resolveStakeChallengeForRespond,
-  withPullSubmission,
+  withPushSubmission,
 } from '../cli/challenge.js'
 import { PRIVATE_KEY_ENV, repoConfig } from '../cli/context.js'
 import { printJson, writeJsonFile } from '../cli/format.js'
@@ -88,7 +88,7 @@ export function registerChallengeCommands(program: Command): void {
   challenge
     .command('respond')
     .description(
-      'Create a serialized credential for a stake challenge. This command only emits signed transaction payloads for now.',
+      'Create a serialized credential for a stake challenge using client-side submission and return a tx-hash payload.',
     )
     .option('--url <url>', 'Protected resource URL to fetch for a 402 challenge')
     .option('--challenge-file <path>', 'Path to a saved challenge JSON file')
@@ -116,7 +116,7 @@ export function registerChallengeCommands(program: Command): void {
         },
       ) => {
         const challengeValue = await resolveStakeChallengeForRespond(options)
-        const forcedChallenge = withPullSubmission(challengeValue)
+        const forcedChallenge = withPushSubmission(challengeValue)
         const account = privateKeyToAccount(
           asHex32(options.privateKey ?? process.env[PRIVATE_KEY_ENV], '--private-key'),
         )
@@ -131,9 +131,9 @@ export function registerChallengeCommands(program: Command): void {
         const parsedCredential =
           Credential.deserialize<StakeCredentialPayload>(serializedCredential)
 
-        if (parsedCredential.payload.type !== 'transaction') {
+        if (parsedCredential.payload.type !== 'hash') {
           throw new Error(
-            `challenge respond expected a signed transaction payload but received ${parsedCredential.payload.type}.`,
+            `challenge respond expected a tx-hash payload but received ${parsedCredential.payload.type}.`,
           )
         }
 
@@ -148,12 +148,13 @@ export function registerChallengeCommands(program: Command): void {
         printJson({
           challengeId: forcedChallenge.id,
           credential: serializedCredential,
+          txHash: parsedCredential.payload.hash,
           outputPath: options.out ?? null,
           originalSubmission: challengeValue.request.methodDetails.submission ?? null,
           payloadType: parsedCredential.payload.type,
           source: parsedCredential.source,
           submissionOverrideApplied:
-            (challengeValue.request.methodDetails.submission ?? 'push') !== 'pull',
+            (challengeValue.request.methodDetails.submission ?? 'push') !== 'push',
         })
       },
     )

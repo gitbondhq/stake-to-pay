@@ -65,7 +65,7 @@ export function getStakeChallengeFromResponse(response: Response): StakeChalleng
   }) as StakeChallenge
 }
 
-export function withPullSubmission(challenge: StakeChallenge): StakeChallenge {
+export function withPushSubmission(challenge: StakeChallenge): StakeChallenge {
   const request = toStakeMethodInput(challenge.request)
 
   return Challenge.fromMethod(stakeMethod, {
@@ -77,7 +77,7 @@ export function withPullSubmission(challenge: StakeChallenge): StakeChallenge {
     realm: challenge.realm,
     request: {
       ...request,
-      submission: 'pull',
+      submission: 'push',
     },
   }) as StakeChallenge
 }
