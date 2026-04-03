@@ -237,7 +237,7 @@ Working rule:
 Recommended shape:
 
 - repo-level typed config for shared defaults and presets
-- app-level config files for CLI/server/demo-specific behavior
+- app-level config files for CLI/server-specific behavior
 - env vars layered on top for secrets and final overrides
 
 Example direction:
@@ -374,7 +374,6 @@ Primary files:
 - `apps/mpp-server/src/index.ts`
 - `apps/mpp-server/src/config.ts`
 - `apps/cli/src/index.ts`
-- `apps/demo/src/*`
 
 Changes:
 

@@ -8,7 +8,7 @@ Use this repo to deploy and use `MPPEscrow` across chains with Foundry and encry
 
 ## Overview
 
-- This repo includes Solidity contracts, a TypeScript SDK, a demo app, and CLI tooling.
+- This repo includes Solidity contracts, a TypeScript SDK, and CLI tooling.
 - A protected request creates an on-chain escrow, then the server verifies the escrow proof on-chain.
 - After validation, the resource is granted and the escrow is resolved out-of-band.
 
@@ -34,12 +34,10 @@ stake-mpp/
 │   └── script/                     # Deploy & admin scripts
 │
 ├── apps/
-│   ├── demo/                       # Next.js + Privy demo app
 │   └── cli/                        # CLI agent tools
 │
 ├── packages/
 │   ├── mppx-escrow/                # @gitbondhq/mppx-escrow — MPP stake TS SDK
-│   ├── ui/                         # Shared UI components
 │   ├── eslint-config/              # Shared ESLint config
 │   └── typescript-config/          # Shared TypeScript config
 │
@@ -62,9 +60,6 @@ npm install
 
 # Build all packages
 npm run build
-
-# Run the demo app
-npm run dev --workspace=@stake-mpp/demo
 
 # Build contracts
 forge build
@@ -160,10 +155,6 @@ TypeScript SDK that extends MPP with the `stake` intent. Provides client-side cr
 import { Stake } from "@gitbondhq/mppx-escrow/client";
 import { Stake as StakeServer } from "@gitbondhq/mppx-escrow/server";
 ```
-
-### Demo app
-
-Next.js app with Privy wallet integration demonstrating the full stake flow end-to-end.
 
 ### CLI
 
