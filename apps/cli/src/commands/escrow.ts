@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 
-import { MPPEscrowAbi } from '../generated/MPPEscrowAbi.js'
+import { MPPEscrowAbi } from '@gitbondhq/mppx-escrow/abi'
 import {
   asAddress,
   asBytes32,

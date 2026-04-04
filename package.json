@@ -2,7 +2,9 @@
   "name": "stake-mpp",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
+    "build": "npm run build:mppx-escrow && turbo run build",
+    "build:mppx-escrow": "npm run generate:abi:mppx-escrow && tsc -p packages/mppx-escrow/tsconfig.json",
+    "generate:abi:mppx-escrow": "forge build && node scripts/generate-mpp-escrow-abi.mjs",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

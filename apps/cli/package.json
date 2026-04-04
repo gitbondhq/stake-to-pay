@@ -13,10 +13,9 @@
     "src"
   ],
   "scripts": {
-    "generate:abi": "forge build --root ../.. && node scripts/generate-abi.mjs",
-    "build": "npm run generate:abi && tsc -p tsconfig.json",
-    "check-types": "npm run generate:abi && tsc -p tsconfig.json --noEmit",
-    "dev": "npm run generate:abi && tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "test": "npm run check-types"
   },
   "keywords": [

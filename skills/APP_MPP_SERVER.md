@@ -56,7 +56,7 @@ Use `apps/mpp-server/.env.example` as the starting point.
 
 If you change `packages/mppx-escrow`, rebuild it before testing the server:
 
-- `npm run build --workspace=@gitbondhq/mppx-escrow`
+- `npm run build:mppx-escrow`
 
 ## Agent expectations
 
