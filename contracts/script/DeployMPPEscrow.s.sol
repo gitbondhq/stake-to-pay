@@ -7,8 +7,7 @@ import {MPPEscrow} from "../src/MPPEscrow.sol";
 
 contract DeployMPPEscrow is Script {
     function run() external {
-        address[] memory whitelistedTokens =
-            vm.envOr("WHITELISTED_TOKENS", ",", new address[](0));
+        address[] memory whitelistedTokens = vm.envOr("WHITELISTED_TOKENS", ",", new address[](0));
 
         // Deployment warning:
         // Carefully review every whitelisted token. This template assumes
