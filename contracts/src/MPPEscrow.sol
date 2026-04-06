@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract MPPEscrow {
     using SafeERC20 for IERC20;
+
     struct Escrow {
         address payer;
         address beneficiary;
@@ -211,6 +212,11 @@ contract MPPEscrow {
 
     function getEscrow(bytes32 key) external view returns (Escrow memory) {
         return s_escrows[key];
+    }
+
+    function isEscrowActive(bytes32 key, address payer) external view returns (bool) {
+        Escrow storage escrow = s_escrows[key];
+        return escrow.isActive && escrow.payer == payer;
     }
 
     // ─── Hooks ───────────────────────────────────────────────────────────

@@ -97,4 +97,4 @@ Challenge flow:
 - The CLI uses `viem` for contract reads, simulation, and writes.
 - `create-escrow-with-permit` expects a permit signature to be supplied explicitly as `--deadline`, `--v`, `--r`, and `--s`.
 - Write commands wait for a receipt by default. Pass `--no-wait` to return immediately after broadcast.
-- `challenge respond` uses client-side submission and returns a tx-hash credential (`payload.type = "hash"`). It forces `submission: 'push'` when creating the credential so the client broadcasts before retrying the protected request.
+- `challenge respond` uses client-side broadcast and returns a tx-hash credential (`payload.type = "hash"`). It forces `methodDetails.feePayer = false` when creating the credential so the client broadcasts before retrying the protected request.

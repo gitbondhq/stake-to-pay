@@ -415,6 +415,29 @@ contract MPPEscrowTest is Test {
         escrow.setCounterparty(KEY, newCp);
     }
 
+    // ─── Views ───────────────────────────────────────────────────────────
+
+    function test_isEscrowActive_returnsTrueForMatchingActiveEscrow() public {
+        _createTestEscrow();
+
+        assertTrue(escrow.isEscrowActive(KEY, payer));
+    }
+
+    function test_isEscrowActive_returnsFalseForWrongPayer() public {
+        _createTestEscrow();
+
+        assertFalse(escrow.isEscrowActive(KEY, nobody));
+    }
+
+    function test_isEscrowActive_returnsFalseAfterResolution() public {
+        _createTestEscrow();
+
+        vm.prank(counterparty);
+        escrow.refundEscrow(KEY);
+
+        assertFalse(escrow.isEscrowActive(KEY, payer));
+    }
+
     // ─── Fuzz ────────────────────────────────────────────────────────────
 
     function testFuzz_createAndRefund(uint32 amount) public {

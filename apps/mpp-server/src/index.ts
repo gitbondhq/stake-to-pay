@@ -1,39 +1,18 @@
-import { randomBytes } from 'node:crypto'
 import process from 'node:process'
 
-import { Credential } from 'mppx'
 import { Mppx } from 'mppx/server'
 import { stake } from '@gitbondhq/mppx-stake/server'
 import express from 'express'
 
 import { loadConfig, toPublicConfig, type AppConfig } from './config.js'
 import { createFakeDocument } from './document.js'
-
-type StakeRouteOptions = {
-  amount: string
-  externalId: string
-  policy: string
-  resource: string
-  stakeKey: `0x${string}`
-}
-
-type StakeChallengeRequest = {
-  amount: string
-  externalId?: string
-  methodDetails: {
-    counterparty?: string
-    policy?: string
-    resource?: string
-    stakeKey: `0x${string}`
-  }
-}
+import { resolveStakeRouteOptions } from './stakeRoute.js'
+import { getOrigin, sendWebResponse, toWebRequest } from './web.js'
 
 const config = loadConfig()
 const fakeDocument = createFakeDocument(config.documentTitle)
 const configuredStakeMethod = stake({
-  ...(config.stakeBeneficiary
-    ? { beneficiary: config.stakeBeneficiary }
-    : {}),
+  ...(config.stakeBeneficiary ? { beneficiary: config.stakeBeneficiary } : {}),
   chainId: config.stakeChainId,
   contract: config.stakeContract,
   counterparty: config.stakeCounterparty,
@@ -87,9 +66,9 @@ app.get(config.documentPath, async (req, res) => {
       throw new Error('Stake method is not configured.')
     }
 
-    const result = await stakeMethod(resolveStakeRouteOptions(req, config))(
-      toWebRequest(req, config),
-    )
+    const result = await stakeMethod(
+      resolveStakeRouteOptions(req, config, configuredStakeMethod.name),
+    )(toWebRequest(req, config))
 
     if (result.status === 402) {
       await sendWebResponse(res, result.challenge)
@@ -126,166 +105,21 @@ app.listen(config.port, config.host, () => {
   const origin = `http://${displayHost}:${config.port}`
 
   console.log(`[mpp-server] listening on ${origin}`)
-  console.log(`[mpp-server] preview route: ${origin}${config.documentPreviewPath}`)
+  console.log(
+    `[mpp-server] preview route: ${origin}${config.documentPreviewPath}`,
+  )
   console.log(`[mpp-server] protected route: ${origin}${config.documentPath}`)
   console.log(
     `[mpp-server] network=${config.network} stake amount=${config.stakeAmount} chainId=${config.stakeChainId} contract=${config.stakeContract}`,
   )
 })
 
-const createStakeRouteOptions = (config: AppConfig): StakeRouteOptions => {
-  const nonce = randomBytes(6).toString('hex')
-
-  return {
-    amount: config.stakeAmount,
-    externalId: `document:${config.documentSlug}:${Date.now()}:${nonce}`,
-    policy: config.stakePolicy,
-    resource: config.stakeResource,
-    stakeKey: `0x${randomBytes(32).toString('hex')}`,
-  }
-}
-
-const getOrigin = (
-  req: {
-    headers: Record<string, string | string[] | undefined>
-    protocol: string
-  },
-  config: AppConfig,
-): string => {
-  const hostHeader = req.headers.host
-  const host =
-    typeof hostHeader === 'string' && hostHeader.length > 0
-      ? hostHeader
-      : `${config.host}:${config.port}`
-
-  return `${req.protocol}://${host}`
-}
-
-const getPaymentCredential = (
-  req: {
-    headers: Record<string, string | string[] | undefined>
-  },
-) => {
-  const authorization = req.headers.authorization
-  if (typeof authorization !== 'string') return null
-
-  try {
-    return Credential.deserialize(authorization)
-  } catch {
-    return null
-  }
-}
-
-const isStakeChallengeRequest = (
-  value: unknown,
-): value is StakeChallengeRequest => {
-  if (!value || typeof value !== 'object') return false
-
-  const request = value as {
-    amount?: unknown
-    externalId?: unknown
-    methodDetails?: {
-      counterparty?: unknown
-      policy?: unknown
-      resource?: unknown
-      stakeKey?: unknown
-    }
-  }
-
-  return (
-    typeof request.amount === 'string' &&
-    (!('externalId' in request) || request.externalId === undefined || typeof request.externalId === 'string') &&
-    !!request.methodDetails &&
-    (!('counterparty' in request.methodDetails) ||
-      request.methodDetails.counterparty === undefined ||
-      typeof request.methodDetails.counterparty === 'string') &&
-    (!('policy' in request.methodDetails) ||
-      request.methodDetails.policy === undefined ||
-      typeof request.methodDetails.policy === 'string') &&
-    (!('resource' in request.methodDetails) ||
-      request.methodDetails.resource === undefined ||
-      typeof request.methodDetails.resource === 'string') &&
-    typeof request.methodDetails.stakeKey === 'string' &&
-    request.methodDetails.stakeKey.startsWith('0x')
-  )
-}
-
-const resolveStakeRouteOptions = (
-  req: {
-    headers: Record<string, string | string[] | undefined>
-  },
-  config: AppConfig,
-): StakeRouteOptions => {
-  const credential = getPaymentCredential(req)
-
-  if (
-    credential?.challenge.intent === 'stake' &&
-    credential.challenge.method === configuredStakeMethod.name &&
-    isStakeChallengeRequest(credential.challenge.request) &&
-    credential.challenge.request.methodDetails.counterparty ===
-      config.stakeCounterparty &&
-    credential.challenge.request.methodDetails.resource === config.stakeResource
-  ) {
-    return {
-      amount: credential.challenge.request.amount,
-      externalId:
-        typeof credential.challenge.request.externalId === 'string'
-          ? credential.challenge.request.externalId
-          : `document:${config.documentSlug}:retry`,
-      policy:
-        typeof credential.challenge.request.methodDetails.policy === 'string'
-          ? credential.challenge.request.methodDetails.policy
-          : config.stakePolicy,
-      resource: config.stakeResource,
-      stakeKey: credential.challenge.request.methodDetails.stakeKey,
-    }
-  }
-
-  return createStakeRouteOptions(config)
-}
-
-const sendWebResponse = async (
-  res: {
-    end(body?: Uint8Array): void
-    setHeader(name: string, value: string): void
-    status(code: number): typeof res
-  },
-  response: Response,
-) => {
-  res.status(response.status)
-  for (const [key, value] of response.headers) res.setHeader(key, value)
-
-  const body = new Uint8Array(await response.arrayBuffer())
-  res.end(body)
-}
-
-const toWebRequest = (
-  req: {
-    headers: Record<string, string | string[] | undefined>
-    method: string
-    originalUrl: string
-    protocol: string
-  },
-  config: AppConfig,
-): Request => {
-  const headers = new Headers()
-  for (const [key, value] of Object.entries(req.headers)) {
-    if (Array.isArray(value)) headers.set(key, value.join(', '))
-    else if (typeof value === 'string') headers.set(key, value)
-  }
-
-  return new Request(`${getOrigin(req, config)}${req.originalUrl}`, {
-    headers,
-    method: req.method,
-  })
-}
-
-process.on('uncaughtException', error => {
+process.on('uncaughtException', (error) => {
   console.error('[mpp-server] uncaught exception', error)
   process.exitCode = 1
 })
 
-process.on('unhandledRejection', error => {
+process.on('unhandledRejection', (error) => {
   console.error('[mpp-server] unhandled rejection', error)
   process.exitCode = 1
 })

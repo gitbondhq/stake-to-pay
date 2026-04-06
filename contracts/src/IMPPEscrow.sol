@@ -88,6 +88,7 @@ interface IMPPEscrow {
     // ─── Views ───────────────────────────────────────────────────────────
 
     function getEscrow(bytes32 key) external view returns (Escrow memory);
+    function isEscrowActive(bytes32 key, address payer) external view returns (bool);
     function tokenWhitelist(address token) external view returns (bool);
     function totalEscrowedByToken(address token) external view returns (uint256);
     function totalEscrowed() external view returns (uint256);
