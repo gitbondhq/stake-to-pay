@@ -1,4 +1,4 @@
-import { Methods, getNetworkPreset, resolveNetworkId } from '@gitbondhq/mppx-escrow'
+import { Methods, getNetworkPreset, resolveNetworkId } from '@gitbondhq/mpp-stake'
 
 import { loadRepoConfig } from './config.js'
 

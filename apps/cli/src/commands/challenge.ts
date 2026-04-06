@@ -5,8 +5,8 @@ import { Credential } from 'mppx'
 import {
   type StakeCredentialPayload,
   withStakeSubmission,
-} from '@gitbondhq/mppx-escrow'
-import { stake as createStakeMethod } from '@gitbondhq/mppx-escrow/client'
+} from '@gitbondhq/mpp-stake'
+import { stake as createStakeMethod } from '@gitbondhq/mpp-stake/client'
 import { privateKeyToAccount } from 'viem/accounts'
 
 import {

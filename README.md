@@ -37,7 +37,7 @@ stake-mpp/
 │   └── cli/                        # CLI agent tools
 │
 ├── packages/
-│   ├── mppx-escrow/                # @gitbondhq/mppx-escrow — MPP stake TS SDK
+│   ├── mppx-escrow/                # @gitbondhq/mpp-stake — MPP stake TS SDK
 │   ├── eslint-config/              # Shared ESLint config
 │   └── typescript-config/          # Shared TypeScript config
 │
@@ -147,13 +147,13 @@ See `contracts/` for sources and `contracts/script/` for deployment helpers.
 
 ## Packages
 
-### @gitbondhq/mppx-escrow
+### @gitbondhq/mpp-stake
 
 TypeScript SDK that extends MPP with the `stake` intent. Provides client-side credential building and server-side verification for escrow-backed access control.
 
 ```ts
-import { Stake } from "@gitbondhq/mppx-escrow/client";
-import { Stake as StakeServer } from "@gitbondhq/mppx-escrow/server";
+import { Stake } from "@gitbondhq/mpp-stake/client";
+import { Stake as StakeServer } from "@gitbondhq/mpp-stake/server";
 ```
 
 ### CLI

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 
-import { getNetworkPreset, resolveNetworkId } from '@gitbondhq/mppx-escrow'
+import { getNetworkPreset, resolveNetworkId } from '@gitbondhq/mpp-stake'
 import { getAddress, isAddress } from 'viem'
 
 import type { RepoConfig } from './types.js'

@@ -6,7 +6,7 @@
 - Root workspace entry point is this directory.
 - Main section: `contracts/` (Foundry: Solidity source, tests, scripts).
 - Main section: `apps/` (demo app, cli tooling).
-- Main section: `packages/` (shared TS packages, including `@gitbondhq/mppx-escrow`).
+- Main section: `packages/` (shared TS packages, including `@gitbondhq/mpp-stake`).
 - Main section: `skills/` (agent operational playbooks).
 
 ## Preferred repo orientation
@@ -29,7 +29,7 @@ Use a skill when the task is operational and repeatable:
 
 1. Contract deployment request (`forge script`, cast wallets, env prep): use `skills/CONTRACTS_DEPLOY_MPPESCROW.md`.
 2. CLI workflow request (tooling UX, commands, auth, integrations): use `skills/CLI_DEPLOY_MPPX.md` (add/use other `skills/CLI_*.md` files as needed).
-3. Package SDK request (`@gitbondhq/mppx-escrow` behavior, examples, exports, ABI updates): use `skills/MPP_PACKAGE_OVERVIEW.md`.
+3. Package SDK request (`@gitbondhq/mpp-stake` behavior, examples, exports, ABI updates): use `skills/MPP_PACKAGE_OVERVIEW.md`.
 
 If a relevant skill file exists, read it before running deployment-like or operational commands.
 

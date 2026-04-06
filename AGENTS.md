@@ -28,7 +28,7 @@ When a request is received, apply the relevant skill first:
 
 1. Smart-contract deploy or cast-wallet transaction workflow: use `skills/CONTRACTS_DEPLOY_MPPESCROW.md`.
 2. CLI command or agent-tooling work: use `skills/CLI_DEPLOY_MPPX.md` for deploy-facing CLI tasks and create/use other `skills/CLI_*.md` files for broader CLI workflows.
-3. Package/SDK work (`@gitbondhq/mppx-escrow` APIs, ABI, build artifacts): use `skills/MPP_PACKAGE_OVERVIEW.md`.
+3. Package/SDK work (`@gitbondhq/mpp-stake` APIs, ABI, build artifacts): use `skills/MPP_PACKAGE_OVERVIEW.md`.
 4. Standalone MPP stake-paywall server work in `apps/mpp-server/`: use `skills/APP_MPP_SERVER.md`.
 
 ## Deployment playbook usage

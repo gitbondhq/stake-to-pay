@@ -24,7 +24,7 @@ Use this playbook for requests in the `packages/mppx-escrow` domain.
 
 - `npm run build:mppx-escrow`
 - `npm run generate:abi:mppx-escrow`
-- `npm run lint --workspace=@gitbondhq/mppx-escrow`
+- `npm run lint --workspace=@gitbondhq/mpp-stake`
 - Regenerate ABI from contract output only when contract interface changed.
 
 ## Agent expectations

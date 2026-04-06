@@ -377,7 +377,7 @@ Primary files:
 
 Changes:
 
-- Server chooses a preset and instantiates the correct adapter via `@gitbondhq/mppx-escrow/server`.
+- Server chooses a preset and instantiates the correct adapter via `@gitbondhq/mpp-stake/server`.
 - CLI uses the selected preset to decide whether Tempo-only flags are available.
 - Demo app stops importing Tempo assumptions directly and relies on shared preset metadata.
 - Apps compose `stake` with whatever upstream methods they actually need. This package should stop re-exporting `charge`, `settle`, and `session` as part of its primary API.
