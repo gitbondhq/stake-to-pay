@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 
-import { MPPEscrowAbi } from '@gitbondhq/mpp-stake/abi'
+import { MPPEscrowAbi } from '@gitbondhq/mppx-stake/abi'
 import {
   asAddress,
   asBytes32,

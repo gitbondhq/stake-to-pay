@@ -3,7 +3,7 @@
  * Reads the MPPEscrow ABI from the monorepo forge build output and writes it
  * into the TypeScript SDK source tree.
  *
- * Usage: node scripts/generate-mpp-escrow-abi.mjs
+ * Usage: node scripts/generate-mppx-stake-abi.mjs
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
 const forgeArtifact = resolve(repoRoot, 'out/MPPEscrow.sol/MPPEscrow.json')
-const outFile = resolve(repoRoot, 'packages/mppx-escrow/src/abi/MPPEscrow.ts')
+const outFile = resolve(repoRoot, 'packages/mppx-stake/src/abi/MPPEscrow.ts')
 
 const artifact = JSON.parse(readFileSync(forgeArtifact, 'utf-8'))
 const abi = JSON.stringify(artifact.abi, null, 2)

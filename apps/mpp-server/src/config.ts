@@ -5,7 +5,7 @@ import {
   getNetworkPreset,
   resolveNetworkId,
   type NetworkId,
-} from '@gitbondhq/mpp-stake'
+} from '@gitbondhq/mppx-stake'
 import { isAddress } from 'viem'
 
 const defaultStakeAmount = '5000000'

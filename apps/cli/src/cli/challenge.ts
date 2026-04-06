@@ -4,7 +4,7 @@ import { Credential } from 'mppx'
 import {
   parseStakeChallenge,
   type StakeChallenge,
-} from '@gitbondhq/mpp-stake'
+} from '@gitbondhq/mppx-stake'
 
 import { repoConfig } from './context.js'
 import { fetchWithOptions } from './http.js'

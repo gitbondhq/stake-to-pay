@@ -59,7 +59,7 @@ Working rule:
 - Make the TypeScript SDK, CLI, and server treat Tempo as one adapter, not the root abstraction.
 - Make standard EVM transport the baseline path.
 - Make chain presets explicit and composable.
-- Avoid a large contract rewrite. Most of the work should stay inside `packages/mppx-escrow`.
+- Avoid a large contract rewrite. Most of the work should stay inside `packages/mppx-stake`.
 
 ## Non-goals
 
@@ -75,22 +75,22 @@ Working rule:
 
 These files currently blur generic EVM behavior with Tempo-specific behavior:
 
-- `packages/mppx-escrow/src/internal/chains.ts`
-- `packages/mppx-escrow/src/internal/client.ts`
-- `packages/mppx-escrow/src/internal/tx.ts`
-- `packages/mppx-escrow/src/internal/stakeServer.ts`
-- `packages/mppx-escrow/src/internal/chainMethods.ts`
-- `packages/mppx-escrow/src/tempo/client/*`
-- `packages/mppx-escrow/src/tempo/server/*`
+- `packages/mppx-stake/src/internal/chains.ts`
+- `packages/mppx-stake/src/internal/client.ts`
+- `packages/mppx-stake/src/internal/tx.ts`
+- `packages/mppx-stake/src/internal/stakeServer.ts`
+- `packages/mppx-stake/src/internal/chainMethods.ts`
+- `packages/mppx-stake/src/tempo/client/*`
+- `packages/mppx-stake/src/tempo/server/*`
 - `apps/mpp-server/src/config.ts`
 - `apps/cli/src/index.ts`
 
 These public types and wrappers also currently overreach:
 
-- `packages/mppx-escrow/src/base/client/Methods.ts`
-- `packages/mppx-escrow/src/base/server/Methods.ts`
-- `packages/mppx-escrow/src/tempo/client/Methods.ts`
-- `packages/mppx-escrow/src/tempo/server/Methods.ts`
+- `packages/mppx-stake/src/base/client/Methods.ts`
+- `packages/mppx-stake/src/base/server/Methods.ts`
+- `packages/mppx-stake/src/tempo/client/Methods.ts`
+- `packages/mppx-stake/src/tempo/server/Methods.ts`
 
 They currently bundle unrelated upstream methods such as `charge`, `settle`, and `session` together with `stake`. That is convenience-oriented, but it makes this package look like an owner of the full method surface instead of a focused `stake` extension.
 
@@ -99,14 +99,14 @@ The Solidity contract is already close to generic EVM:
 - `contracts/src/MPPEscrow.sol`
 - `contracts/script/DeployMPPEscrow.s.sol`
 
-The contract package should stay thin. The portability work belongs primarily in `packages/mppx-escrow`.
+The contract package should stay thin. The portability work belongs primarily in `packages/mppx-stake`.
 
 ## Desired package shape
 
 The end state should look like this:
 
 ```text
-packages/mppx-escrow/src/
+packages/mppx-stake/src/
 ├── core/             # chain-family-agnostic challenge, credential, config, errors
 ├── evm/              # generic EVM methods, tx building, decoding, verification
 ├── tempo/            # Tempo transport extensions and presets
@@ -278,7 +278,7 @@ The exact file names can change. The important part is the split:
 Primary files:
 
 - a new typed config entrypoint such as `mpp.config.ts`
-- `packages/mppx-escrow/src/internal/chains.ts`
+- `packages/mppx-stake/src/internal/chains.ts`
 - `apps/mpp-server/src/config.ts`
 - `apps/cli/src/index.ts`
 
@@ -303,11 +303,11 @@ Exit criteria:
 
 Primary files:
 
-- `packages/mppx-escrow/src/internal/request.ts`
-- `packages/mppx-escrow/src/internal/stakeMethod.ts`
-- `packages/mppx-escrow/src/internal/chainMethods.ts`
-- `packages/mppx-escrow/src/client/index.ts`
-- `packages/mppx-escrow/src/server/index.ts`
+- `packages/mppx-stake/src/internal/request.ts`
+- `packages/mppx-stake/src/internal/stakeMethod.ts`
+- `packages/mppx-stake/src/internal/chainMethods.ts`
+- `packages/mppx-stake/src/client/index.ts`
+- `packages/mppx-stake/src/server/index.ts`
 
 Changes:
 
@@ -329,10 +329,10 @@ Exit criteria:
 
 Primary files:
 
-- `packages/mppx-escrow/src/internal/client.ts`
-- `packages/mppx-escrow/src/internal/tx.ts`
-- `packages/mppx-escrow/src/internal/stakeServer.ts`
-- `packages/mppx-escrow/src/abi/*`
+- `packages/mppx-stake/src/internal/client.ts`
+- `packages/mppx-stake/src/internal/tx.ts`
+- `packages/mppx-stake/src/internal/stakeServer.ts`
+- `packages/mppx-stake/src/abi/*`
 
 Changes:
 
@@ -351,8 +351,8 @@ Exit criteria:
 
 Primary files:
 
-- `packages/mppx-escrow/src/tempo/client/*`
-- `packages/mppx-escrow/src/tempo/server/*`
+- `packages/mppx-stake/src/tempo/client/*`
+- `packages/mppx-stake/src/tempo/server/*`
 - any Tempo-specific logic still remaining under `src/internal/*`
 
 Changes:
@@ -377,7 +377,7 @@ Primary files:
 
 Changes:
 
-- Server chooses a preset and instantiates the correct adapter via `@gitbondhq/mpp-stake/server`.
+- Server chooses a preset and instantiates the correct adapter via `@gitbondhq/mppx-stake/server`.
 - CLI uses the selected preset to decide whether Tempo-only flags are available.
 - Demo app stops importing Tempo assumptions directly and relies on shared preset metadata.
 - Apps compose `stake` with whatever upstream methods they actually need. This package should stop re-exporting `charge`, `settle`, and `session` as part of its primary API.
@@ -422,26 +422,26 @@ This is the minimal concrete move list.
 
 ### Move or replace
 
-- `packages/mppx-escrow/src/internal/request.ts`
+- `packages/mppx-stake/src/internal/request.ts`
   - move shared challenge parsing into `src/core/request.ts`
-- `packages/mppx-escrow/src/internal/stakeMethod.ts`
+- `packages/mppx-stake/src/internal/stakeMethod.ts`
   - move method metadata into `src/core/methods.ts`
-- `packages/mppx-escrow/src/internal/chainMethods.ts`
+- `packages/mppx-stake/src/internal/chainMethods.ts`
   - split into `src/core/registry.ts` and adapter registration files
-- `packages/mppx-escrow/src/internal/client.ts`
+- `packages/mppx-stake/src/internal/client.ts`
   - split generic EVM client logic into `src/evm/client/`
-- `packages/mppx-escrow/src/internal/stakeServer.ts`
+- `packages/mppx-stake/src/internal/stakeServer.ts`
   - split generic EVM verification into `src/evm/server/`
-- `packages/mppx-escrow/src/internal/tx.ts`
+- `packages/mppx-stake/src/internal/tx.ts`
   - split generic EVM decoding into `src/evm/tx.ts`
   - keep Tempo-specific envelope handling in `src/tempo/tx.ts`
 
 ### Thin wrappers to keep
 
-- `packages/mppx-escrow/src/client/index.ts`
-- `packages/mppx-escrow/src/server/index.ts`
-- selected adapter entrypoints under `packages/mppx-escrow/src/base/*`
-- selected adapter entrypoints under `packages/mppx-escrow/src/tempo/*`
+- `packages/mppx-stake/src/client/index.ts`
+- `packages/mppx-stake/src/server/index.ts`
+- selected adapter entrypoints under `packages/mppx-stake/src/base/*`
+- selected adapter entrypoints under `packages/mppx-stake/src/tempo/*`
 
 These should become small public wrappers around the new `core`, `evm`, and `tempo` internals.
 
@@ -537,7 +537,7 @@ The refactor is done when all of these are true:
 - Tempo Moderato is still the default preset.
 - Base and Ethereum work by selecting a preset, not by editing code paths.
 - Tempo batch and fee payer behavior are isolated to a Tempo adapter.
-- `packages/mppx-escrow` exposes a generic EVM path that does not import Tempo-specific modules.
+- `packages/mppx-stake` exposes a generic EVM path that does not import Tempo-specific modules.
 - Solana support is documented clearly enough that a future implementation can be started without reopening the architecture question.
 - The resulting API surface is simpler than the current one, even if that required breaking changes.
 - The primary public API exports `stake` as a focused extension point, not a wrapped protocol bundle containing `charge`, `settle`, or `session`.

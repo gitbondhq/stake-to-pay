@@ -1,4 +1,4 @@
-import { Methods, getNetworkPreset, resolveNetworkId } from '@gitbondhq/mpp-stake'
+import { Methods, getNetworkPreset, resolveNetworkId } from '@gitbondhq/mppx-stake'
 
 import { loadRepoConfig } from './config.js'
 

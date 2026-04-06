@@ -10,7 +10,7 @@ Use this playbook for requests in the `apps/mpp-server` domain.
 - Adjust env configuration for the fake document paywall.
 - Change the fake document copy, title, or public preview metadata.
 - Debug why a protected request returns `402` or why a credential fails verification.
-- Keep the server aligned with `@gitbondhq/mpp-stake/server`.
+- Keep the server aligned with `@gitbondhq/mppx-stake/server`.
 
 ## Server shape
 
@@ -54,9 +54,9 @@ Use `apps/mpp-server/.env.example` as the starting point.
 - `npm run dev --workspace=@stake-mpp/mpp-server`
 - `npm run start --workspace=@stake-mpp/mpp-server`
 
-If you change `packages/mppx-escrow`, rebuild it before testing the server:
+If you change `packages/mppx-stake`, rebuild it before testing the server:
 
-- `npm run build:mppx-escrow`
+- `npm run build:mppx-stake`
 
 ## Agent expectations
 
@@ -65,4 +65,4 @@ If you change `packages/mppx-escrow`, rebuild it before testing the server:
 - Keep secrets out of public responses and logs.
 - Generate a fresh `stakeKey` for new challenges.
 - When a credential comes back, reuse the echoed challenge request values that must stay stable, especially `stakeKey`.
-- Register only `stake()` from `@gitbondhq/mpp-stake/server` unless the user explicitly wants charge or session flows; `tempo()` pulls in extra methods that need additional configuration.
+- Register only `stake()` from `@gitbondhq/mppx-stake/server` unless the user explicitly wants charge or session flows; `tempo()` pulls in extra methods that need additional configuration.

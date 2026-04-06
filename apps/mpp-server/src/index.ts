@@ -3,7 +3,7 @@ import process from 'node:process'
 
 import { Credential } from 'mppx'
 import { Mppx } from 'mppx/server'
-import { stake } from '@gitbondhq/mpp-stake/server'
+import { stake } from '@gitbondhq/mppx-stake/server'
 import express from 'express'
 
 import { loadConfig, toPublicConfig, type AppConfig } from './config.js'

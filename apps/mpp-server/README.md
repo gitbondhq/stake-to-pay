@@ -1,7 +1,7 @@
 # `@stake-mpp/mpp-server`
 
 Tiny Express server that gates a fake document behind a `tempo/stake`
-challenge using `@gitbondhq/mpp-stake/server`.
+challenge using `@gitbondhq/mppx-stake/server`.
 
 ## Routes
 

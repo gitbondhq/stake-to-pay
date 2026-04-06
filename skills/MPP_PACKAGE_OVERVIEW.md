@@ -2,7 +2,7 @@
 
 ## Scope
 
-Use this playbook for requests in the `packages/mppx-escrow` domain.
+Use this playbook for requests in the `packages/mppx-stake` domain.
 
 ## Common intent
 
@@ -13,7 +13,7 @@ Use this playbook for requests in the `packages/mppx-escrow` domain.
 
 ## Routing
 
-1. Start in `packages/mppx-escrow`.
+1. Start in `packages/mppx-stake`.
 2. Confirm whether request touches:
    - SDK runtime imports/exports
    - ABI regeneration artifacts
@@ -22,9 +22,9 @@ Use this playbook for requests in the `packages/mppx-escrow` domain.
 
 ## Helpful commands
 
-- `npm run build:mppx-escrow`
-- `npm run generate:abi:mppx-escrow`
-- `npm run lint --workspace=@gitbondhq/mpp-stake`
+- `npm run build:mppx-stake`
+- `npm run generate:abi:mppx-stake`
+- `npm run lint --workspace=@gitbondhq/mppx-stake`
 - Regenerate ABI from contract output only when contract interface changed.
 
 ## Agent expectations

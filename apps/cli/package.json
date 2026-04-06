@@ -29,7 +29,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@gitbondhq/mpp-stake": "*",
+    "@gitbondhq/mppx-stake": "*",
     "commander": "^13.1.0",
     "viem": "^2.47.6"
   },
