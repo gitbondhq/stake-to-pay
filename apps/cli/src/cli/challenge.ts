@@ -1,10 +1,7 @@
 import { readFile } from 'node:fs/promises'
 
+import { parseStakeChallenge, type StakeChallenge } from '@gitbondhq/mppx-stake'
 import { Credential } from 'mppx'
-import {
-  parseStakeChallenge,
-  type StakeChallenge,
-} from '@gitbondhq/mppx-stake'
 
 import { repoConfig } from './context.js'
 import { fetchWithOptions } from './http.js'
@@ -43,7 +40,9 @@ export async function resolveStakeChallengeForRespond(options: {
   throw new Error('Missing challenge source. Pass --url or --challenge-file.')
 }
 
-export async function loadStakeChallengeFromFile(path: string): Promise<StakeChallenge> {
+export async function loadStakeChallengeFromFile(
+  path: string,
+): Promise<StakeChallenge> {
   const raw = await readFile(path, 'utf8')
   const parsed = JSON.parse(raw) as unknown
   const challenge =
@@ -59,7 +58,9 @@ export async function loadStakeChallengeFromFile(path: string): Promise<StakeCha
   })
 }
 
-export function getStakeChallengeFromResponse(response: Response): StakeChallenge {
+export function getStakeChallengeFromResponse(
+  response: Response,
+): StakeChallenge {
   return parseStakeChallenge(response, {
     methodName: repoConfig.methodName,
   }) as StakeChallenge

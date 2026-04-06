@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander'
+
 import {
   CONTRACT_ENV,
   NETWORK_ENV,

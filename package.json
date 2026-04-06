@@ -6,13 +6,20 @@
     "build:mppx-stake": "npm run generate:abi:mppx-stake && tsc -p packages/mppx-stake/tsconfig.json",
     "generate:abi:mppx-stake": "forge build && node scripts/generate-mppx-stake-abi.mjs",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "lint": "eslint . && turbo run check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "globals": "^16.5.0",
     "prettier": "^3.7.4",
     "turbo": "^2.9.3",
+    "typescript-eslint": "^8.57.2",
     "typescript": "5.9.2"
   },
   "engines": {

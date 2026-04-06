@@ -1,14 +1,20 @@
 import { Command } from 'commander'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
   type Hex,
+  http,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-import { CONTRACT_ENV, PRIVATE_KEY_ENV, RPC_URL_ENV, repoConfig, selectedNetwork } from './context.js'
+import {
+  CONTRACT_ENV,
+  PRIVATE_KEY_ENV,
+  repoConfig,
+  RPC_URL_ENV,
+  selectedNetwork,
+} from './context.js'
 import { printJson } from './format.js'
 import { asAddress, asHex32, requiredString } from './parsing.js'
 import type { BaseCommandOptions, WriteCommandOptions } from './types.js'
@@ -31,7 +37,10 @@ export function withWriteOptions(command: Command): Command {
       '--private-key <hex>',
       `Private key for the signing account. Can also be provided via ${PRIVATE_KEY_ENV}.`,
     )
-    .option('--no-wait', 'Return after broadcast instead of waiting for a receipt')
+    .option(
+      '--no-wait',
+      'Return after broadcast instead of waiting for a receipt',
+    )
 }
 
 export async function executeRead(
@@ -69,7 +78,12 @@ export async function executeWrite(
     transport: http(resolveRpcUrl(options)),
   })
 
-  const result = await callback({ account, address, publicClient, walletClient })
+  const result = await callback({
+    account,
+    address,
+    publicClient,
+    walletClient,
+  })
 
   if (options.noWait) {
     printJson({

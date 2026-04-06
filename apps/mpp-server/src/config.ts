@@ -3,12 +3,11 @@ import process from 'node:process'
 
 import {
   getNetworkPreset,
-  resolveNetworkId,
   type NetworkId,
+  resolveNetworkId,
 } from '@gitbondhq/mppx-stake'
 import { isAddress } from 'viem'
 
-const defaultStakeAmount = '5000000'
 const defaultDocumentSlug = 'incident-report-7b'
 const defaultDocumentTitle = 'Incident Report 7B'
 const defaultHost = '127.0.0.1'
@@ -67,10 +66,7 @@ export const loadConfig = (): AppConfig => {
       'STAKE_COUNTERPARTY',
       repoConfig.escrow.counterparty,
     ),
-    stakeToken: getConfiguredAddress(
-      'STAKE_TOKEN',
-      repoConfig.escrow.token,
-    ),
+    stakeToken: getConfiguredAddress('STAKE_TOKEN', repoConfig.escrow.token),
     stakeDescription: getString(
       'STAKE_DESCRIPTION',
       repoConfig.escrow.description,
@@ -101,12 +97,6 @@ export const toPublicConfig = (config: AppConfig) => ({
   stakeResource: config.stakeResource,
   stakeTokenWhitelist: config.stakeTokenWhitelist,
 })
-
-const getAddress = (name: string, fallback: string): `0x${string}` => {
-  const value = getString(name, fallback)
-  if (!isAddress(value)) throw new Error(`${name} must be a valid EVM address.`)
-  return value
-}
 
 const getBaseUnitAmount = (name: string, fallback: string): string => {
   const value = getString(name, fallback)
@@ -195,7 +185,9 @@ const loadRepoConfig = (): RepoConfig => {
     rpcUrl?: unknown
   }
 
-  const network = resolveNetworkId(getRequiredJsonString(raw.network, 'network'))
+  const network = resolveNetworkId(
+    getRequiredJsonString(raw.network, 'network'),
+  )
   const preset = getNetworkPreset(network)
   const chainId = getRequiredJsonInteger(raw.chainId, 'chainId')
   if (chainId !== preset.chain.id) {
@@ -214,8 +206,14 @@ const loadRepoConfig = (): RepoConfig => {
     'escrow.tokenWhitelist',
   )
   const token = getRequiredJsonAddress(escrow.token, 'escrow.token')
-  if (!tokenWhitelist.some(token => token.toLowerCase() === token.toLowerCase())) {
-    throw new Error('config.json escrow.token must be included in escrow.tokenWhitelist.')
+  if (
+    !tokenWhitelist.some(
+      candidate => candidate.toLowerCase() === token.toLowerCase(),
+    )
+  ) {
+    throw new Error(
+      'config.json escrow.token must be included in escrow.tokenWhitelist.',
+    )
   }
 
   return {
@@ -248,7 +246,10 @@ const loadRepoConfig = (): RepoConfig => {
   }
 }
 
-const getRequiredJsonAddress = (value: unknown, label: string): `0x${string}` => {
+const getRequiredJsonAddress = (
+  value: unknown,
+  label: string,
+): `0x${string}` => {
   if (typeof value !== 'string' || !isAddress(value)) {
     throw new Error(`config.json ${label} must be a valid EVM address.`)
   }
@@ -275,7 +276,10 @@ const getRequiredJsonAddressArray = (
   )
 }
 
-const getRequiredJsonBaseUnitAmount = (value: unknown, label: string): string => {
+const getRequiredJsonBaseUnitAmount = (
+  value: unknown,
+  label: string,
+): string => {
   if (typeof value !== 'string' || !/^\d+$/.test(value)) {
     throw new Error(`config.json ${label} must be a base-unit integer string.`)
   }

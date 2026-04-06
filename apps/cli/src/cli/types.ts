@@ -1,5 +1,3 @@
-import type { Address, Hex } from 'viem'
-
 export type BaseCommandOptions = {
   contract?: string
   rpcUrl?: string

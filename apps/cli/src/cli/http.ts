@@ -1,4 +1,7 @@
-export function collectRepeatableOption(value: string, previous: string[]): string[] {
+export function collectRepeatableOption(
+  value: string,
+  previous: string[],
+): string[] {
   return [...previous, value]
 }
 
@@ -31,9 +34,7 @@ export async function fetchWithOptions(parameters: {
   })
 }
 
-export async function serializeHttpResponse(
-  response: Response,
-): Promise<{
+export async function serializeHttpResponse(response: Response): Promise<{
   body: unknown
   headers: Record<string, string>
   ok: boolean

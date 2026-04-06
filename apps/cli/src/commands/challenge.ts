@@ -1,12 +1,12 @@
 import { writeFile } from 'node:fs/promises'
 
-import { Command } from 'commander'
-import { Credential } from 'mppx'
 import {
   type StakeCredentialPayload,
   withStakeFeePayer,
 } from '@gitbondhq/mppx-stake'
 import { stake as createStakeMethod } from '@gitbondhq/mppx-stake/client'
+import { Command } from 'commander'
+import { Credential } from 'mppx'
 import { privateKeyToAccount } from 'viem/accounts'
 
 import {

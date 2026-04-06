@@ -37,8 +37,14 @@ export function loadRepoConfig(repoConfigPath: URL): RepoConfig {
     'escrow.tokenWhitelist',
   )
   const token = requiredJsonAddress(escrow.token, 'escrow.token')
-  if (!tokenWhitelist.some(candidate => candidate.toLowerCase() === token.toLowerCase())) {
-    throw new Error('config.json escrow.token must be included in escrow.tokenWhitelist.')
+  if (
+    !tokenWhitelist.some(
+      candidate => candidate.toLowerCase() === token.toLowerCase(),
+    )
+  ) {
+    throw new Error(
+      'config.json escrow.token must be included in escrow.tokenWhitelist.',
+    )
   }
 
   return {

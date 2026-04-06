@@ -4,7 +4,10 @@ export function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, jsonReplacer, 2)}\n`)
 }
 
-export async function writeJsonFile(path: string, value: unknown): Promise<void> {
+export async function writeJsonFile(
+  path: string,
+  value: unknown,
+): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, jsonReplacer, 2)}\n`, 'utf8')
 }
 

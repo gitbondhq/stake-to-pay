@@ -1,15 +1,17 @@
 import {
+  type Address,
   getAddress,
+  type Hex,
   isAddress,
   zeroAddress,
-  type Address,
-  type Hex,
 } from 'viem'
 
 export function asAddress(value: string | undefined, label: string): Address {
   const text = requiredString(value, `Missing ${label}.`)
   if (!isAddress(text)) {
-    throw new Error(`Invalid ${label}: expected an EVM address, received "${text}".`)
+    throw new Error(
+      `Invalid ${label}: expected an EVM address, received "${text}".`,
+    )
   }
 
   return getAddress(text)
@@ -77,7 +79,10 @@ export function asUint8(value: string | undefined, label: string): number {
   return parsed
 }
 
-export function requiredString(value: string | undefined, message: string): string {
+export function requiredString(
+  value: string | undefined,
+  message: string,
+): string {
   if (!value || value.trim().length === 0) {
     throw new Error(message)
   }

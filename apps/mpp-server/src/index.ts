@@ -1,10 +1,10 @@
 import process from 'node:process'
 
-import { Mppx } from 'mppx/server'
 import { stake } from '@gitbondhq/mppx-stake/server'
 import express from 'express'
+import { Mppx } from 'mppx/server'
 
-import { loadConfig, toPublicConfig, type AppConfig } from './config.js'
+import { loadConfig, toPublicConfig } from './config.js'
 import { createFakeDocument } from './document.js'
 import { resolveStakeRouteOptions } from './stakeRoute.js'
 import { getOrigin, sendWebResponse, toWebRequest } from './web.js'
@@ -114,12 +114,12 @@ app.listen(config.port, config.host, () => {
   )
 })
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error('[mpp-server] uncaught exception', error)
   process.exitCode = 1
 })
 
-process.on('unhandledRejection', (error) => {
+process.on('unhandledRejection', error => {
   console.error('[mpp-server] unhandled rejection', error)
   process.exitCode = 1
 })
