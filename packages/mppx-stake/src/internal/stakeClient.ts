@@ -1,5 +1,4 @@
 import { Credential, Method, z } from 'mppx'
-import type { Address } from 'viem'
 
 import type { NetworkPreset } from '../networkConfig.js'
 import * as Account from './account.js'
@@ -11,7 +10,6 @@ import { buildStakeCalls } from './tx.js'
 type StakeMethod = Parameters<typeof Method.toClient>[0]
 
 export type StakeParameters = {
-  feeToken?: Address | undefined
   preset: NetworkPreset
   provider?: EIP1193Provider | undefined
 } & Account.GetResolverParameters
@@ -27,7 +25,6 @@ export const createClientStake = (method: StakeMethod) => {
         account: z.optional(
           z.custom<Account.GetResolverParameters['account']>(),
         ),
-        feeToken: z.optional(z.address()),
       }),
 
       async createCredential({ challenge, context }) {
@@ -40,19 +37,13 @@ export const createClientStake = (method: StakeMethod) => {
           )
         }
 
-        if (typed.feePayer === true)
-          throw new Error('feePayer-backed stake challenges are not supported.')
-
         const client = createClient(preset)
         const account = getAccount(client, context)
-        const beneficiary = typed.beneficiary ?? account.address
-        const feeToken =
-          (context?.feeToken as Address | undefined) ?? parameters.feeToken
         const calls = buildStakeCalls({
           amount: typed.amount,
-          beneficiary,
           contract: typed.contract,
           counterparty: typed.counterparty,
+          payer: account.address,
           token: typed.token,
           stakeKey: typed.stakeKey,
         })
@@ -65,7 +56,7 @@ export const createClientStake = (method: StakeMethod) => {
               calls,
               parameters.provider,
             )
-          : await submitCalls(client, preset, account, calls, feeToken)
+          : await submitCalls(client, account, calls)
 
         return Credential.serialize({
           challenge,

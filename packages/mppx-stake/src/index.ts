@@ -1,9 +1,5 @@
 export { MPPEscrowAbi } from './abi/MPPEscrow.js'
-export {
-  parseStakeChallenge,
-  type StakeChallenge,
-  withStakeFeePayer,
-} from './challenge.js'
+export { parseStakeChallenge, type StakeChallenge } from './challenge.js'
 export * as Methods from './Methods.js'
 export { type NetworkPreset, parseNetworkPreset } from './networkConfig.js'
 export { parseRepoConfig, type RepoConfig } from './repoConfig.js'

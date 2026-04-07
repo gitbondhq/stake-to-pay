@@ -44,23 +44,3 @@ export const parseStakeChallenge = (
     request: toStakeMethodInput(parsed.request as StakeChallengeRequest),
   }) as StakeChallenge
 }
-
-export const withStakeFeePayer = (
-  challenge: StakeChallenge,
-  feePayer: boolean,
-): StakeChallenge => {
-  const method = createStakeMethod({ name: challenge.method })
-
-  return Challenge.fromMethod(method, {
-    description: challenge.description,
-    digest: challenge.digest,
-    expires: challenge.expires,
-    id: challenge.id,
-    ...(challenge.opaque ? { meta: challenge.opaque } : {}),
-    realm: challenge.realm,
-    request: {
-      ...toStakeMethodInput(challenge.request),
-      feePayer,
-    },
-  }) as StakeChallenge
-}

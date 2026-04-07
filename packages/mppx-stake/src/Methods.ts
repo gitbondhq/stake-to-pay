@@ -24,13 +24,11 @@ export const stake = ({ name }: StakeMethodParameters) =>
       request: z.pipe(
         z.object({
           amount: baseUnitAmount(),
-          beneficiary: z.optional(z.address()),
           chainId: z.number(),
           contract: z.address(),
           counterparty: z.address(),
           description: z.optional(z.string()),
           externalId: z.optional(z.string()),
-          feePayer: z.optional(z.boolean()),
           policy: z.optional(z.string()),
           resource: z.optional(z.string()),
           stakeKey: z.hash(),
@@ -39,20 +37,17 @@ export const stake = ({ name }: StakeMethodParameters) =>
         z.transform(
           ({
             amount,
-            beneficiary,
             chainId,
             contract,
             counterparty,
             description,
             externalId,
-            feePayer,
             policy,
             resource,
             stakeKey,
             token,
           }) => ({
             amount,
-            ...(beneficiary !== undefined ? { beneficiary } : {}),
             contract,
             counterparty,
             ...(description !== undefined ? { description } : {}),
@@ -63,7 +58,6 @@ export const stake = ({ name }: StakeMethodParameters) =>
             token,
             methodDetails: {
               chainId,
-              ...(feePayer !== undefined ? { feePayer } : {}),
             },
           }),
         ),

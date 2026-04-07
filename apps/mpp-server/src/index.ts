@@ -12,7 +12,6 @@ import { getOrigin, sendWebResponse, toWebRequest } from './web.js'
 const config = loadConfig()
 const fakeDocument = createFakeDocument(config.documentTitle)
 const configuredStakeMethod = stake({
-  ...(config.stakeBeneficiary ? { beneficiary: config.stakeBeneficiary } : {}),
   contract: config.stakeContract,
   counterparty: config.stakeCounterparty,
   token: config.stakeToken,

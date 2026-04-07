@@ -1,27 +1,20 @@
 import type { Address, Client, Hex, TransactionReceipt } from 'viem'
-import {
-  decodeFunctionData,
-  encodeFunctionData,
-  isAddressEqual,
-  parseEventLogs,
-} from 'viem'
+import { encodeFunctionData, isAddressEqual, parseEventLogs } from 'viem'
 import { readContract } from 'viem/actions'
 
 import { erc20Abi } from '../abi/erc20.js'
 import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
-import type { StakeChallengeRequest } from '../stakeSchema.js'
 
 /** Builds the approve + createEscrow flow used by this SDK. */
 export const buildStakeCalls = (parameters: {
   amount: bigint
-  beneficiary: Address
   contract: Address
   counterparty: Address
+  payer: Address
   token: Address
   stakeKey: Hex
 }) => {
-  const { amount, beneficiary, contract, counterparty, token, stakeKey } =
-    parameters
+  const { amount, contract, counterparty, payer, token, stakeKey } = parameters
 
   return [
     {
@@ -35,7 +28,7 @@ export const buildStakeCalls = (parameters: {
     {
       data: encodeFunctionData({
         abi: MPPEscrowAbi,
-        args: [stakeKey, counterparty, beneficiary, token, amount],
+        args: [stakeKey, counterparty, payer, token, amount],
         functionName: 'createEscrow',
       }),
       to: contract,
@@ -43,72 +36,7 @@ export const buildStakeCalls = (parameters: {
   ] as const
 }
 
-/**
- * Matches decoded transaction calls against the original stake challenge.
- * This is now only the approve + createEscrow flow.
- */
-export const matchStakeCalls = (parameters: {
-  beneficiary: Address
-  calls: readonly { data?: Hex | undefined; to?: Address | undefined }[]
-  challenge: StakeChallengeRequest
-}) => {
-  const { beneficiary, calls, challenge } = parameters
-  const amount = BigInt(challenge.amount)
-  const contract = challenge.contract as Address
-  const counterparty = challenge.counterparty as Address
-  const token = challenge.token as Address
-  const stakeKey = challenge.stakeKey as Hex
-
-  if (calls.length !== 2)
-    throw new Error('Invalid stake transaction: unexpected call count.')
-
-  const [approveCall, createEscrowCall] = calls
-  if (
-    !approveCall?.data ||
-    !approveCall.to ||
-    !isAddressEqual(approveCall.to, token)
-  )
-    throw new Error('Invalid stake transaction: wrong approve target.')
-
-  if (
-    !createEscrowCall?.data ||
-    !createEscrowCall.to ||
-    !isAddressEqual(createEscrowCall.to, contract)
-  )
-    throw new Error('Invalid stake transaction: wrong escrow target.')
-
-  const approve = decodeFunctionData({
-    abi: erc20Abi,
-    data: approveCall.data,
-  })
-  if (approve.functionName !== 'approve')
-    throw new Error('Invalid stake transaction: first call must be approve.')
-
-  const [spender, approvedAmount] = approve.args as [Address, bigint]
-  assertAddress('approve.spender', spender, contract)
-  assertMatch('approve.amount', approvedAmount, amount)
-
-  const escrow = decodeFunctionData({
-    abi: MPPEscrowAbi,
-    data: createEscrowCall.data,
-  })
-  if (escrow.functionName !== 'createEscrow')
-    throw new Error(
-      'Invalid stake transaction: second call must be createEscrow.',
-    )
-
-  const [key, counterpartyArg, beneficiaryArg, tokenArg, amountArg] =
-    escrow.args as [Hex, Address, Address, Address, bigint]
-
-  assertMatch('stakeKey', key, stakeKey)
-  assertAddress('counterparty', counterpartyArg, counterparty)
-  assertAddress('beneficiary', beneficiaryArg, beneficiary)
-  assertAddress('token', tokenArg, token)
-  assertMatch('amount', amountArg, amount)
-}
-
 type EscrowVerificationParams = {
-  beneficiary: Address
   counterparty: Address
   token: Address
   payer: Address
@@ -126,8 +54,7 @@ export const assertEscrowCreatedReceipt = (
   if (receipt.status !== 'success')
     throw new Error(`Stake transaction reverted: ${receipt.transactionHash}`)
 
-  const { beneficiary, contract, counterparty, token, payer, stakeKey, value } =
-    parameters
+  const { contract, counterparty, token, payer, stakeKey, value } = parameters
   const logs = parseEventLogs({
     abi: MPPEscrowAbi,
     eventName: 'EscrowCreated',
@@ -138,7 +65,7 @@ export const assertEscrowCreatedReceipt = (
       isAddressEqual(log.address, contract) &&
       log.args.key === stakeKey &&
       isAddressEqual(log.args.payer, payer) &&
-      isAddressEqual(log.args.beneficiary, beneficiary) &&
+      isAddressEqual(log.args.beneficiary, payer) &&
       isAddressEqual(log.args.counterparty, counterparty) &&
       isAddressEqual(log.args.token, token) &&
       log.args.amount === value,
@@ -161,11 +88,11 @@ export const assertEscrowState = (
   escrow: EscrowState,
   parameters: EscrowVerificationParams,
 ) => {
-  const { beneficiary, counterparty, token, payer, value } = parameters
+  const { counterparty, token, payer, value } = parameters
 
   if (!escrow.isActive) throw new Error('Escrow is not active.')
   assertAddress('escrow.payer', escrow.payer, payer)
-  assertAddress('escrow.beneficiary', escrow.beneficiary, beneficiary)
+  assertAddress('escrow.beneficiary', escrow.beneficiary, payer)
   assertAddress('escrow.counterparty', escrow.counterparty, counterparty)
   assertAddress('escrow.token', escrow.token, token)
   assertMatch('escrow.principal', escrow.principal, value)

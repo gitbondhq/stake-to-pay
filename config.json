@@ -3,10 +3,7 @@
   "networkPreset": {
     "id": "tempoModerato",
     "family": "evm",
-    "capabilities": {
-      "supportsBatchCalls": true,
-      "supportsFeePayer": true
-    },
+    "rpcUrl": "https://rpc.moderato.tempo.xyz",
     "chain": {
       "id": 42431,
       "name": "Tempo Testnet (Moderato)",
@@ -14,23 +11,12 @@
         "name": "USD",
         "symbol": "USD",
         "decimals": 6
-      },
-      "rpcUrls": {
-        "default": {
-          "http": [
-            "https://rpc.moderato.tempo.xyz"
-          ],
-          "webSocket": [
-            "wss://rpc.moderato.tempo.xyz"
-          ]
-        }
       }
     }
   },
   "escrow": {
     "contract": "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
     "counterparty": null,
-    "beneficiary": null,
     "token": "0x20c0000000000000000000000000000000000000",
     "tokenWhitelist": [
       "0x20c0000000000000000000000000000000000000"

@@ -5,7 +5,6 @@ import { type NetworkPreset, parseNetworkPreset } from './networkConfig.js'
 export type RepoConfig = {
   escrow: {
     amount: string
-    beneficiary?: Address | undefined
     contract?: Address | undefined
     counterparty?: Address | undefined
     description: string
@@ -25,7 +24,6 @@ export const parseRepoConfig = (value: unknown): RepoConfig => {
   const raw = value as {
     escrow?: {
       amount?: unknown
-      beneficiary?: unknown
       contract?: unknown
       counterparty?: unknown
       description?: unknown
@@ -59,10 +57,6 @@ export const parseRepoConfig = (value: unknown): RepoConfig => {
   return {
     escrow: {
       amount: requiredJsonBaseUnitAmount(escrow.amount, 'escrow.amount'),
-      beneficiary: optionalJsonAddress(
-        escrow.beneficiary,
-        'escrow.beneficiary',
-      ),
       contract: optionalJsonAddress(escrow.contract, 'escrow.contract'),
       counterparty: optionalJsonAddress(
         escrow.counterparty,

@@ -105,10 +105,8 @@ export async function executeWrite(
 
 function resolveRpcUrl(options: BaseCommandOptions): string {
   return requiredString(
-    options.rpcUrl ??
-      process.env[RPC_URL_ENV] ??
-      repoConfig.networkPreset.chain.rpcUrls.default.http[0],
-    `Missing RPC URL. Pass --rpc-url, set ${RPC_URL_ENV}, or configure a default RPC URL for ${repoConfig.networkPreset.id}.`,
+    options.rpcUrl ?? process.env[RPC_URL_ENV] ?? repoConfig.networkPreset.rpcUrl,
+    `Missing RPC URL. Pass --rpc-url, set ${RPC_URL_ENV}, or configure rpcUrl for ${repoConfig.networkPreset.id}.`,
   )
 }
 

@@ -13,7 +13,6 @@ const account = privateKeyToAccount(
   '0x8b3a350cf5c34c9194ca85829b4b6fd2e8f5f10f1f49ffb3874c7f5f7b6b2d44',
 )
 const payer = '0x4444444444444444444444444444444444444444' as Address
-const beneficiary = '0x3333333333333333333333333333333333333333' as Address
 const counterparty = '0x2222222222222222222222222222222222222222' as Address
 const contract = '0x1111111111111111111111111111111111111111' as Address
 const token = '0x20C0000000000000000000000000000000000000' as Address
@@ -24,18 +23,14 @@ const txHash =
   '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Hex
 const methodName = 'tempo'
 const preset = {
-  capabilities: {
-    supportsBatchCalls: true,
-    supportsFeePayer: true,
-  },
   chain: tempoModerato,
   family: 'evm',
   id: 'tempoModerato',
+  rpcUrl: 'https://rpc.moderato.tempo.xyz',
 } as const satisfies NetworkPreset
 
 const rawInput = {
   amount: '5000000',
-  beneficiary,
   chainId,
   contract,
   counterparty,
@@ -44,7 +39,6 @@ const rawInput = {
 }
 const routeRequest = {
   amount: rawInput.amount,
-  beneficiary: rawInput.beneficiary,
   contract: rawInput.contract,
   counterparty: rawInput.counterparty,
   token: rawInput.token,
@@ -133,7 +127,6 @@ describe('server stake exports', () => {
 describe('server stake verification', () => {
   it('keeps route defaults limited to shared request fields', () => {
     const method = stake({
-      beneficiary,
       contract,
       counterparty,
       token,
@@ -143,7 +136,6 @@ describe('server stake verification', () => {
     })
 
     expect(method.defaults).toEqual({
-      beneficiary,
       chainId,
       contract,
       counterparty,
@@ -181,32 +173,6 @@ describe('server stake verification', () => {
       expect(mocks.getTransactionReceipt).toHaveBeenCalledOnce()
       expect(mocks.assertEscrowCreatedReceipt).toHaveBeenCalledOnce()
       expect(mocks.assertEscrowOnChain).toHaveBeenCalledOnce()
-    })
-
-    it('rejects fee-payer-backed challenges', async () => {
-      const method = stake({
-        contract,
-        token,
-        name: methodName,
-        preset,
-      })
-      const credential = {
-        ...makeCredential({ hash: txHash, type: 'hash' }),
-        challenge: {
-          id: 'test-challenge-id',
-          intent: 'stake' as const,
-          method: methodName,
-          realm: 'test.example.com',
-          request: PaymentRequest.fromMethod(stakeMethod, {
-            ...rawInput,
-            feePayer: true,
-          }),
-        },
-      }
-
-      await expect(
-        method.verify({ credential, request: routeRequest }),
-      ).rejects.toThrow(/feePayer-backed stake challenges/i)
     })
 
     it('rejects when challenge request does not match', async () => {

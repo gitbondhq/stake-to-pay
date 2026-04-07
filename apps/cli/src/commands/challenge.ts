@@ -1,9 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 
-import {
-  type StakeCredentialPayload,
-  withStakeFeePayer,
-} from '@gitbondhq/mppx-stake'
+import { type StakeCredentialPayload } from '@gitbondhq/mppx-stake'
 import { stake as createStakeMethod } from '@gitbondhq/mppx-stake/client'
 import { Command } from 'commander'
 import { Credential } from 'mppx'
@@ -136,7 +133,6 @@ export function registerChallengeCommands(program: Command): void {
         url?: string
       }) => {
         const challengeValue = await resolveStakeChallengeForRespond(options)
-        const forcedChallenge = withStakeFeePayer(challengeValue, false)
         const account = privateKeyToAccount(
           asHex32(
             options.privateKey ?? process.env[PRIVATE_KEY_ENV],
@@ -149,7 +145,7 @@ export function registerChallengeCommands(program: Command): void {
           preset: repoConfig.networkPreset,
         })
         const serializedCredential = await method.createCredential({
-          challenge: forcedChallenge,
+          challenge: challengeValue,
           context: {},
         })
         const parsedCredential =
@@ -166,16 +162,12 @@ export function registerChallengeCommands(program: Command): void {
         }
 
         printJson({
-          challengeId: forcedChallenge.id,
+          challengeId: challengeValue.id,
           credential: serializedCredential,
           txHash: parsedCredential.payload.hash,
           outputPath: options.out ?? null,
-          originalFeePayer:
-            challengeValue.request.methodDetails.feePayer ?? null,
           payloadType: parsedCredential.payload.type,
           source: parsedCredential.source,
-          feePayerOverrideApplied:
-            (challengeValue.request.methodDetails.feePayer ?? false) !== false,
         })
       },
     )

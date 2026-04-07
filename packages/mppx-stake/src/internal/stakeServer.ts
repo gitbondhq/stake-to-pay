@@ -1,6 +1,5 @@
 import { Method, PaymentRequest } from 'mppx'
 import type { Address } from 'viem'
-import { isAddressEqual } from 'viem'
 import { getTransactionReceipt } from 'viem/actions'
 
 import type { NetworkPreset } from '../networkConfig.js'
@@ -10,7 +9,7 @@ import type {
 } from '../stakeSchema.js'
 import { createClient } from './client.js'
 import { toTypedRequest } from './request.js'
-import { resolvePayerAndBeneficiary } from './source.js'
+import { resolvePayer } from './source.js'
 import {
   assertEscrowCreatedReceipt,
   assertEscrowOnChain,
@@ -20,7 +19,6 @@ import {
 type StakeMethod = Parameters<typeof Method.toServer>[0] & { name: string }
 
 export type StakeDefaults = {
-  beneficiary?: Address | undefined
   contract?: Address | undefined
   counterparty?: Address | undefined
   token?: Address | undefined
@@ -38,7 +36,6 @@ export const createServerStake = (method: StakeMethod) => {
 
     return Method.toServer(method, {
       defaults: {
-        beneficiary: parameters.beneficiary,
         chainId: preset.chain.id,
         contract: parameters.contract,
         counterparty: parameters.counterparty,
@@ -47,11 +44,8 @@ export const createServerStake = (method: StakeMethod) => {
       },
 
       async request({ request }) {
-        const rest = { ...(request as Record<string, unknown>) }
-        delete rest.feePayer
-
         return {
-          ...rest,
+          ...(request as Record<string, unknown>),
           chainId: preset.chain.id,
         }
       },
@@ -66,18 +60,11 @@ export const createServerStake = (method: StakeMethod) => {
         assertRequestMatches(currentRequest, challengeRequest)
 
         const typed = toTypedRequest(challengeRequest)
-        if (typed.feePayer === true)
-          throw new Error('feePayer-backed stake challenges are not supported.')
-
-        const { beneficiary, payer } = resolvePayerAndBeneficiary(
-          challengeRequest,
-          credential.source,
-        )
+        const payer = resolvePayer(typed.chainId, credential.source)
         const client = createClient(preset)
         const payload = credential.payload as StakeCredentialPayload
 
         const verifyParams = {
-          beneficiary,
           counterparty: typed.counterparty,
           token: typed.token,
           payer,
@@ -107,10 +94,6 @@ export const createServerStake = (method: StakeMethod) => {
   }
 }
 
-/**
- * Verifies that the request currently being served still matches the original
- * challenge fields the client responded to.
- */
 const assertRequestMatches = (
   currentRequest: StakeChallengeRequest,
   challengeRequest: StakeChallengeRequest,
@@ -135,17 +118,4 @@ const assertRequestMatches = (
   for (const [label, expected, received] of pairs)
     if (String(expected) !== String(received))
       throw new Error(`Challenge ${label} does not match this route.`)
-
-  const currentBeneficiary = currentRequest.beneficiary
-  const challengeBeneficiary = challengeRequest.beneficiary
-  if (
-    !currentBeneficiary !== !challengeBeneficiary ||
-    (currentBeneficiary &&
-      challengeBeneficiary &&
-      !isAddressEqual(
-        currentBeneficiary as Address,
-        challengeBeneficiary as Address,
-      ))
-  )
-    throw new Error('Challenge beneficiary does not match this route.')
 }

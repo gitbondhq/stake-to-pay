@@ -11,13 +11,10 @@ const account = privateKeyToAccount(
 )
 const methodName = 'tempo'
 const preset = {
-  capabilities: {
-    supportsBatchCalls: true,
-    supportsFeePayer: true,
-  },
   chain: tempoModerato,
   family: 'evm',
   id: 'tempoModerato',
+  rpcUrl: 'https://rpc.moderato.tempo.xyz',
 } as const satisfies NetworkPreset
 
 describe('client stake exports', () => {
@@ -54,15 +51,15 @@ describe('client stake exports', () => {
     expect(mppx.methods.some(method => method.intent === 'stake')).toBe(true)
   })
 
-  it('accepts valid context with feeToken', () => {
+  it('accepts valid context with account override', () => {
     const method = stake({ name: methodName, preset })
 
     expect(
       method.context?.parse({
-        feeToken: '0x0000000000000000000000000000000000000001',
+        account: account.address,
       }),
     ).toEqual({
-      feeToken: '0x0000000000000000000000000000000000000001',
+      account: account.address,
     })
   })
 

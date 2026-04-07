@@ -70,11 +70,7 @@ const matchesConfiguredRoute = (
   isAddressEqual(request.counterparty, config.stakeCounterparty) &&
   isAddressEqual(request.token, config.stakeToken) &&
   request.methodDetails.chainId === config.networkPreset.chain.id &&
-  request.resource === config.stakeResource &&
-  (config.stakeBeneficiary
-    ? request.beneficiary !== undefined &&
-      isAddressEqual(request.beneficiary, config.stakeBeneficiary)
-    : request.beneficiary === undefined)
+  request.resource === config.stakeResource
 
 export const resolveStakeRouteOptions = (
   req: CredentialRequest,

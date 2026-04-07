@@ -21,7 +21,6 @@ export type AppConfig = {
   networkPreset: RepoConfig['networkPreset']
   port: number
   stakeAmount: string
-  stakeBeneficiary?: `0x${string}` | undefined
   stakeContract: `0x${string}`
   stakeCounterparty: `0x${string}`
   stakeToken: `0x${string}`
@@ -47,8 +46,6 @@ export const loadConfig = (): AppConfig => {
     networkPreset,
     port: getInteger('PORT', defaultPort),
     stakeAmount: getBaseUnitAmount('STAKE_AMOUNT', repoConfig.escrow.amount),
-    stakeBeneficiary:
-      getOptionalAddress('STAKE_BENEFICIARY') ?? repoConfig.escrow.beneficiary,
     stakeContract: getConfiguredAddress(
       'STAKE_CONTRACT',
       repoConfig.escrow.contract,
@@ -78,7 +75,6 @@ export const toPublicConfig = (config: AppConfig) => ({
   network: config.networkPreset.id,
   port: config.port,
   stakeAmount: config.stakeAmount,
-  stakeBeneficiary: config.stakeBeneficiary ?? null,
   stakeChainId: config.networkPreset.chain.id,
   stakeContract: config.stakeContract,
   stakeCounterparty: config.stakeCounterparty,
@@ -104,13 +100,6 @@ const getInteger = (name: string, fallback: number): number => {
   if (!Number.isSafeInteger(parsed) || parsed <= 0)
     throw new Error(`${name} must be a positive integer.`)
   return parsed
-}
-
-const getOptionalAddress = (name: string): `0x${string}` | undefined => {
-  const value = process.env[name]?.trim()
-  if (!value) return undefined
-  if (!isAddress(value)) throw new Error(`${name} must be a valid EVM address.`)
-  return getAddress(value)
 }
 
 const getConfiguredAddress = (

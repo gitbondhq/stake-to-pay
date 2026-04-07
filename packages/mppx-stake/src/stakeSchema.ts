@@ -2,7 +2,6 @@ import type { Address, Hex } from 'viem'
 
 export type StakeChallengeRequest = {
   amount: string
-  beneficiary?: Address | undefined
   contract: Address
   counterparty: Address
   policy?: string | undefined
@@ -13,13 +12,11 @@ export type StakeChallengeRequest = {
   externalId?: string | undefined
   methodDetails: {
     chainId: number
-    feePayer?: boolean | undefined
   }
 }
 
 export type StakeMethodInput = {
   amount: string
-  beneficiary?: Address | undefined
   chainId: number
   contract: Address
   counterparty: Address
@@ -29,7 +26,6 @@ export type StakeMethodInput = {
   policy?: string | undefined
   resource?: string | undefined
   stakeKey: Hex
-  feePayer?: boolean | undefined
 }
 
 export type StakeCredentialPayload = { hash: Hex; type: 'hash' }
@@ -39,9 +35,6 @@ export const toStakeMethodInput = (
 ): StakeMethodInput => {
   return {
     amount: request.amount,
-    ...(request.beneficiary !== undefined
-      ? { beneficiary: request.beneficiary }
-      : {}),
     chainId: request.methodDetails.chainId,
     contract: request.contract,
     counterparty: request.counterparty,
@@ -55,8 +48,5 @@ export const toStakeMethodInput = (
     ...(request.policy !== undefined ? { policy: request.policy } : {}),
     ...(request.resource !== undefined ? { resource: request.resource } : {}),
     stakeKey: request.stakeKey,
-    ...(request.methodDetails.feePayer !== undefined
-      ? { feePayer: request.methodDetails.feePayer }
-      : {}),
   }
 }
