@@ -1,110 +1,129 @@
 # stake-mpp
 
-Stake-based access control for the [MPP (Micropayment Protocol)](https://github.com/gitbondhq/mppx-escrow), built for [GitBond](https://gitbond.com).  
-Use this repo to deploy and use `MPPEscrow` across chains with Foundry and encrypted cast wallets.
+Reference implementation of the **stake** payment intent for [MPP](https://github.com/anthropics/mpp) — a new payment primitive where users lock collateral instead of spending tokens.
+
+> **Stake-to-pay flips the model**: users lock tokens in an on-chain escrow to gain access. Well-behaved users get their stake back (zero-cost access). Bad actors get slashed. Servers can capture yield on locked collateral.
 
 > [!WARNING]
-> Experimental and unaudited. This repo is for demo and template purposes only. Do not treat it as production-ready smart contract infrastructure without your own review, testing, and professional security assessment.
+> Experimental and unaudited. Do not treat this as production-ready without your own review, testing, and security assessment.
 
-## Overview
+## How it works
 
-- This repo includes Solidity contracts, a TypeScript SDK, and CLI tooling.
-- A protected request creates an on-chain escrow, then the server verifies the escrow proof on-chain.
-- After validation, the resource is granted and the escrow is resolved out-of-band.
+```
+Client                         Server                      Chain
+  │                              │                           │
+  ├── GET /resource ────────────>│                           │
+  │<──── 402 + stake challenge ──┤                           │
+  │                              │                           │
+  ├── createEscrow(tokens) ──────┼──────────────────────────>│
+  │<─────────────────────────────┼──── escrow confirmed ─────┤
+  │                              │                           │
+  ├── GET /resource + credential>│                           │
+  │                       verify │── getEscrow(key) ─────────>│
+  │                              │<──── escrow record ───────┤
+  │<──── 200 + content ─────────┤                           │
+  │                              │                           │
+  │          (later)             │                           │
+  │                              ├── refundEscrow() ────────>│  happy path
+  │                              ├── slashEscrow() ─────────>│  violation
+```
 
-## Table of Contents
+## Quick start
 
-- [Prerequisites](#prerequisites)
-- [Getting started](#getting-started)
-- [Repository structure](#repository-structure)
-- [Deploy MPPEscrow (any chain)](#deploy-mppeescrow-any-chain)
-- [Contract deployment skill](#contract-deployment-skill)
-- [Agent skills](#agent-skills)
-- [Contracts](#contracts)
-- [Packages](#packages)
-- [License](#license)
+```sh
+npm install
+npm run build
+forge build
+forge test
+```
+
+### Run the demo
+
+Start the stake-gated server:
+
+```sh
+cp apps/mpp-server/.env.example apps/mpp-server/.env
+# Edit .env: set MPP_SECRET_KEY, STAKE_CONTRACT, STAKE_COUNTERPARTY
+npm run dev --workspace=@stake-mpp/mpp-server
+```
+
+In another terminal, hit the paywall:
+
+```sh
+# Preview (public)
+curl http://127.0.0.1:4020/documents/incident-report-7b/preview
+
+# Protected (triggers 402 → stake → access flow)
+npx mppx http://127.0.0.1:4020/documents/incident-report-7b
+```
 
 ## Repository structure
 
 ```
 stake-mpp/
-├── contracts/                      # Solidity (Foundry)
-│   ├── src/                        # Contract sources
-│   ├── test/                       # Forge tests
-│   └── script/                     # Deploy & admin scripts
-│
-├── apps/
-│   └── cli/                        # CLI agent tools
-│
-├── packages/
-│   ├── mppx-stake/                 # @gitbondhq/mppx-stake — MPP stake TS SDK
-│   ├── eslint-config/              # Shared ESLint config
-│   └── typescript-config/          # Shared TypeScript config
-│
-├── lib/                            # Foundry dependencies (git submodules)
-├── foundry.toml                    # Foundry configuration
-├── turbo.json                      # Turborepo task orchestration
-└── package.json                    # npm workspaces root
+├── contracts/               # Solidity escrow contract (Foundry)
+├── packages/mppx-stake/     # @gitbondhq/mppx-stake — TypeScript SDK
+├── apps/mpp-server/         # Demo: stake-gated Express server
+├── apps/cli/                # CLI for escrow + challenge operations
+├── specs/intents/           # Draft IETF-style stake intent spec
+├── config.json              # Shared network + escrow defaults
+└── foundry.toml             # Solidity compiler config
 ```
 
-## Prerequisites
+## Packages
 
-- [Node.js](https://nodejs.org/) >= 18
-- [Foundry](https://book.getfoundry.sh/getting-started/installation) (forge, cast, anvil)
+### [`@gitbondhq/mppx-stake`](packages/mppx-stake/)
 
-## Getting started
+TypeScript SDK extending MPP with the `stake` intent. Separate entry points for client and server:
 
-```sh
-# Install JS dependencies
-npm install
+```ts
+// Client: build escrow credentials
+import { stake } from "@gitbondhq/mppx-stake/client";
 
-# Build all packages
-npm run build
-
-# Build contracts
-forge build
-
-# Run contract tests
-forge test
+// Server: verify escrow state on-chain
+import { stake } from "@gitbondhq/mppx-stake/server";
 ```
 
-## Deploy MPPEscrow (any chain)
+### [`@stake-mpp/mpp-server`](apps/mpp-server/)
 
-Deployment uses a cast keystore account, no raw private keys in scripts.
+Minimal Express server that gates a document behind a stake challenge. Shows the full 402 flow end-to-end.
 
-1. Prepare `.env` from the template:
+### [`@stake-mpp/cli`](apps/cli/)
+
+ABI-driven CLI for escrow lifecycle operations (`create`, `refund`, `slash`) and the challenge-response flow (`fetch`, `inspect`, `respond`, `submit`).
+
+## Contracts
+
+The `MPPEscrow` contract provides:
+
+- **`createEscrow`** / **`createEscrowWithPermit`** — lock whitelisted ERC-20 tokens
+- **`refundEscrow`** — return stake to the beneficiary (happy path)
+- **`slashEscrow`** — send stake to the counterparty (violation)
+- **`getEscrow`** — returns the full escrow record (payer, token, amount, counterparty, etc.)
+- Delegate pattern for operational separation of refund/slash authority
+
+> Only whitelist tokens you have reviewed for decimals, fee-on-transfer behavior, rebasing mechanics, and hooks. The contract assumes exact-transfer ERC-20 behavior.
+
+### Escrow design patterns
+
+The stake spec intentionally leaves escrow contract design to the implementer. The reference `MPPEscrow` contract exposes `isEscrowActive(key, payer)` for a fast active-state check and `getEscrow(key)` for the full escrow record, which enables several patterns:
+
+**Tiered access** — The server reads the staked amount and maps it to access levels. For example, 100 USDC could grant basic API access while 1000 USDC unlocks premium rate limits. The contract doesn't need to know about tiers; the server applies its own policy based on the on-chain state.
+
+**Multi-collateral vaults** — An escrow contract could accept multiple token deposits under a single stake key, returning an array of `{ token, amount }` positions. This lets servers require collateral in more than one asset (e.g., a stablecoin plus a governance token) or accept alternative tokens for the same tier (e.g., USDC or DAI).
+
+**Partial slash** — When `getEscrow` returns the full record including the current amount, a contract could support partial slashing — penalizing a fraction of the stake while leaving the remainder active. The server detects the reduced amount and adjusts access accordingly.
+
+## Deploy MPPEscrow
+
+Deployment uses cast keystore accounts (no raw private keys in scripts):
 
 ```sh
 cp example.env .env
-```
+# Edit: RPC_URL, CHAIN_ID, CAST_ACCOUNT, SENDER_ADDRESS, WHITELISTED_TOKENS
 
-2. Edit `.env`:
+cast wallet import my-deployer --interactive
 
-```dotenv
-RPC_URL=https://your-rpc-endpoint
-CHAIN_ID=8453
-CAST_ACCOUNT=base-deployer
-SENDER_ADDRESS=0x0000000000000000000000000000000000000000
-WHITELISTED_TOKENS=0x0000000000000000000000000000000000000000,0x1111111111111111111111111111111111111111
-```
-
-3. Set up a cast wallet if needed:
-
-```sh
-cast wallet import base-deployer --interactive
-```
-
-4. Confirm wallet and sender:
-
-```sh
-cast wallet list
-cast wallet inspect base-deployer
-```
-
-5. Deploy:
-
-```sh
-source .env
 forge script contracts/script/DeployMPPEscrow.s.sol \
   --rpc-url "$RPC_URL" \
   --chain "$CHAIN_ID" \
@@ -113,52 +132,16 @@ forge script contracts/script/DeployMPPEscrow.s.sol \
   --broadcast
 ```
 
-6. Capture the deployed address from output:
+Default testnet: [Tempo Moderato](https://tempo.xyz) (chain 42431).
 
-```text
-MPPEscrow deployed to: 0x...
-```
+## Specification
 
-## Contract deployment skill
+The stake intent is defined in [`specs/intents/draft-payment-intent-stake-00.md`](specs/intents/draft-payment-intent-stake-00.md) — an IETF-style RFC covering request schemas, credential formats, verification rules, and security considerations. Targeting acceptance into [`tempoxyz/mpp-specs`](https://github.com/tempoxyz/mpp-specs).
 
-For agent-focused deployment workflows (Claude/Codex-friendly), use:
-[CONTRACTS_DEPLOY_MPPESCROW](skills/CONTRACTS_DEPLOY_MPPESCROW.md).
+## Prerequisites
 
-## Agent skills
-
-- Smart contracts deployment and cast-wallet workflow: [CONTRACTS_DEPLOY_MPPESCROW](skills/CONTRACTS_DEPLOY_MPPESCROW.md)
-- CLI workflow and command tasks: [CLI_DEPLOY_MPPX](skills/CLI_DEPLOY_MPPX.md)
-- MPP package and SDK guidance: [MPP_PACKAGE_OVERVIEW](skills/MPP_PACKAGE_OVERVIEW.md)
-
-## Contracts
-
-The escrow contracts are shipped as a simple escrow template for the [Tempo](https://tempo.xyz) blockchain. Key operations:
-
-- `createEscrow` / `createEscrowWithPermit` — deposit whitelisted ERC20 principal into escrow. If `beneficiary` is `address(0)`, the contract defaults it to the payer.
-- `refundEscrow` — return the escrow principal to the beneficiary
-- `slashEscrow` — send the escrow principal to the counterparty
-
-Template warning:
-
-- Only whitelist tokens you have reviewed carefully for decimals and base-unit handling, fee-on-transfer behavior, rebasing/share mechanics, hooks/callbacks, and any other non-standard settlement logic.
-- This template assumes exact-transfer ERC20 behavior for escrow accounting. Non-standard tokens can produce undercollateralization, stuck funds, or incorrect totals unless you customize the contract accordingly.
-
-See `contracts/` for sources and `contracts/script/` for deployment helpers.
-
-## Packages
-
-### @gitbondhq/mppx-stake
-
-TypeScript SDK that extends MPP with the `stake` intent. Provides client-side credential building and server-side verification for escrow-backed access control.
-
-```ts
-import { Stake } from "@gitbondhq/mppx-stake/client";
-import { Stake as StakeServer } from "@gitbondhq/mppx-stake/server";
-```
-
-### CLI
-
-Command-line tools for interacting with the escrow contracts and MPP stake flow, designed for agentic use.
+- [Node.js](https://nodejs.org/) >= 24 recommended (`apps/mpp-server` and `packages/mppx-stake` require it; the root workspace and CLI currently declare `>=18`)
+- [Foundry](https://book.getfoundry.sh/getting-started/installation) (forge, cast, anvil)
 
 ## License
 

@@ -1,100 +1,84 @@
-# `@stake-mpp/cli`
+# @stake-mpp/cli
 
-Command-line interface for the `MPPEscrow` contract.
+ABI-driven CLI for the `MPPEscrow` contract and the MPP stake challenge flow.
 
-This CLI is ABI-driven from local Foundry build output. On build and typecheck, it regenerates its ABI module from `out/MPPEscrow.sol/MPPEscrow.json`, so contract method drift is caught by TypeScript instead of a hand-maintained ABI copy silently going stale.
-
-## Status
-
-Experimental. This package is a development tool for the local escrow contract template and should not be treated as hardened production infrastructure.
+> Experimental. Development tool for the local escrow contract — not hardened production infrastructure.
 
 ## Install
 
 From the monorepo root:
 
-```bash
+```sh
 npm install --workspace @stake-mpp/cli
 npm run build --workspace @stake-mpp/cli
 ```
 
-## Environment variables
+## Environment
 
-The CLI accepts flags, but these environment variables can be used as defaults:
-
-```bash
-export MPP_ESCROW_RPC_URL=https://your-rpc.example
-export MPP_ESCROW_CONTRACT=0xYourEscrowContract
-export MPP_ESCROW_PRIVATE_KEY=0xyourprivatekey
+```sh
+export MPP_ESCROW_RPC_URL=https://rpc.moderato.tempo.xyz
+export MPP_ESCROW_CONTRACT=0x651B0DB0D25A49d0CBbF790a404cE10A3F401821
+export MPP_ESCROW_PRIVATE_KEY=0x...
 ```
 
-## Usage
+## Commands
 
-General help:
+### Escrow lifecycle
 
-```bash
-npx --workspace @stake-mpp/cli stake-mpp --help
-npx --workspace @stake-mpp/cli stake-mpp escrow --help
+```sh
+stake-mpp escrow create-escrow       # Lock tokens in escrow
+stake-mpp escrow refund-escrow       # Return stake to beneficiary
+stake-mpp escrow slash-escrow        # Send stake to counterparty
 ```
 
-Example read:
+Also: `create-escrow-with-permit`, `set-counterparty`, `add-refund-delegate`, `remove-refund-delegate`, `add-slash-delegate`, `remove-slash-delegate`.
 
-```bash
-npx --workspace @stake-mpp/cli stake-mpp escrow get-escrow \
-  --key 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+### Escrow queries
+
+```sh
+stake-mpp escrow get-escrow           # Read escrow state
+stake-mpp escrow token-whitelist      # List whitelisted tokens
+stake-mpp escrow total-escrowed       # Total locked value
+```
+
+Also: `total-escrowed-by-token`, `refund-delegates`, `slash-delegates`.
+
+### Challenge flow
+
+```sh
+stake-mpp challenge fetch     # Get 402 challenge from server
+stake-mpp challenge inspect   # Parse challenge details
+stake-mpp challenge respond   # Build credential (broadcasts tx, returns hash credential)
+stake-mpp challenge submit    # Post credential to server
+```
+
+## Examples
+
+Read escrow state:
+
+```sh
+stake-mpp escrow get-escrow \
+  --key 0xaaaa...aaaa \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT"
 ```
 
-Example write:
+Create escrow:
 
-```bash
-npx --workspace @stake-mpp/cli stake-mpp escrow create-escrow \
-  --key 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-  --counterparty 0x2222222222222222222222222222222222222222 \
-  --beneficiary 0x3333333333333333333333333333333333333333 \
-  --token 0x4444444444444444444444444444444444444444 \
-  --amount 1000000 \
+```sh
+stake-mpp escrow create-escrow \
+  --key 0xaaaa...aaaa \
+  --counterparty 0x2222...2222 \
+  --token 0x20C0...0000 \
+  --amount 5000000 \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT" \
   --private-key "$MPP_ESCROW_PRIVATE_KEY"
 ```
 
-If `--beneficiary` is omitted for create commands, the CLI passes `address(0)` and the contract defaults the beneficiary to the payer.
-
-## Commands
-
-Write methods:
-
-- `escrow create-escrow`
-- `escrow create-escrow-with-permit`
-- `escrow refund-escrow`
-- `escrow slash-escrow`
-- `escrow set-counterparty`
-- `escrow add-refund-delegate`
-- `escrow remove-refund-delegate`
-- `escrow add-slash-delegate`
-- `escrow remove-slash-delegate`
-
-Read methods:
-
-- `escrow get-escrow`
-- `escrow token-whitelist`
-- `escrow total-escrowed`
-- `escrow total-escrowed-by-token`
-- `escrow refund-delegates`
-- `escrow slash-delegates`
-
-Challenge flow:
-
-- `challenge fetch`
-- `challenge inspect`
-- `challenge respond`
-- `challenge submit`
-
 ## Notes
 
-- All token amounts must be provided in base units.
-- The CLI uses `viem` for contract reads, simulation, and writes.
-- `create-escrow-with-permit` expects a permit signature to be supplied explicitly as `--deadline`, `--v`, `--r`, and `--s`.
-- Write commands wait for a receipt by default. Pass `--no-wait` to return immediately after broadcast.
-- `challenge respond` uses client-side broadcast and returns a tx-hash credential (`payload.type = "hash"`). It forces `methodDetails.feePayer = false` when creating the credential so the client broadcasts before retrying the protected request.
+- All token amounts are in base units
+- Write commands wait for a receipt by default (`--no-wait` to skip)
+- `challenge respond` uses client-side broadcast (`feePayer = false`)
+- ABI is auto-regenerated from Foundry build output on each `npm run build`

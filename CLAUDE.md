@@ -19,17 +19,21 @@
 
 This repo uses task-specific skills in `skills/`:
 
+- `skills/E2E_STAKE_DEMO.md` — use when someone wants to run the demo, try stake for the first time, or walk through the full 402 → escrow → access flow.
 - `skills/CONTRACTS_DEPLOY_MPPESCROW.md` — use when asked to deploy `MPPEscrow` (any chain) or to prepare/validate cast-wallet deployment state.
-- `skills/CLI_DEPLOY_MPPX.md` — use for CLI-focused agent tasks related to stake-mpp tooling and CLI verification/commands.
-- `skills/MPP_PACKAGE_OVERVIEW.md` — use for `packages/mppx-stake` SDK/API package work, ABI updates, or client/server integration changes.
+- `skills/CLI_DEPLOY_MPPX.md` — use for CLI escrow operations, the challenge-response pipeline, and CLI tooling work.
+- `skills/MPP_PACKAGE_OVERVIEW.md` — use for `@gitbondhq/mppx-stake` SDK integration, client/server wiring, ABI updates, or package changes.
+- `skills/APP_MPP_SERVER.md` — use for `apps/mpp-server` maintenance, config, route changes, or debugging 402/credential issues.
 
 ## How to choose a skill
 
 Use a skill when the task is operational and repeatable:
 
-1. Contract deployment request (`forge script`, cast wallets, env prep): use `skills/CONTRACTS_DEPLOY_MPPESCROW.md`.
-2. CLI workflow request (tooling UX, commands, auth, integrations): use `skills/CLI_DEPLOY_MPPX.md` (add/use other `skills/CLI_*.md` files as needed).
-3. Package SDK request (`@gitbondhq/mppx-stake` behavior, examples, exports, ABI updates): use `skills/MPP_PACKAGE_OVERVIEW.md`.
+1. First-time setup or end-to-end demo: use `skills/E2E_STAKE_DEMO.md`.
+2. Contract deployment (`forge script`, cast wallets, env prep): use `skills/CONTRACTS_DEPLOY_MPPESCROW.md`.
+3. CLI commands (escrow ops, challenge flow, tooling): use `skills/CLI_DEPLOY_MPPX.md`.
+4. SDK integration (`@gitbondhq/mppx-stake` client/server config, exports, ABI): use `skills/MPP_PACKAGE_OVERVIEW.md`.
+5. Demo server work (routes, config, debugging): use `skills/APP_MPP_SERVER.md`.
 
 If a relevant skill file exists, read it before running deployment-like or operational commands.
 
