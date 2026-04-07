@@ -51,21 +51,9 @@ describe('client stake exports', () => {
     expect(mppx.methods.some(method => method.intent === 'stake')).toBe(true)
   })
 
-  it('accepts valid context with account override', () => {
-    const method = stake({ name: methodName, preset })
+  it('does not expose client context overrides', () => {
+    const method = stake({ account, name: methodName, preset })
 
-    expect(
-      method.context?.parse({
-        account: account.address,
-      }),
-    ).toEqual({
-      account: account.address,
-    })
-  })
-
-  it('rejects unknown context options', () => {
-    const method = stake({ name: methodName, preset })
-
-    expect(() => method.context?.parse({ unexpected: true })).toThrow()
+    expect(method.context).toBeUndefined()
   })
 })

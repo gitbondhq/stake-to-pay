@@ -146,7 +146,6 @@ export function registerChallengeCommands(program: Command): void {
         })
         const serializedCredential = await method.createCredential({
           challenge: challengeValue,
-          context: {},
         })
         const parsedCredential =
           Credential.deserialize<StakeCredentialPayload>(serializedCredential)
