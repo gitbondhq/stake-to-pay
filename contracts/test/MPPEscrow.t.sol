@@ -2,6 +2,7 @@
 pragma solidity ^0.8.32;
 
 import "forge-std/Test.sol";
+import {IMPPEscrow} from "../src/IMPPEscrow.sol";
 import {MPPEscrow} from "../src/MPPEscrow.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
@@ -78,7 +79,7 @@ contract MPPEscrowTest is Test {
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, beneficiary, address(token), AMOUNT);
 
-        MPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
+        IMPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
         assertEq(e.payer, payer);
         assertEq(e.beneficiary, beneficiary);
         assertEq(e.counterparty, counterparty);
@@ -102,7 +103,7 @@ contract MPPEscrowTest is Test {
 
     function test_createEscrow_emitsEvent() public {
         vm.expectEmit(true, true, false, true);
-        emit MPPEscrow.EscrowCreated(KEY, payer, beneficiary, counterparty, address(token), AMOUNT);
+        emit IMPPEscrow.EscrowCreated(KEY, payer, beneficiary, counterparty, address(token), AMOUNT);
 
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, beneficiary, address(token), AMOUNT);
@@ -112,26 +113,26 @@ contract MPPEscrowTest is Test {
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, beneficiary, address(token), AMOUNT);
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__EscrowAlreadyExists.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__EscrowAlreadyExists.selector);
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, beneficiary, address(token), AMOUNT);
     }
 
     function test_createEscrow_revertsZeroAmount() public {
-        vm.expectRevert(MPPEscrow.MPPEscrow__InvalidAmount.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__InvalidAmount.selector);
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, beneficiary, address(token), 0);
     }
 
     function test_createEscrow_revertsZeroAddresses() public {
-        vm.expectRevert(MPPEscrow.MPPEscrow__InvalidAddress.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__InvalidAddress.selector);
         vm.prank(payer);
         escrow.createEscrow(KEY, address(0), beneficiary, address(token), AMOUNT);
     }
 
     function test_createEscrow_revertsUnwhitelistedToken() public {
         address badToken = makeAddr("badToken");
-        vm.expectRevert(abi.encodeWithSelector(MPPEscrow.MPPEscrow__TokenNotWhitelisted.selector, badToken));
+        vm.expectRevert(abi.encodeWithSelector(IMPPEscrow.MPPEscrow__TokenNotWhitelisted.selector, badToken));
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, beneficiary, badToken, AMOUNT);
     }
@@ -148,14 +149,14 @@ contract MPPEscrowTest is Test {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(permitPayerPk, digest);
 
-        MPPEscrow.PermitParams memory permit_ = MPPEscrow.PermitParams(deadline, v, r, s);
+        IMPPEscrow.PermitParams memory permit_ = IMPPEscrow.PermitParams(deadline, v, r, s);
 
         vm.prank(permitPayer);
         escrow.createEscrowWithPermit(
             KEY, permitPayer, counterparty, beneficiary, address(permitToken), AMOUNT, permit_
         );
 
-        MPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
+        IMPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
         assertEq(e.payer, permitPayer);
         assertTrue(e.isActive);
         assertEq(permitToken.balanceOf(address(escrow)), AMOUNT);
@@ -171,9 +172,9 @@ contract MPPEscrowTest is Test {
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(permitPayerPk, digest);
 
-        MPPEscrow.PermitParams memory permit_ = MPPEscrow.PermitParams(deadline, v, r, s);
+        IMPPEscrow.PermitParams memory permit_ = IMPPEscrow.PermitParams(deadline, v, r, s);
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__PayerMustBeCaller.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__PayerMustBeCaller.selector);
         vm.prank(payer);
         escrow.createEscrowWithPermit(
             KEY, permitPayer, counterparty, beneficiary, address(permitToken), AMOUNT, permit_
@@ -184,7 +185,7 @@ contract MPPEscrowTest is Test {
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, address(0), address(token), AMOUNT);
 
-        MPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
+        IMPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
         assertEq(e.beneficiary, payer);
     }
 
@@ -198,7 +199,7 @@ contract MPPEscrowTest is Test {
         vm.prank(counterparty);
         escrow.refundEscrow(KEY);
 
-        MPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
+        IMPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
         assertFalse(e.isActive);
         assertEq(token.balanceOf(beneficiary), beneficiaryBefore + AMOUNT);
         assertEq(token.balanceOf(address(escrow)), 0);
@@ -221,7 +222,7 @@ contract MPPEscrowTest is Test {
     function test_refundEscrow_revertsUnauthorized() public {
         _createTestEscrow();
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__NotAuthorized.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__NotAuthorized.selector);
         vm.prank(nobody);
         escrow.refundEscrow(KEY);
     }
@@ -232,7 +233,7 @@ contract MPPEscrowTest is Test {
         vm.prank(counterparty);
         escrow.addSlashDelegate(slashDelegate);
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__NotAuthorized.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__NotAuthorized.selector);
         vm.prank(slashDelegate);
         escrow.refundEscrow(KEY);
     }
@@ -243,7 +244,7 @@ contract MPPEscrowTest is Test {
         vm.prank(counterparty);
         escrow.refundEscrow(KEY);
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__EscrowNotActive.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__EscrowNotActive.selector);
         vm.prank(counterparty);
         escrow.refundEscrow(KEY);
     }
@@ -252,7 +253,7 @@ contract MPPEscrowTest is Test {
         _createTestEscrow();
 
         vm.expectEmit(true, true, true, true);
-        emit MPPEscrow.EscrowRefunded(KEY, payer, beneficiary, address(token), AMOUNT);
+        emit IMPPEscrow.EscrowRefunded(KEY, payer, beneficiary, address(token), AMOUNT);
 
         vm.prank(counterparty);
         escrow.refundEscrow(KEY);
@@ -268,7 +269,7 @@ contract MPPEscrowTest is Test {
         vm.prank(counterparty);
         escrow.slashEscrow(KEY);
 
-        MPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
+        IMPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
         assertFalse(e.isActive);
         assertEq(token.balanceOf(counterparty), counterpartyBefore + AMOUNT);
         assertEq(token.balanceOf(address(escrow)), 0);
@@ -291,7 +292,7 @@ contract MPPEscrowTest is Test {
     function test_slashEscrow_revertsUnauthorized() public {
         _createTestEscrow();
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__NotAuthorized.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__NotAuthorized.selector);
         vm.prank(nobody);
         escrow.slashEscrow(KEY);
     }
@@ -302,7 +303,7 @@ contract MPPEscrowTest is Test {
         vm.prank(counterparty);
         escrow.addRefundDelegate(refundDelegate);
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__NotAuthorized.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__NotAuthorized.selector);
         vm.prank(refundDelegate);
         escrow.slashEscrow(KEY);
     }
@@ -313,7 +314,7 @@ contract MPPEscrowTest is Test {
         vm.prank(counterparty);
         escrow.slashEscrow(KEY);
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__EscrowNotActive.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__EscrowNotActive.selector);
         vm.prank(counterparty);
         escrow.slashEscrow(KEY);
     }
@@ -322,7 +323,7 @@ contract MPPEscrowTest is Test {
         _createTestEscrow();
 
         vm.expectEmit(true, true, true, true);
-        emit MPPEscrow.EscrowSlashed(KEY, beneficiary, counterparty, address(token), AMOUNT);
+        emit IMPPEscrow.EscrowSlashed(KEY, beneficiary, counterparty, address(token), AMOUNT);
 
         vm.prank(counterparty);
         escrow.slashEscrow(KEY);
@@ -361,25 +362,25 @@ contract MPPEscrowTest is Test {
     }
 
     function test_addRefundDelegate_revertsZeroAddress() public {
-        vm.expectRevert(MPPEscrow.MPPEscrow__InvalidAddress.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__InvalidAddress.selector);
         vm.prank(counterparty);
         escrow.addRefundDelegate(address(0));
     }
 
     function test_addSlashDelegate_revertsZeroAddress() public {
-        vm.expectRevert(MPPEscrow.MPPEscrow__InvalidAddress.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__InvalidAddress.selector);
         vm.prank(counterparty);
         escrow.addSlashDelegate(address(0));
     }
 
     function test_delegateEmitsEvents() public {
         vm.expectEmit(true, true, false, true);
-        emit MPPEscrow.RefundDelegateUpdated(counterparty, refundDelegate, true);
+        emit IMPPEscrow.RefundDelegateUpdated(counterparty, refundDelegate, true);
         vm.prank(counterparty);
         escrow.addRefundDelegate(refundDelegate);
 
         vm.expectEmit(true, true, false, true);
-        emit MPPEscrow.SlashDelegateUpdated(counterparty, slashDelegate, true);
+        emit IMPPEscrow.SlashDelegateUpdated(counterparty, slashDelegate, true);
         vm.prank(counterparty);
         escrow.addSlashDelegate(slashDelegate);
     }
@@ -399,7 +400,7 @@ contract MPPEscrowTest is Test {
     function test_setCounterparty_revertsUnauthorized() public {
         _createTestEscrow();
 
-        vm.expectRevert(MPPEscrow.MPPEscrow__NotAuthorized.selector);
+        vm.expectRevert(IMPPEscrow.MPPEscrow__NotAuthorized.selector);
         vm.prank(nobody);
         escrow.setCounterparty(KEY, makeAddr("newCp"));
     }
@@ -409,7 +410,7 @@ contract MPPEscrowTest is Test {
         address newCp = makeAddr("newCp");
 
         vm.expectEmit(true, true, true, true);
-        emit MPPEscrow.EscrowCounterpartyUpdated(KEY, counterparty, newCp);
+        emit IMPPEscrow.EscrowCounterpartyUpdated(KEY, counterparty, newCp);
 
         vm.prank(counterparty);
         escrow.setCounterparty(KEY, newCp);

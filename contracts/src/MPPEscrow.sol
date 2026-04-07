@@ -4,72 +4,30 @@ pragma solidity ^0.8.32;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IMPPEscrow} from "contracts/src/IMPPEscrow.sol";
 
-contract MPPEscrow {
+/// @title MPPEscrow
+/// @notice Reference escrow contract for the MPP stake payment intent.
+///         Payers lock whitelisted ERC-20 tokens under a unique stake key.
+///         The counterparty (or its delegates) can later refund or slash the
+///         escrow. Override the lifecycle hooks to route deposits into yield
+///         protocols, take platform fees, or add custom access control.
+contract MPPEscrow is IMPPEscrow {
     using SafeERC20 for IERC20;
 
-    struct Escrow {
-        address payer;
-        address beneficiary;
-        address counterparty;
-        address token;
-        uint256 principal;
-        uint256 depositedAt;
-        bool isActive;
-    }
-
-    struct PermitParams {
-        uint256 deadline;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     mapping(bytes32 => Escrow) internal s_escrows;
-    // Template safety note:
     // Only whitelist tokens you have reviewed carefully for exact-transfer
-    // ERC20 behavior. Fee-on-transfer, rebasing/share-based, callback-heavy,
+    // ERC-20 behavior. Fee-on-transfer, rebasing/share-based, callback-heavy,
     // or otherwise non-standard tokens can break escrow accounting and
     // settlement assumptions in this template.
     mapping(address => bool) public tokenWhitelist;
     mapping(address => uint256) public totalEscrowedByToken;
     uint256 public totalEscrowed;
 
-    // counterparty => delegate => authorized
+    /// @dev counterparty => delegate => authorized
     mapping(address => mapping(address => bool)) public refundDelegates;
+    /// @dev counterparty => delegate => authorized
     mapping(address => mapping(address => bool)) public slashDelegates;
-
-    event EscrowCreated(
-        bytes32 indexed key,
-        address indexed payer,
-        address beneficiary,
-        address counterparty,
-        address token,
-        uint256 amount
-    );
-
-    event EscrowRefunded(
-        bytes32 indexed key, address indexed payer, address indexed beneficiary, address token, uint256 amount
-    );
-
-    event EscrowSlashed(
-        bytes32 indexed key, address indexed beneficiary, address indexed counterparty, address token, uint256 amount
-    );
-
-    event EscrowCounterpartyUpdated(
-        bytes32 indexed key, address indexed previousCounterparty, address indexed newCounterparty
-    );
-
-    event RefundDelegateUpdated(address indexed counterparty, address indexed delegate, bool authorized);
-    event SlashDelegateUpdated(address indexed counterparty, address indexed delegate, bool authorized);
-
-    error MPPEscrow__EscrowAlreadyExists();
-    error MPPEscrow__EscrowNotActive();
-    error MPPEscrow__InvalidAddress();
-    error MPPEscrow__InvalidAmount();
-    error MPPEscrow__TokenNotWhitelisted(address token);
-    error MPPEscrow__NotAuthorized();
-    error MPPEscrow__PayerMustBeCaller();
 
     modifier onlyRefundAuthorized(bytes32 key) {
         address counterparty = s_escrows[key].counterparty;
@@ -87,11 +45,13 @@ contract MPPEscrow {
         _;
     }
 
+    /// @notice Deploy with an initial set of whitelisted tokens.
+    /// @dev    Review each token before whitelisting. Different decimals do not
+    ///         break the math if callers use base units correctly, but fee
+    ///         mechanics, rebases, callbacks, and other non-standard transfer
+    ///         semantics can produce unexpected behavior.
+    /// @param _whitelistedTokens Addresses of ERC-20 tokens to whitelist.
     constructor(address[] memory _whitelistedTokens) {
-        // Review each token before whitelisting. Different decimals do not
-        // break the math by themselves if all callers use base units
-        // correctly, but fee mechanics, rebases, callbacks, and other
-        // non-standard transfer semantics can produce unexpected behavior.
         for (uint256 i = 0; i < _whitelistedTokens.length; i++) {
             tokenWhitelist[_whitelistedTokens[i]] = true;
         }
@@ -99,6 +59,9 @@ contract MPPEscrow {
 
     // ─── Escrow lifecycle ────────────────────────────────────────────────
 
+    /// @inheritdoc IMPPEscrow
+    /// @dev Caller must have approved this contract to spend `amount` of
+    ///      `token` beforehand.
     function createEscrow(bytes32 key, address counterparty, address beneficiary, address token, uint256 amount)
         external
     {
@@ -106,6 +69,13 @@ contract MPPEscrow {
         _createEscrowFrom(msg.sender, key, counterparty, beneficiary, token, amount, false, permit_);
     }
 
+    /// @inheritdoc IMPPEscrow
+    /// @dev ERC-2612 permit only authorizes token spending, not escrow terms
+    ///      like the key, counterparty, or beneficiary. Allowing third-party
+    ///      relayers would let anyone with a valid permit signature submit
+    ///      attacker-chosen escrow terms and redirect funds. If relayed or
+    ///      gasless creation is needed, use a witness-bound scheme such as
+    ///      Permit2 with witness that signs over the full escrow intent.
     function createEscrowWithPermit(
         bytes32 key,
         address payer,
@@ -115,25 +85,11 @@ contract MPPEscrow {
         uint256 amount,
         PermitParams calldata permit_
     ) external {
-        // Security note:
-        // ERC-2612 permit only authorizes this contract to spend `amount`
-        // from `payer`. It does not authorize the escrow terms (`key`,
-        // `counterparty`, `beneficiary`).
-        //
-        // If this function allowed third-party relayers, anyone who obtained a
-        // valid permit signature could submit attacker-chosen escrow terms and
-        // redirect the deposited funds. We therefore require the payer to be
-        // the caller for now.
-        //
-        // If relayed/gasless creation is needed later, add a second EIP-712
-        // signature that binds the full escrow intent (payer, key,
-        // counterparty, beneficiary, token, amount, deadline, chainId,
-        // contract, nonce), or use a trusted forwarder/meta-tx pattern that
-        // verifies those parameters explicitly.
         if (payer != msg.sender) revert MPPEscrow__PayerMustBeCaller();
         _createEscrowFrom(msg.sender, key, counterparty, beneficiary, token, amount, true, permit_);
     }
 
+    /// @inheritdoc IMPPEscrow
     function refundEscrow(bytes32 key) external onlyRefundAuthorized(key) {
         Escrow storage e = s_escrows[key];
 
@@ -152,6 +108,7 @@ contract MPPEscrow {
         emit EscrowRefunded(key, e.payer, e.beneficiary, e.token, e.principal);
     }
 
+    /// @inheritdoc IMPPEscrow
     function slashEscrow(bytes32 key) external onlySlashAuthorized(key) {
         Escrow storage e = s_escrows[key];
 
@@ -172,23 +129,27 @@ contract MPPEscrow {
 
     // ─── Delegate management ─────────────────────────────────────────────
 
+    /// @inheritdoc IMPPEscrow
     function addRefundDelegate(address delegate) external {
         if (delegate == address(0)) revert MPPEscrow__InvalidAddress();
         refundDelegates[msg.sender][delegate] = true;
         emit RefundDelegateUpdated(msg.sender, delegate, true);
     }
 
+    /// @inheritdoc IMPPEscrow
     function removeRefundDelegate(address delegate) external {
         refundDelegates[msg.sender][delegate] = false;
         emit RefundDelegateUpdated(msg.sender, delegate, false);
     }
 
+    /// @inheritdoc IMPPEscrow
     function addSlashDelegate(address delegate) external {
         if (delegate == address(0)) revert MPPEscrow__InvalidAddress();
         slashDelegates[msg.sender][delegate] = true;
         emit SlashDelegateUpdated(msg.sender, delegate, true);
     }
 
+    /// @inheritdoc IMPPEscrow
     function removeSlashDelegate(address delegate) external {
         slashDelegates[msg.sender][delegate] = false;
         emit SlashDelegateUpdated(msg.sender, delegate, false);
@@ -196,6 +157,7 @@ contract MPPEscrow {
 
     // ─── Counterparty management ─────────────────────────────────────────
 
+    /// @inheritdoc IMPPEscrow
     function setCounterparty(bytes32 key, address newCounterparty) external {
         if (newCounterparty == address(0)) revert MPPEscrow__InvalidAddress();
 
@@ -210,17 +172,19 @@ contract MPPEscrow {
 
     // ─── Views ───────────────────────────────────────────────────────────
 
+    /// @inheritdoc IMPPEscrow
     function getEscrow(bytes32 key) external view returns (Escrow memory) {
         return s_escrows[key];
     }
 
+    /// @inheritdoc IMPPEscrow
     function isEscrowActive(bytes32 key, address payer) external view returns (bool) {
         Escrow storage escrow = s_escrows[key];
         return escrow.isActive && escrow.payer == payer;
     }
 
     // ─── Hooks ───────────────────────────────────────────────────────────
-    // Edit these to add custom behavior at each lifecycle stage.
+    // Override these in a derived contract to add custom lifecycle behavior.
     // Examples: route deposits to a yield protocol, take fees on slash,
     // withdraw from a vault before disbursing, add access control, etc.
 
@@ -245,6 +209,7 @@ contract MPPEscrow {
 
     // ─── Internal ────────────────────────────────────────────────────────
 
+    /// @dev Shared implementation for both createEscrow and createEscrowWithPermit.
     function _createEscrowFrom(
         address payer,
         bytes32 key,
