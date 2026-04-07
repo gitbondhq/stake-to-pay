@@ -1,26 +1,29 @@
 import { Credential, Method } from 'mppx'
-import type { Account, Address } from 'viem'
-import { parseAccount } from 'viem/accounts'
+import type { Account, Hex } from 'viem'
 
 import type { NetworkPreset } from '../networkConfig.js'
 import type { StakeChallengeRequest } from '../stakeSchema.js'
-import type { EIP1193Provider } from './client.js'
-import { createClient, providerSubmitCalls, submitCalls } from './client.js'
+import { createClient, submitCalls } from './client.js'
 import { buildStakeCalls } from './tx.js'
 
-type StakeMethod = Parameters<typeof Method.toClient>[0]
+type GetTransactionHash = (parameters: {
+  account: Account
+  request: StakeChallengeRequest
+}) => Promise<Hex>
 
-export type StakeParameters = {
-  account: Account | Address
+type ClientStakeParameters = {
+  account: Account
+  getTransactionHash?: GetTransactionHash | undefined
   preset: NetworkPreset
-  provider?: EIP1193Provider | undefined
 }
 
 /** Builds and broadcasts stake transactions, then returns the tx hash. */
-export const createClientStake = (method: StakeMethod) => {
-  return (parameters: StakeParameters) => {
+export const createClientStake = (
+  method: Parameters<typeof Method.toClient>[0],
+) => {
+  return (parameters: ClientStakeParameters) => {
     const preset = parameters.preset
-    const account = parseAccount(parameters.account)
+    const account = parameters.account
 
     return Method.toClient(method, {
       async createCredential({ challenge }) {
@@ -32,25 +35,24 @@ export const createClientStake = (method: StakeMethod) => {
           )
         }
 
-        const client = createClient(preset)
-        const calls = buildStakeCalls({
-          amount: BigInt(request.amount),
-          beneficiary: request.beneficiary ?? account.address,
-          contract: request.contract,
-          counterparty: request.counterparty,
-          token: request.token,
-          stakeKey: request.stakeKey,
-        })
-
         const source = `did:pkh:eip155:${chainId}:${account.address}`
-        const hash = parameters.provider
-          ? await providerSubmitCalls(
-              client,
+        const hash = parameters.getTransactionHash
+          ? await parameters.getTransactionHash({
               account,
-              calls,
-              parameters.provider,
+              request,
+            })
+          : await submitCalls(
+              createClient(preset),
+              account,
+              buildStakeCalls({
+                amount: BigInt(request.amount),
+                beneficiary: request.beneficiary ?? account.address,
+                contract: request.contract,
+                counterparty: request.counterparty,
+                token: request.token,
+                stakeKey: request.stakeKey,
+              }),
             )
-          : await submitCalls(client, account, calls)
 
         return Credential.serialize({
           challenge,

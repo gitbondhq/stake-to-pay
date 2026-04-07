@@ -27,13 +27,10 @@ import { stake } from "@gitbondhq/mppx-stake/client";
 import { tempoModerato } from "viem/chains";
 
 const preset = {
-  capabilities: {
-    supportsBatchCalls: true,
-    supportsFeePayer: true,
-  },
   chain: tempoModerato,
   family: "evm",
   id: "tempoModerato",
+  rpcUrl: "https://rpc.moderato.tempo.xyz",
 } as const;
 
 const mppx = Mppx.create({
@@ -48,16 +45,29 @@ import { stake } from "@gitbondhq/mppx-stake/client";
 import { tempoModerato } from "viem/chains";
 
 const preset = {
-  capabilities: {
-    supportsBatchCalls: true,
-    supportsFeePayer: true,
-  },
   chain: tempoModerato,
   family: "evm",
   id: "tempoModerato",
+  rpcUrl: "https://rpc.moderato.tempo.xyz",
 } as const;
 
 const method = stake({ account, name: "tempo", preset });
+```
+
+If a UI wants to control transaction submission itself, pass
+`getTransactionHash`. The callback receives the account and stake request, then
+returns the final `createEscrow` transaction hash:
+
+```ts
+const method = stake({
+  account,
+  getTransactionHash: async ({ account, request }) => {
+    await submitApproval(account, request);
+    return submitCreateEscrow(account, request);
+  },
+  name: "tempo",
+  preset,
+});
 ```
 
 ## Server usage
@@ -68,13 +78,10 @@ import { stake } from "@gitbondhq/mppx-stake/server";
 import { tempoModerato } from "viem/chains";
 
 const preset = {
-  capabilities: {
-    supportsBatchCalls: true,
-    supportsFeePayer: true,
-  },
   chain: tempoModerato,
   family: "evm",
   id: "tempoModerato",
+  rpcUrl: "https://rpc.moderato.tempo.xyz",
 } as const;
 
 const mppx = Mppx.create({
@@ -97,7 +104,6 @@ The preset supplies the chain metadata, including `chain.id`.
 
 | Type | Flow |
 |------|------|
-| `transaction` | Client signs tx, server broadcasts |
 | `hash` | Client broadcasts tx, sends hash to server |
 
 ## Network preset objects
@@ -109,13 +115,10 @@ import type { NetworkPreset } from "@gitbondhq/mppx-stake";
 import { tempoModerato } from "viem/chains";
 
 const preset: NetworkPreset = {
-  capabilities: {
-    supportsBatchCalls: true,
-    supportsFeePayer: true,
-  },
   chain: tempoModerato,
   family: "evm",
   id: "tempoModerato",
+  rpcUrl: "https://rpc.moderato.tempo.xyz",
 };
 ```
 
