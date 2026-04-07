@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import {IMPPEscrow} from "../src/IMPPEscrow.sol";
 import {MPPEscrow} from "../src/MPPEscrow.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 contract MockUSDToken is ERC20 {
     constructor() ERC20("Mock USDC", "mUSDC") {}
@@ -19,22 +18,9 @@ contract MockUSDToken is ERC20 {
     }
 }
 
-contract MockUSDPermitToken is ERC20Permit {
-    constructor() ERC20("Mock USDC Permit", "mUSDCp") ERC20Permit("Mock USDC Permit") {}
-
-    function decimals() public pure override returns (uint8) {
-        return 6;
-    }
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
-
 contract MPPEscrowTest is Test {
     MPPEscrow public escrow;
     MockUSDToken public token;
-    MockUSDPermitToken public permitToken;
 
     address payer = makeAddr("payer");
     address beneficiary = makeAddr("beneficiary");
@@ -48,21 +34,17 @@ contract MPPEscrowTest is Test {
 
     function setUp() public {
         token = new MockUSDToken();
-        permitToken = new MockUSDPermitToken();
 
-        address[] memory whitelisted = new address[](2);
+        address[] memory whitelisted = new address[](1);
         whitelisted[0] = address(token);
-        whitelisted[1] = address(permitToken);
         escrow = new MPPEscrow(whitelisted);
 
         // Fund payer
         token.mint(payer, 1_000_000);
-        permitToken.mint(payer, 1_000_000);
 
         // Approve escrow
         vm.startPrank(payer);
         token.approve(address(escrow), type(uint256).max);
-        permitToken.approve(address(escrow), type(uint256).max);
         vm.stopPrank();
     }
 
@@ -70,7 +52,6 @@ contract MPPEscrowTest is Test {
 
     function test_constructor_whitelistsTokens() public view {
         assertTrue(escrow.tokenWhitelist(address(token)));
-        assertTrue(escrow.tokenWhitelist(address(permitToken)));
     }
 
     // ─── Create Escrow ───────────────────────────────────────────────────
@@ -135,50 +116,6 @@ contract MPPEscrowTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IMPPEscrow.MPPEscrow__TokenNotWhitelisted.selector, badToken));
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, beneficiary, badToken, AMOUNT);
-    }
-
-    // ─── Create Escrow with Permit ───────────────────────────────────────
-
-    function test_createEscrowWithPermit_success() public {
-        (address permitPayer, uint256 permitPayerPk) = makeAddrAndKey("permitPayer");
-        permitToken.mint(permitPayer, AMOUNT);
-
-        uint256 deadline = block.timestamp + 1 hours;
-        bytes32 digest = _getPermitDigest(
-            address(permitToken), permitPayer, address(escrow), AMOUNT, permitToken.nonces(permitPayer), deadline
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(permitPayerPk, digest);
-
-        IMPPEscrow.PermitParams memory permit_ = IMPPEscrow.PermitParams(deadline, v, r, s);
-
-        vm.prank(permitPayer);
-        escrow.createEscrowWithPermit(
-            KEY, permitPayer, counterparty, beneficiary, address(permitToken), AMOUNT, permit_
-        );
-
-        IMPPEscrow.Escrow memory e = escrow.getEscrow(KEY);
-        assertEq(e.payer, permitPayer);
-        assertTrue(e.isActive);
-        assertEq(permitToken.balanceOf(address(escrow)), AMOUNT);
-    }
-
-    function test_createEscrowWithPermit_revertsIfPayerIsNotCaller() public {
-        (address permitPayer, uint256 permitPayerPk) = makeAddrAndKey("permitPayer");
-        permitToken.mint(permitPayer, AMOUNT);
-
-        uint256 deadline = block.timestamp + 1 hours;
-        bytes32 digest = _getPermitDigest(
-            address(permitToken), permitPayer, address(escrow), AMOUNT, permitToken.nonces(permitPayer), deadline
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(permitPayerPk, digest);
-
-        IMPPEscrow.PermitParams memory permit_ = IMPPEscrow.PermitParams(deadline, v, r, s);
-
-        vm.expectRevert(IMPPEscrow.MPPEscrow__PayerMustBeCaller.selector);
-        vm.prank(payer);
-        escrow.createEscrowWithPermit(
-            KEY, permitPayer, counterparty, beneficiary, address(permitToken), AMOUNT, permit_
-        );
     }
 
     function test_createEscrow_defaultsZeroBeneficiaryToPayer() public {
@@ -385,37 +322,6 @@ contract MPPEscrowTest is Test {
         escrow.addSlashDelegate(slashDelegate);
     }
 
-    // ─── Set counterparty ────────────────────────────────────────────────
-
-    function test_setCounterparty_success() public {
-        _createTestEscrow();
-        address newCp = makeAddr("newCounterparty");
-
-        vm.prank(counterparty);
-        escrow.setCounterparty(KEY, newCp);
-
-        assertEq(escrow.getEscrow(KEY).counterparty, newCp);
-    }
-
-    function test_setCounterparty_revertsUnauthorized() public {
-        _createTestEscrow();
-
-        vm.expectRevert(IMPPEscrow.MPPEscrow__NotAuthorized.selector);
-        vm.prank(nobody);
-        escrow.setCounterparty(KEY, makeAddr("newCp"));
-    }
-
-    function test_setCounterparty_emitsEvent() public {
-        _createTestEscrow();
-        address newCp = makeAddr("newCp");
-
-        vm.expectEmit(true, true, true, true);
-        emit IMPPEscrow.EscrowCounterpartyUpdated(KEY, counterparty, newCp);
-
-        vm.prank(counterparty);
-        escrow.setCounterparty(KEY, newCp);
-    }
-
     // ─── Views ───────────────────────────────────────────────────────────
 
     function test_isEscrowActive_returnsTrueForMatchingActiveEscrow() public {
@@ -486,27 +392,5 @@ contract MPPEscrowTest is Test {
     function _createTestEscrow() internal {
         vm.prank(payer);
         escrow.createEscrow(KEY, counterparty, beneficiary, address(token), AMOUNT);
-    }
-
-    function _getPermitDigest(
-        address token_,
-        address owner_,
-        address spender,
-        uint256 value,
-        uint256 nonce,
-        uint256 deadline
-    ) internal view returns (bytes32) {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
-                owner_,
-                spender,
-                value,
-                nonce,
-                deadline
-            )
-        );
-        bytes32 domainSeparator = ERC20Permit(token_).DOMAIN_SEPARATOR();
-        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 }

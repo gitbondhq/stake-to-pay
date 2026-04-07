@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.32;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IMPPEscrow} from "contracts/src/IMPPEscrow.sol";
@@ -65,28 +64,7 @@ contract MPPEscrow is IMPPEscrow {
     function createEscrow(bytes32 key, address counterparty, address beneficiary, address token, uint256 amount)
         external
     {
-        PermitParams memory permit_;
-        _createEscrowFrom(msg.sender, key, counterparty, beneficiary, token, amount, false, permit_);
-    }
-
-    /// @inheritdoc IMPPEscrow
-    /// @dev ERC-2612 permit only authorizes token spending, not escrow terms
-    ///      like the key, counterparty, or beneficiary. Allowing third-party
-    ///      relayers would let anyone with a valid permit signature submit
-    ///      attacker-chosen escrow terms and redirect funds. If relayed or
-    ///      gasless creation is needed, use a witness-bound scheme such as
-    ///      Permit2 with witness that signs over the full escrow intent.
-    function createEscrowWithPermit(
-        bytes32 key,
-        address payer,
-        address counterparty,
-        address beneficiary,
-        address token,
-        uint256 amount,
-        PermitParams calldata permit_
-    ) external {
-        if (payer != msg.sender) revert MPPEscrow__PayerMustBeCaller();
-        _createEscrowFrom(msg.sender, key, counterparty, beneficiary, token, amount, true, permit_);
+        _createEscrowFrom(msg.sender, key, counterparty, beneficiary, token, amount);
     }
 
     /// @inheritdoc IMPPEscrow
@@ -155,21 +133,6 @@ contract MPPEscrow is IMPPEscrow {
         emit SlashDelegateUpdated(msg.sender, delegate, false);
     }
 
-    // ─── Counterparty management ─────────────────────────────────────────
-
-    /// @inheritdoc IMPPEscrow
-    function setCounterparty(bytes32 key, address newCounterparty) external {
-        if (newCounterparty == address(0)) revert MPPEscrow__InvalidAddress();
-
-        Escrow storage e = s_escrows[key];
-        if (!e.isActive) revert MPPEscrow__EscrowNotActive();
-        if (msg.sender != e.counterparty) revert MPPEscrow__NotAuthorized();
-
-        address oldCounterparty = e.counterparty;
-        e.counterparty = newCounterparty;
-        emit EscrowCounterpartyUpdated(key, oldCounterparty, newCounterparty);
-    }
-
     // ─── Views ───────────────────────────────────────────────────────────
 
     /// @inheritdoc IMPPEscrow
@@ -209,16 +172,14 @@ contract MPPEscrow is IMPPEscrow {
 
     // ─── Internal ────────────────────────────────────────────────────────
 
-    /// @dev Shared implementation for both createEscrow and createEscrowWithPermit.
+    /// @dev Shared implementation for createEscrow.
     function _createEscrowFrom(
         address payer,
         bytes32 key,
         address counterparty,
         address beneficiary,
         address token,
-        uint256 amount,
-        bool usePermit,
-        PermitParams memory permit_
+        uint256 amount
     ) internal {
         if (s_escrows[key].isActive) revert MPPEscrow__EscrowAlreadyExists();
         address resolvedBeneficiary = beneficiary == address(0) ? payer : beneficiary;
@@ -240,10 +201,6 @@ contract MPPEscrow is IMPPEscrow {
 
         totalEscrowed += amount;
         totalEscrowedByToken[token] += amount;
-
-        if (usePermit) {
-            IERC20Permit(token).permit(payer, address(this), amount, permit_.deadline, permit_.v, permit_.r, permit_.s);
-        }
 
         IERC20(token).safeTransferFrom(payer, address(this), amount);
 
