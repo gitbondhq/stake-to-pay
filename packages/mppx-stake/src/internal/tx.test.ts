@@ -12,6 +12,7 @@ const payer = privateKeyToAccount(
 
 const input = {
   amount: 5_000_000n,
+  beneficiary: '0x3333333333333333333333333333333333333333',
   contract: '0x1111111111111111111111111111111111111111',
   counterparty: '0x2222222222222222222222222222222222222222',
   token: '0x20C0000000000000000000000000000000000000',
@@ -20,11 +21,8 @@ const input = {
 } as const
 
 describe('stake transaction helpers', () => {
-  it('builds the approve + createEscrow flow with payer as beneficiary', () => {
-    const calls = buildStakeCalls({
-      ...input,
-      payer: payer.address,
-    })
+  it('builds the approve + createEscrow flow with the requested beneficiary', () => {
+    const calls = buildStakeCalls(input)
 
     expect(calls).toHaveLength(2)
 
@@ -43,7 +41,7 @@ describe('stake transaction helpers', () => {
     expect(createEscrow.args).toEqual([
       input.stakeKey,
       input.counterparty,
-      payer.address,
+      input.beneficiary,
       input.token,
       input.amount,
     ])
@@ -53,7 +51,7 @@ describe('stake transaction helpers', () => {
     expect(() =>
       assertEscrowState(
         {
-          beneficiary: payer.address,
+          beneficiary: input.beneficiary,
           counterparty: input.counterparty,
           isActive: true,
           payer: payer.address,
@@ -61,6 +59,29 @@ describe('stake transaction helpers', () => {
           token: input.token,
         },
         {
+          beneficiary: input.beneficiary,
+          counterparty: input.counterparty,
+          token: input.token,
+          payer: payer.address,
+          value: input.amount,
+        },
+      ),
+    ).not.toThrow()
+  })
+
+  it('accepts escrow principal above the requested minimum', () => {
+    expect(() =>
+      assertEscrowState(
+        {
+          beneficiary: input.beneficiary,
+          counterparty: input.counterparty,
+          isActive: true,
+          payer: payer.address,
+          principal: input.amount + 1n,
+          token: input.token,
+        },
+        {
+          beneficiary: input.beneficiary,
           counterparty: input.counterparty,
           token: input.token,
           payer: payer.address,

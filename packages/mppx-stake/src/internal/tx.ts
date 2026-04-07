@@ -8,13 +8,14 @@ import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
 /** Builds the approve + createEscrow flow used by this SDK. */
 export const buildStakeCalls = (parameters: {
   amount: bigint
+  beneficiary: Address
   contract: Address
   counterparty: Address
-  payer: Address
   token: Address
   stakeKey: Hex
 }) => {
-  const { amount, contract, counterparty, payer, token, stakeKey } = parameters
+  const { amount, beneficiary, contract, counterparty, token, stakeKey } =
+    parameters
 
   return [
     {
@@ -28,7 +29,7 @@ export const buildStakeCalls = (parameters: {
     {
       data: encodeFunctionData({
         abi: MPPEscrowAbi,
-        args: [stakeKey, counterparty, payer, token, amount],
+        args: [stakeKey, counterparty, beneficiary, token, amount],
         functionName: 'createEscrow',
       }),
       to: contract,
@@ -37,6 +38,7 @@ export const buildStakeCalls = (parameters: {
 }
 
 type EscrowVerificationParams = {
+  beneficiary: Address
   counterparty: Address
   token: Address
   payer: Address
@@ -54,7 +56,8 @@ export const assertEscrowCreatedReceipt = (
   if (receipt.status !== 'success')
     throw new Error(`Stake transaction reverted: ${receipt.transactionHash}`)
 
-  const { contract, counterparty, token, payer, stakeKey, value } = parameters
+  const { beneficiary, contract, counterparty, token, payer, stakeKey, value } =
+    parameters
   const logs = parseEventLogs({
     abi: MPPEscrowAbi,
     eventName: 'EscrowCreated',
@@ -65,10 +68,10 @@ export const assertEscrowCreatedReceipt = (
       isAddressEqual(log.address, contract) &&
       log.args.key === stakeKey &&
       isAddressEqual(log.args.payer, payer) &&
-      isAddressEqual(log.args.beneficiary, payer) &&
+      isAddressEqual(log.args.beneficiary, beneficiary) &&
       isAddressEqual(log.args.counterparty, counterparty) &&
       isAddressEqual(log.args.token, token) &&
-      log.args.amount === value,
+      log.args.amount >= value,
   )
 
   if (!match) throw new Error('No matching EscrowCreated event found.')
@@ -88,14 +91,14 @@ export const assertEscrowState = (
   escrow: EscrowState,
   parameters: EscrowVerificationParams,
 ) => {
-  const { counterparty, token, payer, value } = parameters
+  const { beneficiary, counterparty, token, payer, value } = parameters
 
   if (!escrow.isActive) throw new Error('Escrow is not active.')
   assertAddress('escrow.payer', escrow.payer, payer)
-  assertAddress('escrow.beneficiary', escrow.beneficiary, payer)
+  assertAddress('escrow.beneficiary', escrow.beneficiary, beneficiary)
   assertAddress('escrow.counterparty', escrow.counterparty, counterparty)
   assertAddress('escrow.token', escrow.token, token)
-  assertMatch('escrow.principal', escrow.principal, value)
+  assertAtLeast('escrow.principal', escrow.principal, value)
 }
 
 /** Verifies the canonical active-state query, then checks the full escrow record. */
@@ -137,11 +140,6 @@ const assertAddress = (label: string, actual: Address, expected: Address) => {
   if (!isAddressEqual(actual, expected)) throw new Error(`Mismatched ${label}.`)
 }
 
-const assertMatch = (
-  label: string,
-  actual: bigint | string,
-  expected: bigint | string,
-) => {
-  if (String(actual) !== String(expected))
-    throw new Error(`Mismatched ${label}.`)
+const assertAtLeast = (label: string, actual: bigint, expected: bigint) => {
+  if (actual < expected) throw new Error(`Mismatched ${label}.`)
 }

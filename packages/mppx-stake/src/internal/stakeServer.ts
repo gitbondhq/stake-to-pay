@@ -69,8 +69,10 @@ export const createServerStake = (method: StakeMethod) => {
         const payer = resolvePayer(typed.chainId, credential.source)
         const client = createClient(preset)
         const payload = credential.payload as StakeCredentialPayload
+        const beneficiary = typed.beneficiary ?? payer
 
         const verifyParams = {
+          beneficiary,
           counterparty: typed.counterparty,
           token: typed.token,
           payer,

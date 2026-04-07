@@ -41,9 +41,9 @@ export const createClientStake = (method: StakeMethod) => {
         const account = getAccount(client, context)
         const calls = buildStakeCalls({
           amount: typed.amount,
+          beneficiary: typed.beneficiary ?? account.address,
           contract: typed.contract,
           counterparty: typed.counterparty,
-          payer: account.address,
           token: typed.token,
           stakeKey: typed.stakeKey,
         })

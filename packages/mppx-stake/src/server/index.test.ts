@@ -13,6 +13,7 @@ const account = privateKeyToAccount(
   '0x8b3a350cf5c34c9194ca85829b4b6fd2e8f5f10f1f49ffb3874c7f5f7b6b2d44',
 )
 const payer = '0x4444444444444444444444444444444444444444' as Address
+const beneficiary = '0x3333333333333333333333333333333333333333' as Address
 const counterparty = '0x2222222222222222222222222222222222222222' as Address
 const contract = '0x1111111111111111111111111111111111111111' as Address
 const token = '0x20C0000000000000000000000000000000000000' as Address
@@ -31,6 +32,7 @@ const preset = {
 
 const rawInput = {
   amount: '5000000',
+  beneficiary,
   contract,
   counterparty,
   token,
@@ -175,8 +177,30 @@ describe('server stake verification', () => {
       })
       expect(mocks.createClient).toHaveBeenCalledWith(preset)
       expect(mocks.getTransactionReceipt).toHaveBeenCalledOnce()
-      expect(mocks.assertEscrowCreatedReceipt).toHaveBeenCalledOnce()
-      expect(mocks.assertEscrowOnChain).toHaveBeenCalledOnce()
+      expect(mocks.assertEscrowCreatedReceipt).toHaveBeenCalledWith(
+        mockReceipt,
+        expect.objectContaining({
+          beneficiary,
+          contract,
+          counterparty,
+          payer,
+          stakeKey,
+          token,
+          value: 5_000_000n,
+        }),
+      )
+      expect(mocks.assertEscrowOnChain).toHaveBeenCalledWith(
+        {},
+        contract,
+        stakeKey,
+        expect.objectContaining({
+          beneficiary,
+          counterparty,
+          payer,
+          token,
+          value: 5_000_000n,
+        }),
+      )
     })
 
     it('rejects when challenge request does not match', async () => {

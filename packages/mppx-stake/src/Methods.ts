@@ -23,6 +23,7 @@ export const stake = ({ name }: StakeMethodParameters) =>
       },
       request: z.object({
         amount: baseUnitAmount(),
+        beneficiary: z.optional(z.address()),
         contract: z.address(),
         counterparty: z.address(),
         description: z.optional(z.string()),

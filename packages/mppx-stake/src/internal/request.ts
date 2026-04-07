@@ -9,6 +9,7 @@ export const baseUnitAmount = () =>
 
 export type TypedStakeRequest = {
   amount: bigint
+  beneficiary: Address | undefined
   chainId: number
   contract: Address
   counterparty: Address
@@ -24,6 +25,7 @@ export const toTypedRequest = (
   request: StakeChallengeRequest,
 ): TypedStakeRequest => ({
   amount: BigInt(request.amount),
+  beneficiary: request.beneficiary as Address | undefined,
   chainId: request.methodDetails.chainId,
   contract: request.contract as Address,
   counterparty: request.counterparty as Address,

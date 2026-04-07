@@ -5,6 +5,7 @@ import * as Methods from './Methods.js'
 
 const request = {
   amount: '5000000',
+  beneficiary: '0x3333333333333333333333333333333333333333',
   contract: '0x1111111111111111111111111111111111111111',
   counterparty: '0x2222222222222222222222222222222222222222',
   token: '0x20C0000000000000000000000000000000000000',
@@ -32,6 +33,7 @@ describe('stake method schema', () => {
 
     expect(parsed).toEqual({
       amount: '5000000',
+      beneficiary: request.beneficiary,
       counterparty: request.counterparty,
       contract: request.contract,
       description: request.description,
