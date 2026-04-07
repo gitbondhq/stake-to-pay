@@ -1,4 +1,3 @@
-import { TxEnvelopeTempo } from 'ox/tempo'
 import type { Address, Client, Hex, TransactionReceipt } from 'viem'
 import {
   decodeFunctionData,
@@ -11,93 +10,9 @@ import { readContract } from 'viem/actions'
 import { erc20Abi } from '../abi/erc20.js'
 import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
 import type { StakeChallengeRequest } from '../stakeSchema.js'
-import type { Account } from './account.js'
 
-type PermitParams = {
-  deadline: bigint
-  r: `0x${string}`
-  s: `0x${string}`
-  v: number
-}
-
-/**
- * Builds the one-call permit flow used when the token supports ERC-2612.
- */
-export const buildPermitCalls = (parameters: {
-  account: Account
-  amount: bigint
-  beneficiary: Address
-  chainId: number
-  client: Client
-  contract: Address
-  counterparty: Address
-  token: Address
-  deadlineSeconds?: number | undefined
-  permitFactory: (parameters: {
-    account: Account
-    amount: bigint
-    chainId: number
-    client: Client
-    deadline: bigint
-    owner: Address
-    spender: Address
-    token: Address
-  }) => Promise<PermitParams>
-  stakeKey: Hex
-}) => {
-  const {
-    account,
-    amount,
-    beneficiary,
-    chainId,
-    client,
-    contract,
-    counterparty,
-    token,
-    stakeKey,
-  } = parameters
-  const deadline = BigInt(
-    Math.floor(Date.now() / 1_000) + (parameters.deadlineSeconds ?? 60 * 60),
-  )
-
-  return parameters
-    .permitFactory({
-      account,
-      amount,
-      chainId,
-      client,
-      deadline,
-      owner: account.address,
-      spender: contract,
-      token: token,
-    })
-    .then(
-      permit =>
-        [
-          {
-            data: encodeFunctionData({
-              abi: MPPEscrowAbi,
-              args: [
-                stakeKey,
-                account.address,
-                counterparty,
-                beneficiary,
-                token,
-                amount,
-                permit,
-              ],
-              functionName: 'createEscrowWithPermit',
-            }),
-            to: contract,
-          },
-        ] as const,
-    )
-}
-
-/**
- * Builds the legacy two-call flow: ERC20 approve, then escrow create.
- */
-export const buildLegacyCalls = (parameters: {
+/** Builds the approve + createEscrow flow used by this SDK. */
+export const buildStakeCalls = (parameters: {
   amount: bigint
   beneficiary: Address
   contract: Address
@@ -107,6 +22,7 @@ export const buildLegacyCalls = (parameters: {
 }) => {
   const { amount, beneficiary, contract, counterparty, token, stakeKey } =
     parameters
+
   return [
     {
       data: encodeFunctionData({
@@ -127,119 +43,68 @@ export const buildLegacyCalls = (parameters: {
   ] as const
 }
 
-/** Transaction credentials store the serialized signed transaction in `payload.signature`. */
-export const getSerializedTransaction = (payload: {
-  signature: string
-  type: 'transaction'
-}) => payload.signature as Hex
-
-/** Tempo batch transactions use a custom envelope prefix distinct from EIP-1559. */
-export const isTempoTransaction = (serializedTransaction: string | undefined) =>
-  serializedTransaction?.startsWith(TxEnvelopeTempo.serializedType) === true ||
-  serializedTransaction?.startsWith(TxEnvelopeTempo.feePayerMagic) === true
-
 /**
  * Matches decoded transaction calls against the original stake challenge.
- * This is the core guard that prevents the server from accepting a different
- * escrow than the one it asked the client to create.
+ * This is now only the approve + createEscrow flow.
  */
 export const matchStakeCalls = (parameters: {
   beneficiary: Address
   calls: readonly { data?: Hex | undefined; to?: Address | undefined }[]
   challenge: StakeChallengeRequest
-  payer: Address
 }) => {
-  const { beneficiary, calls, challenge, payer } = parameters
+  const { beneficiary, calls, challenge } = parameters
   const amount = BigInt(challenge.amount)
   const contract = challenge.contract as Address
   const counterparty = challenge.counterparty as Address
   const token = challenge.token as Address
   const stakeKey = challenge.stakeKey as Hex
 
-  if (calls.length === 1) {
-    const [call] = calls
-    if (!call?.data || !call.to || !isAddressEqual(call.to, contract))
-      throw new Error('Invalid permit transaction: wrong target contract.')
+  if (calls.length !== 2)
+    throw new Error('Invalid stake transaction: unexpected call count.')
 
-    const { args, functionName } = decodeFunctionData({
-      abi: MPPEscrowAbi,
-      data: call.data,
-    })
+  const [approveCall, createEscrowCall] = calls
+  if (
+    !approveCall?.data ||
+    !approveCall.to ||
+    !isAddressEqual(approveCall.to, token)
+  )
+    throw new Error('Invalid stake transaction: wrong approve target.')
 
-    if (functionName !== 'createEscrowWithPermit')
-      throw new Error(
-        'Invalid permit transaction: expected createEscrowWithPermit.',
-      )
+  if (
+    !createEscrowCall?.data ||
+    !createEscrowCall.to ||
+    !isAddressEqual(createEscrowCall.to, contract)
+  )
+    throw new Error('Invalid stake transaction: wrong escrow target.')
 
-    const [
-      key,
-      payerArg,
-      counterpartyArg,
-      beneficiaryArg,
-      tokenArg,
-      amountArg,
-    ] = args as unknown as [Hex, Address, Address, Address, Address, bigint]
+  const approve = decodeFunctionData({
+    abi: erc20Abi,
+    data: approveCall.data,
+  })
+  if (approve.functionName !== 'approve')
+    throw new Error('Invalid stake transaction: first call must be approve.')
 
-    assertMatch('stakeKey', key, stakeKey)
-    assertAddress('payer', payerArg, payer)
-    assertAddress('counterparty', counterpartyArg, counterparty)
-    assertAddress('beneficiary', beneficiaryArg, beneficiary)
-    assertAddress('token', tokenArg, token)
-    assertMatch('amount', amountArg, amount)
+  const [spender, approvedAmount] = approve.args as [Address, bigint]
+  assertAddress('approve.spender', spender, contract)
+  assertMatch('approve.amount', approvedAmount, amount)
 
-    return 'permit' as const
-  }
-
-  if (calls.length === 2) {
-    const [approveCall, createEscrowCall] = calls
-    if (
-      !approveCall?.data ||
-      !approveCall.to ||
-      !isAddressEqual(approveCall.to, token)
+  const escrow = decodeFunctionData({
+    abi: MPPEscrowAbi,
+    data: createEscrowCall.data,
+  })
+  if (escrow.functionName !== 'createEscrow')
+    throw new Error(
+      'Invalid stake transaction: second call must be createEscrow.',
     )
-      throw new Error('Invalid legacy transaction: wrong approve target.')
 
-    if (
-      !createEscrowCall?.data ||
-      !createEscrowCall.to ||
-      !isAddressEqual(createEscrowCall.to, contract)
-    )
-      throw new Error('Invalid legacy transaction: wrong escrow target.')
+  const [key, counterpartyArg, beneficiaryArg, tokenArg, amountArg] =
+    escrow.args as [Hex, Address, Address, Address, bigint]
 
-    const approve = decodeFunctionData({
-      abi: erc20Abi,
-      data: approveCall.data,
-    })
-    if (approve.functionName !== 'approve')
-      throw new Error('Invalid legacy transaction: first call must be approve.')
-
-    const [spender, approvedAmount] = approve.args as [Address, bigint]
-
-    assertAddress('approve.spender', spender, contract)
-    assertMatch('approve.amount', approvedAmount, amount)
-
-    const escrow = decodeFunctionData({
-      abi: MPPEscrowAbi,
-      data: createEscrowCall.data,
-    })
-    if (escrow.functionName !== 'createEscrow')
-      throw new Error(
-        'Invalid legacy transaction: second call must be createEscrow.',
-      )
-
-    const [key, counterpartyArg, beneficiaryArg, tokenArg, amountArg] =
-      escrow.args as [Hex, Address, Address, Address, bigint]
-
-    assertMatch('stakeKey', key, stakeKey)
-    assertAddress('counterparty', counterpartyArg, counterparty)
-    assertAddress('beneficiary', beneficiaryArg, beneficiary)
-    assertAddress('token', tokenArg, token)
-    assertMatch('amount', amountArg, amount)
-
-    return 'legacy' as const
-  }
-
-  throw new Error('Invalid stake transaction: unexpected call count.')
+  assertMatch('stakeKey', key, stakeKey)
+  assertAddress('counterparty', counterpartyArg, counterparty)
+  assertAddress('beneficiary', beneficiaryArg, beneficiary)
+  assertAddress('token', tokenArg, token)
+  assertMatch('amount', amountArg, amount)
 }
 
 type EscrowVerificationParams = {

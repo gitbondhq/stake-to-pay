@@ -5,7 +5,6 @@ import {
   asAddress,
   asBytes32,
   asOptionalBeneficiary,
-  asUint8,
   asUint256,
 } from '../cli/parsing.js'
 import {
@@ -70,70 +69,6 @@ export function registerEscrowCommands(program: Command): void {
 
   withWriteOptions(
     escrow
-      .command('create-escrow-with-permit')
-      .description(
-        'Call MPPEscrow.createEscrowWithPermit. Payer is derived from the signing key.',
-      )
-      .requiredOption('--key <bytes32>', 'Escrow key as a 32-byte hex value')
-      .requiredOption('--counterparty <address>', 'Counterparty address')
-      .option(
-        '--beneficiary <address>',
-        'Beneficiary address. If omitted, passes address(0) and lets the contract default it to the payer.',
-      )
-      .requiredOption('--token <address>', 'Whitelisted token address')
-      .requiredOption(
-        '--amount <uint256>',
-        'Principal amount in token base units',
-      )
-      .requiredOption(
-        '--deadline <uint256>',
-        'Permit deadline as a unix timestamp',
-      )
-      .requiredOption('--v <uint8>', 'Permit signature v value')
-      .requiredOption('--r <bytes32>', 'Permit signature r value')
-      .requiredOption('--s <bytes32>', 'Permit signature s value'),
-  ).action(
-    async (
-      options: WriteCommandOptions & Record<string, string | undefined>,
-    ) => {
-      await executeWrite(
-        options,
-        async ({ account, address, publicClient, walletClient }) => {
-          const simulation = await publicClient.simulateContract({
-            abi: MPPEscrowAbi,
-            account,
-            address,
-            functionName: 'createEscrowWithPermit',
-            args: [
-              asBytes32(options.key, '--key'),
-              account.address,
-              asAddress(options.counterparty, '--counterparty'),
-              asOptionalBeneficiary(options.beneficiary),
-              asAddress(options.token, '--token'),
-              asUint256(options.amount, '--amount'),
-              {
-                deadline: asUint256(options.deadline, '--deadline'),
-                v: asUint8(options.v, '--v'),
-                r: asBytes32(options.r, '--r'),
-                s: asBytes32(options.s, '--s'),
-              },
-            ],
-          })
-
-          const hash = await walletClient.writeContract(simulation.request)
-
-          return {
-            functionName: 'createEscrowWithPermit',
-            hash,
-            payer: account.address,
-          }
-        },
-      )
-    },
-  )
-
-  withWriteOptions(
-    escrow
       .command('refund-escrow')
       .description('Call MPPEscrow.refundEscrow')
       .requiredOption('--key <bytes32>', 'Escrow key as a 32-byte hex value'),
@@ -187,44 +122,6 @@ export function registerEscrowCommands(program: Command): void {
 
           return {
             functionName: 'slashEscrow',
-            hash,
-          }
-        },
-      )
-    },
-  )
-
-  withWriteOptions(
-    escrow
-      .command('set-counterparty')
-      .description('Call MPPEscrow.setCounterparty')
-      .requiredOption('--key <bytes32>', 'Escrow key as a 32-byte hex value')
-      .requiredOption(
-        '--new-counterparty <address>',
-        'New counterparty address',
-      ),
-  ).action(
-    async (
-      options: WriteCommandOptions & Record<string, string | undefined>,
-    ) => {
-      await executeWrite(
-        options,
-        async ({ account, address, publicClient, walletClient }) => {
-          const simulation = await publicClient.simulateContract({
-            abi: MPPEscrowAbi,
-            account,
-            address,
-            functionName: 'setCounterparty',
-            args: [
-              asBytes32(options.key, '--key'),
-              asAddress(options.newCounterparty, '--new-counterparty'),
-            ],
-          })
-
-          const hash = await walletClient.writeContract(simulation.request)
-
-          return {
-            functionName: 'setCounterparty',
             hash,
           }
         },

@@ -74,71 +74,6 @@ export const MPPEscrowAbi = [
   },
   {
     "type": "function",
-    "name": "createEscrowWithPermit",
-    "inputs": [
-      {
-        "name": "key",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "payer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "counterparty",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "beneficiary",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "permit_",
-        "type": "tuple",
-        "internalType": "struct IMPPEscrow.PermitParams",
-        "components": [
-          {
-            "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "v",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "r",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "s",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          }
-        ]
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "getEscrow",
     "inputs": [
       {
@@ -282,24 +217,6 @@ export const MPPEscrowAbi = [
   },
   {
     "type": "function",
-    "name": "setCounterparty",
-    "inputs": [
-      {
-        "name": "key",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "newCounterparty",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "slashDelegates",
     "inputs": [
       {
@@ -385,31 +302,6 @@ export const MPPEscrowAbi = [
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "event",
-    "name": "EscrowCounterpartyUpdated",
-    "inputs": [
-      {
-        "name": "key",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "previousCounterparty",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "newCounterparty",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
   },
   {
     "type": "event",
@@ -601,11 +493,6 @@ export const MPPEscrowAbi = [
   {
     "type": "error",
     "name": "MPPEscrow__NotAuthorized",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "MPPEscrow__PayerMustBeCaller",
     "inputs": []
   },
   {

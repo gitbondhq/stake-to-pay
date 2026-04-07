@@ -32,9 +32,7 @@ export type StakeMethodInput = {
   feePayer?: boolean | undefined
 }
 
-export type StakeCredentialPayload =
-  | { hash: Hex; type: 'hash' }
-  | { signature: Hex; type: 'transaction' }
+export type StakeCredentialPayload = { hash: Hex; type: 'hash' }
 
 export const toStakeMethodInput = (
   request: StakeChallengeRequest,

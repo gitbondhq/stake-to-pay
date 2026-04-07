@@ -1,23 +1,19 @@
 import { Method, PaymentRequest } from 'mppx'
-import type { Account as ViemAccount, Address, Hex } from 'viem'
-import { isAddressEqual, parseTransaction } from 'viem'
+import type { Address } from 'viem'
+import { isAddressEqual } from 'viem'
 import { getTransactionReceipt } from 'viem/actions'
-import { Transaction } from 'viem/tempo'
 
 import type { NetworkPreset } from '../networkConfig.js'
 import type {
   StakeChallengeRequest,
   StakeCredentialPayload,
 } from '../stakeSchema.js'
-import { cosignWithFeePayer, createClient, submitRawSync } from './client.js'
+import { createClient } from './client.js'
 import { toTypedRequest } from './request.js'
 import { resolvePayerAndBeneficiary } from './source.js'
 import {
   assertEscrowCreatedReceipt,
   assertEscrowOnChain,
-  getSerializedTransaction,
-  isTempoTransaction,
-  matchStakeCalls,
   toReceipt,
 } from './tx.js'
 
@@ -32,21 +28,13 @@ export type StakeDefaults = {
 }
 
 export type StakeParameters = StakeDefaults & {
-  feePayer?: ViemAccount | string | undefined
   preset: NetworkPreset
 }
 
-/**
- * Turns the shared stake schema into a server method that can issue stake
- * challenges and verify either submitted tx hashes or signed tx payloads.
- */
+/** Issues stake challenges and verifies submitted tx hashes. */
 export const createServerStake = (method: StakeMethod) => {
   return (parameters: StakeParameters) => {
     const preset = parameters.preset
-    const feePayerUrl =
-      typeof parameters.feePayer === 'string' ? parameters.feePayer : undefined
-    const feePayer =
-      typeof parameters.feePayer === 'object' ? parameters.feePayer : undefined
 
     return Method.toServer(method, {
       defaults: {
@@ -59,22 +47,12 @@ export const createServerStake = (method: StakeMethod) => {
       },
 
       async request({ request }) {
-        const currentRequest = request as Record<string, unknown> & {
-          feePayer?: boolean | undefined
-        }
-        const defaultFeePayer =
-          (feePayer || feePayerUrl) && preset.capabilities.supportsFeePayer
-            ? true
-            : undefined
+        const rest = { ...(request as Record<string, unknown>) }
+        delete rest.feePayer
 
         return {
-          ...currentRequest,
+          ...rest,
           chainId: preset.chain.id,
-          ...(currentRequest.feePayer !== undefined
-            ? { feePayer: currentRequest.feePayer }
-            : defaultFeePayer !== undefined
-              ? { feePayer: defaultFeePayer }
-              : {}),
         }
       },
 
@@ -88,14 +66,15 @@ export const createServerStake = (method: StakeMethod) => {
         assertRequestMatches(currentRequest, challengeRequest)
 
         const typed = toTypedRequest(challengeRequest)
-        const activeFeePayer = typed.feePayer === true ? feePayer : undefined
-        const activeFeePayerUrl =
-          typed.feePayer === true ? feePayerUrl : undefined
+        if (typed.feePayer === true)
+          throw new Error('feePayer-backed stake challenges are not supported.')
+
         const { beneficiary, payer } = resolvePayerAndBeneficiary(
           challengeRequest,
           credential.source,
         )
-        const client = createClient(preset, activeFeePayerUrl)
+        const client = createClient(preset)
+        const payload = credential.payload as StakeCredentialPayload
 
         const verifyParams = {
           beneficiary,
@@ -110,80 +89,9 @@ export const createServerStake = (method: StakeMethod) => {
           stakeKey: typed.stakeKey,
         }
 
-        let receipt
-
-        const payload = credential.payload as StakeCredentialPayload
-
-        if (typed.feePayer === true && payload.type === 'hash')
-          throw new Error(
-            'Hash credentials are not allowed when methodDetails.feePayer is true.',
-          )
-
-        if (payload.type === 'hash')
-          receipt = await getTransactionReceipt(client, {
-            hash: payload.hash,
-          })
-        else {
-          const serializedTransaction = getSerializedTransaction(payload)
-
-          if (isTempoTransaction(serializedTransaction)) {
-            const transaction = Transaction.deserialize(
-              serializedTransaction as Transaction.TransactionSerializedTempo,
-            )
-            if (!transaction.signature || !transaction.from)
-              throw new Error(
-                'stake transactions must be signed by the payer first.',
-              )
-
-            matchStakeCalls({
-              beneficiary,
-              calls: transaction.calls ?? [],
-              challenge: challengeRequest,
-              payer,
-            })
-
-            const feeToken = transaction.feeToken as Address | undefined
-            const finalTransaction = activeFeePayer
-              ? await cosignWithFeePayer(
-                  client,
-                  preset,
-                  serializedTransaction,
-                  activeFeePayer,
-                  feeToken,
-                )
-              : serializedTransaction
-
-            receipt = await submitRawSync(client, finalTransaction)
-          } else {
-            // Standard EIP-1559 transaction (single-call permit flow).
-            if (activeFeePayer)
-              throw new Error(
-                'Fee payer cosigning requires a Tempo batch transaction.',
-              )
-
-            const transaction = parseTransaction(serializedTransaction)
-            if (
-              !transaction.to ||
-              !('data' in transaction) ||
-              !transaction.data
-            )
-              throw new Error('Standard transaction missing to or data.')
-
-            matchStakeCalls({
-              beneficiary,
-              calls: [
-                {
-                  to: transaction.to as Address,
-                  data: transaction.data as Hex,
-                },
-              ],
-              challenge: challengeRequest,
-              payer,
-            })
-
-            receipt = await submitRawSync(client, serializedTransaction)
-          }
-        }
+        const receipt = await getTransactionReceipt(client, {
+          hash: payload.hash,
+        })
 
         assertEscrowCreatedReceipt(receipt, receiptParams)
         await assertEscrowOnChain(
@@ -215,11 +123,6 @@ const assertRequestMatches = (
       challengeRequest.counterparty,
     ],
     ['contract', currentRequest.contract, challengeRequest.contract],
-    [
-      'feePayer',
-      currentRequest.methodDetails.feePayer === true,
-      challengeRequest.methodDetails.feePayer === true,
-    ],
     ['stakeKey', currentRequest.stakeKey, challengeRequest.stakeKey],
     ['token', currentRequest.token, challengeRequest.token],
     [

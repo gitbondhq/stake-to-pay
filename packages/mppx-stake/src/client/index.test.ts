@@ -69,7 +69,6 @@ describe('client stake exports', () => {
   it('rejects unknown context options', () => {
     const method = stake({ name: methodName, preset })
 
-    expect(() => method.context?.parse({ transportPolicy: 'permit' })).toThrow()
-    expect(() => method.context?.parse({ preferPermit: true })).toThrow()
+    expect(() => method.context?.parse({ unexpected: true })).toThrow()
   })
 })

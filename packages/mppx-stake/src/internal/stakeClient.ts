@@ -3,17 +3,10 @@ import type { Address } from 'viem'
 
 import type { NetworkPreset } from '../networkConfig.js'
 import * as Account from './account.js'
-import { detectTransportPolicy } from './chains.js'
 import type { EIP1193Provider } from './client.js'
-import {
-  createClient,
-  prepareAndSign,
-  providerSubmitCalls,
-  submitCalls,
-} from './client.js'
-import { createPermitParams } from './permit.js'
+import { createClient, providerSubmitCalls, submitCalls } from './client.js'
 import { toTypedRequest } from './request.js'
-import { buildLegacyCalls, buildPermitCalls } from './tx.js'
+import { buildStakeCalls } from './tx.js'
 
 type StakeMethod = Parameters<typeof Method.toClient>[0]
 
@@ -23,12 +16,7 @@ export type StakeParameters = {
   provider?: EIP1193Provider | undefined
 } & Account.GetResolverParameters
 
-/**
- * Turns the shared stake schema into a client method that can:
- * 1. build the escrow calls
- * 2. choose permit vs approve+create
- * 3. either broadcast locally or return a signed transaction for the server
- */
+/** Builds and broadcasts stake transactions, then returns the tx hash. */
 export const createClientStake = (method: StakeMethod) => {
   return (parameters: StakeParameters) => {
     const preset = parameters.preset
@@ -52,76 +40,36 @@ export const createClientStake = (method: StakeMethod) => {
           )
         }
 
+        if (typed.feePayer === true)
+          throw new Error('feePayer-backed stake challenges are not supported.')
+
         const client = createClient(preset)
         const account = getAccount(client, context)
-
         const beneficiary = typed.beneficiary ?? account.address
         const feeToken =
           (context?.feeToken as Address | undefined) ?? parameters.feeToken
-        const feePayer = typed.feePayer === true
-        const transportPolicy = await detectTransportPolicy({
-          chainId: typed.chainId,
-          client,
+        const calls = buildStakeCalls({
+          amount: typed.amount,
+          beneficiary,
+          contract: typed.contract,
+          counterparty: typed.counterparty,
           token: typed.token,
-          owner: account.address,
+          stakeKey: typed.stakeKey,
         })
 
-        const calls =
-          transportPolicy === 'permit'
-            ? await buildPermitCalls({
-                account,
-                amount: typed.amount,
-                beneficiary,
-                chainId: typed.chainId,
-                client,
-                contract: typed.contract,
-                counterparty: typed.counterparty,
-                token: typed.token,
-                permitFactory: createPermitParams,
-                stakeKey: typed.stakeKey,
-              })
-            : buildLegacyCalls({
-                amount: typed.amount,
-                beneficiary,
-                contract: typed.contract,
-                counterparty: typed.counterparty,
-                token: typed.token,
-                stakeKey: typed.stakeKey,
-              })
-
         const source = `did:pkh:eip155:${typed.chainId}:${account.address}`
-        const provider = parameters.provider
+        const hash = parameters.provider
+          ? await providerSubmitCalls(
+              client,
+              account,
+              calls,
+              parameters.provider,
+            )
+          : await submitCalls(client, preset, account, calls, feeToken)
 
-        if (!feePayer) {
-          const hash = provider
-            ? await providerSubmitCalls(client, account, calls, provider)
-            : await submitCalls(client, preset, account, calls, feeToken)
-          return Credential.serialize({
-            challenge,
-            payload: { hash, type: 'hash' },
-            source,
-          })
-        }
-
-        // Fee-payer-backed transaction credentials require Tempo batch
-        // transactions (0x76), which wallet providers cannot sign.
-        if (provider)
-          throw new Error(
-            'Fee-payer-backed transaction credentials are not supported with a wallet provider. ' +
-              'Wallet providers can only produce standard EIP-1559 transactions ' +
-              'which cannot be cosigned by a fee payer.',
-          )
-
-        const signature = await prepareAndSign(
-          client,
-          preset,
-          account,
-          calls,
-          feeToken,
-        )
         return Credential.serialize({
           challenge,
-          payload: { signature, type: 'transaction' },
+          payload: { hash, type: 'hash' },
           source,
         })
       },

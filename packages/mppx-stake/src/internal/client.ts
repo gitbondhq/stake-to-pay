@@ -6,8 +6,6 @@ import {
   sendRawTransactionSync,
   signTransaction,
 } from 'viem/actions'
-import { Transaction } from 'viem/tempo'
-import { withFeePayer } from 'viem/tempo'
 
 import type { NetworkPreset } from '../networkConfig.js'
 
@@ -17,34 +15,18 @@ export type EIP1193Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
 }
 
-export const createClient = (
-  preset: NetworkPreset,
-  feePayerUrl?: string | undefined,
-): EvmClient => {
+export const createClient = (preset: NetworkPreset): EvmClient => {
   const rpcUrl = preset.chain.rpcUrls.default.http[0]
   if (!rpcUrl)
     throw new Error(`No default RPC URL configured for ${preset.id}.`)
 
   return viemCreateClient({
     chain: preset.chain,
-    transport: feePayerUrl
-      ? preset.capabilities.supportsFeePayer
-        ? withFeePayer(http(rpcUrl), http(feePayerUrl))
-        : http(rpcUrl)
-      : http(rpcUrl),
+    transport: http(rpcUrl),
   }) as EvmClient
 }
 
 export type Call = { to: Address; data: Hex }
-
-// Typed wrappers for viem actions.
-//
-// Viem's sendCallsSync and prepareTransactionRequest use deeply generic
-// `Calls<Narrow<calls>, chain, account>` types designed for ABI-aware call
-// inference. Since this package pre-encodes calldata via encodeFunctionData,
-// we bypass that inference. These wrappers retype the viem functions with the
-// simple `{ to, data }` call shape we actually use, keeping all type bridging
-// in one place.
 
 type SubmitCallsFn = (
   client: EvmClient,
@@ -58,16 +40,6 @@ type SubmitCallsFn = (
   receipts?: Array<{ transactionHash: Hex }> | undefined
 }>
 
-type PrepareCallsFn = (
-  client: EvmClient,
-  params: {
-    account: Account
-    calls: readonly Call[]
-    feeToken?: Address
-    nonceKey?: string
-  },
-) => Promise<PreparedTransaction>
-
 type PrepareSingleCallFn = (
   client: EvmClient,
   params: {
@@ -78,12 +50,9 @@ type PrepareSingleCallFn = (
   },
 ) => Promise<PreparedSingleCallTransaction>
 
-type PreparedTransaction = Record<string, unknown> & {
-  gas?: bigint | undefined
-}
-
-type PreparedSingleCallTransaction = PreparedTransaction & {
+type PreparedSingleCallTransaction = Record<string, unknown> & {
   chainId?: number | undefined
+  gas?: bigint | undefined
   maxFeePerGas?: bigint | undefined
   maxPriorityFeePerGas?: bigint | undefined
   nonce?: number | undefined
@@ -91,12 +60,7 @@ type PreparedSingleCallTransaction = PreparedTransaction & {
 
 type SignPreparedFn = (
   client: EvmClient,
-  params: PreparedTransaction,
-) => Promise<Hex>
-
-type CosignFn = (
-  client: EvmClient,
-  params: Record<string, unknown>,
+  params: PreparedSingleCallTransaction,
 ) => Promise<Hex>
 
 type SubmitRawSyncFn = (
@@ -105,12 +69,9 @@ type SubmitRawSyncFn = (
 ) => Promise<import('viem').TransactionReceipt>
 
 const submitCallsAction = sendCallsSync as unknown as SubmitCallsFn
-const prepareCallsAction =
-  prepareTransactionRequest as unknown as PrepareCallsFn
 const prepareSingleCallAction =
   prepareTransactionRequest as unknown as PrepareSingleCallFn
 const signPreparedAction = signTransaction as unknown as SignPreparedFn
-const cosignAction = signTransaction as unknown as CosignFn
 const submitRawSyncAction = sendRawTransactionSync as unknown as SubmitRawSyncFn
 
 /**
@@ -177,37 +138,6 @@ export const submitCalls = async (
   return hash
 }
 
-/**
- * Produces a signed transaction payload for server-broadcast credentials. On
- * non-Tempo chains this is limited to a single-call permit flow.
- */
-export const prepareAndSign = async (
-  client: EvmClient,
-  preset: NetworkPreset,
-  account: Account,
-  calls: readonly Call[],
-  feeToken?: Address,
-): Promise<Hex> => {
-  if (!preset.capabilities.supportsBatchCalls) {
-    if (feeToken)
-      throw new Error(`${preset.id} does not support fee-token batched calls.`)
-    if (calls.length !== 1)
-      throw new Error(
-        `${preset.id} transaction credentials only support single-call stake transactions without batch calls. Use a permit-enabled token or broadcast the transaction locally.`,
-      )
-    return prepareAndSignSingleCall(client, account, calls[0]!)
-  }
-
-  const prepared = await prepareCallsAction(client, {
-    account,
-    calls,
-    ...(feeToken ? { feeToken } : {}),
-    nonceKey: 'expiring',
-  })
-  if (prepared.gas) prepared.gas += 5_000n
-  return signPreparedAction(client, prepared)
-}
-
 // Signs a single-call transaction via an EIP-1193 provider (e.g. Privy).
 // Uses eth_signTransaction which produces a standard EIP-1559 (type 2)
 // envelope, bypassing Tempo's custom 0x76 serialization that embedded
@@ -269,37 +199,3 @@ export const providerSubmitCalls = async (
   if (!lastHash) throw new Error('No transaction hash returned.')
   return lastHash
 }
-
-/**
- * Applies a Tempo fee payer signature to a serialized batch transaction before
- * the server submits it on behalf of the client.
- */
-export const cosignWithFeePayer = async (
-  client: EvmClient,
-  preset: NetworkPreset,
-  serializedTransaction: Hex,
-  feePayer: Account,
-  feeToken?: Address,
-): Promise<Hex> => {
-  if (!preset.capabilities.supportsFeePayer)
-    throw new Error(`${preset.id} does not support fee-payer cosigning.`)
-
-  const transaction = Transaction.deserialize(
-    serializedTransaction as Transaction.TransactionSerializedTempo,
-  )
-  if ((transaction as { feePayerSignature?: unknown }).feePayerSignature)
-    return serializedTransaction
-
-  return cosignAction(client, {
-    ...transaction,
-    account: feePayer,
-    feePayer,
-    ...(feeToken ? { feeToken } : {}),
-  })
-}
-
-/** Broadcasts a fully signed serialized transaction and returns its receipt. */
-export const submitRawSync = async (
-  client: EvmClient,
-  serializedTransaction: Hex,
-) => submitRawSyncAction(client, { serializedTransaction })

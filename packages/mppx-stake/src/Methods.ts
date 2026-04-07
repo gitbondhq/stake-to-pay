@@ -2,11 +2,6 @@ import { Method, z } from 'mppx'
 
 import { baseUnitAmount } from './internal/request.js'
 
-const transactionCredentialSchema = z.object({
-  signature: z.signature(),
-  type: z.literal('transaction'),
-})
-
 export type StakeMethodParameters = {
   name: string
 }
@@ -21,13 +16,10 @@ export const stake = ({ name }: StakeMethodParameters) =>
     intent: 'stake',
     schema: {
       credential: {
-        payload: z.union([
-          z.object({
-            hash: z.hash(),
-            type: z.literal('hash'),
-          }),
-          transactionCredentialSchema,
-        ]),
+        payload: z.object({
+          hash: z.hash(),
+          type: z.literal('hash'),
+        }),
       },
       request: z.pipe(
         z.object({

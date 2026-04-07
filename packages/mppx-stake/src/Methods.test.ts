@@ -26,10 +26,7 @@ describe('stake method schema', () => {
   })
 
   it('parses a valid request into the wire shape', () => {
-    const parsed = PaymentRequest.fromMethod(stakeMethod, {
-      ...request,
-      feePayer: true,
-    })
+    const parsed = PaymentRequest.fromMethod(stakeMethod, request)
 
     expect(parsed).toEqual({
       amount: '5000000',
@@ -43,20 +40,7 @@ describe('stake method schema', () => {
       token: request.token,
       methodDetails: {
         chainId: request.chainId,
-        feePayer: true,
       },
-    })
-  })
-
-  it('preserves an explicit feePayer=false flag', () => {
-    const parsed = PaymentRequest.fromMethod(stakeMethod, {
-      ...request,
-      feePayer: false,
-    })
-
-    expect(parsed.methodDetails).toEqual({
-      chainId: request.chainId,
-      feePayer: false,
     })
   })
 
@@ -75,7 +59,7 @@ describe('stake method schema', () => {
     ).toThrow(/hash/i)
   })
 
-  it('accepts hash and transaction payload variants', () => {
+  it('accepts hash payloads', () => {
     expect(
       stakeMethod.schema.credential.payload.parse({
         hash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
@@ -84,18 +68,6 @@ describe('stake method schema', () => {
     ).toEqual({
       hash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       type: 'hash',
-    })
-
-    expect(
-      stakeMethod.schema.credential.payload.parse({
-        signature:
-          '0x76aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-        type: 'transaction',
-      }),
-    ).toEqual({
-      signature:
-        '0x76aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      type: 'transaction',
     })
   })
 })

@@ -1,13 +1,10 @@
 import { PaymentRequest } from 'mppx'
 import { Mppx, tempo as upstreamTempo } from 'mppx/server'
 import type { Address, Hex, TransactionReceipt } from 'viem'
-import { encodeFunctionData } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { tempoModerato } from 'viem/chains'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
-import { buildLegacyCalls } from '../internal/tx.js'
 import * as Methods from '../Methods.js'
 import type { NetworkPreset } from '../networkConfig.js'
 import { stake } from './index.js'
@@ -60,40 +57,23 @@ const challengeRequest = PaymentRequest.fromMethod(stakeMethod, rawInput)
 const mocks = vi.hoisted(() => ({
   assertEscrowCreatedReceipt: vi.fn(),
   assertEscrowOnChain: vi.fn().mockResolvedValue(undefined),
-  cosignWithFeePayer: vi.fn(),
   createClient: vi.fn(() => ({})),
   getTransactionReceipt: vi.fn(),
-  isTempoTransaction: vi.fn(() => true),
-  parseTransaction: vi.fn(),
-  submitRawSync: vi.fn(),
-  transactionDeserialize: vi.fn(),
 }))
 
 vi.mock('../internal/client.js', () => ({
   createClient: mocks.createClient,
-  cosignWithFeePayer: mocks.cosignWithFeePayer,
-  submitRawSync: mocks.submitRawSync,
 }))
 
 vi.mock('../internal/tx.js', async importOriginal => ({
   ...(await importOriginal<typeof import('../internal/tx.js')>()),
   assertEscrowCreatedReceipt: mocks.assertEscrowCreatedReceipt,
   assertEscrowOnChain: mocks.assertEscrowOnChain,
-  isTempoTransaction: mocks.isTempoTransaction,
 }))
 
 vi.mock('viem/actions', async importOriginal => ({
   ...(await importOriginal<typeof import('viem/actions')>()),
   getTransactionReceipt: mocks.getTransactionReceipt,
-}))
-
-vi.mock('viem', async importOriginal => ({
-  ...(await importOriginal<typeof import('viem')>()),
-  parseTransaction: mocks.parseTransaction,
-}))
-
-vi.mock('viem/tempo', () => ({
-  Transaction: { deserialize: mocks.transactionDeserialize },
 }))
 
 const mockReceipt = {
@@ -102,11 +82,7 @@ const mockReceipt = {
   transactionHash: txHash,
 } as unknown as TransactionReceipt
 
-const makeCredential = (
-  payload:
-    | { hash: Hex; type: 'hash' }
-    | { signature: Hex; type: 'transaction' },
-) => ({
+const makeCredential = (payload: { hash: Hex; type: 'hash' }) => ({
   challenge: {
     id: 'test-challenge-id',
     intent: 'stake' as const,
@@ -180,332 +156,57 @@ describe('server stake verification', () => {
   describe('verify', () => {
     beforeEach(() => vi.clearAllMocks())
 
-    const feePayerRequest = {
-      ...rawInput,
-      feePayer: true,
-    } as const
-    const feePayerChallengeRequest = PaymentRequest.fromMethod(
-      stakeMethod,
-      feePayerRequest,
-    )
+    it('fetches receipt and verifies on-chain state', async () => {
+      mocks.getTransactionReceipt.mockResolvedValue(mockReceipt)
 
-    describe('hash credential', () => {
-      it('fetches receipt and verifies on-chain state', async () => {
-        mocks.getTransactionReceipt.mockResolvedValue(mockReceipt)
-
-        const method = stake({
-          contract,
-          token,
-          name: methodName,
-          preset,
-        })
-        const credential = makeCredential({ hash: txHash, type: 'hash' })
-        const result = await method.verify({
-          credential,
-          request: routeRequest,
-        })
-
-        expect(result).toEqual({
-          method: methodName,
-          reference: txHash,
-          status: 'success',
-          timestamp: expect.any(String),
-        })
-        expect(mocks.getTransactionReceipt).toHaveBeenCalledOnce()
-        expect(mocks.assertEscrowCreatedReceipt).toHaveBeenCalledOnce()
-        expect(mocks.assertEscrowOnChain).toHaveBeenCalledOnce()
-        expect(mocks.submitRawSync).not.toHaveBeenCalled()
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const credential = makeCredential({ hash: txHash, type: 'hash' })
+      const result = await method.verify({
+        credential,
+        request: routeRequest,
       })
 
-      it('rejects hash credentials when feePayer is true', async () => {
-        const method = stake({
-          contract,
-          token,
-          feePayer: {
-            address: '0x5555555555555555555555555555555555555555',
-            type: 'local',
-          } as never,
-          name: methodName,
-          preset,
-        })
-        const credential = {
-          ...makeCredential({ hash: txHash, type: 'hash' }),
-          challenge: {
-            id: 'test-challenge-id',
-            intent: 'stake' as const,
-            method: methodName,
-            realm: 'test.example.com',
-            request: feePayerChallengeRequest,
-          },
-        }
-
-        await expect(
-          method.verify({
-            credential,
-            request: { ...routeRequest, feePayer: true },
-          }),
-        ).rejects.toThrow(/hash credentials.*feepayer/i)
+      expect(result).toEqual({
+        method: methodName,
+        reference: txHash,
+        status: 'success',
+        timestamp: expect.any(String),
       })
+      expect(mocks.createClient).toHaveBeenCalledWith(preset)
+      expect(mocks.getTransactionReceipt).toHaveBeenCalledOnce()
+      expect(mocks.assertEscrowCreatedReceipt).toHaveBeenCalledOnce()
+      expect(mocks.assertEscrowOnChain).toHaveBeenCalledOnce()
     })
 
-    describe('transaction credential', () => {
-      const serializedTx = '0x76aabbcc' as Hex
-      const legacyCalls = buildLegacyCalls({
-        amount: 5_000_000n,
-        beneficiary,
+    it('rejects fee-payer-backed challenges', async () => {
+      const method = stake({
         contract,
-        counterparty,
         token,
-        stakeKey,
+        name: methodName,
+        preset,
       })
-
-      it('deserializes, matches calls, submits, and verifies', async () => {
-        mocks.transactionDeserialize.mockReturnValue({
-          calls: legacyCalls,
-          from: payer,
-          signature: '0xsig',
-        })
-        mocks.submitRawSync.mockResolvedValue(mockReceipt)
-
-        const method = stake({
-          contract,
-          token,
-          name: methodName,
-          preset,
-        })
-        const credential = makeCredential({
-          signature: serializedTx,
-          type: 'transaction',
-        })
-        const result = await method.verify({
-          credential,
-          request: routeRequest,
-        })
-
-        expect(result).toEqual({
+      const credential = {
+        ...makeCredential({ hash: txHash, type: 'hash' }),
+        challenge: {
+          id: 'test-challenge-id',
+          intent: 'stake' as const,
           method: methodName,
-          reference: txHash,
-          status: 'success',
-          timestamp: expect.any(String),
-        })
-        expect(mocks.isTempoTransaction).toHaveBeenCalledWith(serializedTx)
-        expect(mocks.transactionDeserialize).toHaveBeenCalledOnce()
-        expect(mocks.submitRawSync).toHaveBeenCalledOnce()
-        expect(mocks.cosignWithFeePayer).not.toHaveBeenCalled()
-        expect(mocks.assertEscrowCreatedReceipt).toHaveBeenCalledOnce()
-        expect(mocks.assertEscrowOnChain).toHaveBeenCalledOnce()
-      })
-
-      it('cosigns when feePayer account is configured', async () => {
-        mocks.transactionDeserialize.mockReturnValue({
-          calls: legacyCalls,
-          from: payer,
-          signature: '0xsig',
-        })
-        const cosignedTx = '0xcosigned' as Hex
-        mocks.cosignWithFeePayer.mockResolvedValue(cosignedTx)
-        mocks.submitRawSync.mockResolvedValue(mockReceipt)
-
-        const feePayerAccount = {
-          address: '0x5555555555555555555555555555555555555555',
-          type: 'local',
-        }
-        const method = stake({
-          contract,
-          token,
-          feePayer: feePayerAccount as never,
-          name: methodName,
-          preset,
-        })
-        const credential = {
-          ...makeCredential({
-            signature: serializedTx,
-            type: 'transaction',
+          realm: 'test.example.com',
+          request: PaymentRequest.fromMethod(stakeMethod, {
+            ...rawInput,
+            feePayer: true,
           }),
-          challenge: {
-            id: 'test-challenge-id',
-            intent: 'stake' as const,
-            method: methodName,
-            realm: 'test.example.com',
-            request: feePayerChallengeRequest,
-          },
-        }
-        await method.verify({
-          credential,
-          request: { ...routeRequest, feePayer: true },
-        })
+        },
+      }
 
-        expect(mocks.cosignWithFeePayer).toHaveBeenCalledWith(
-          expect.anything(),
-          preset,
-          serializedTx,
-          feePayerAccount,
-          undefined,
-        )
-        expect(mocks.submitRawSync).toHaveBeenCalledWith(
-          expect.anything(),
-          cosignedTx,
-        )
-      })
-
-      it('passes feePayerUrl to createClient when feePayer is a string', async () => {
-        mocks.transactionDeserialize.mockReturnValue({
-          calls: legacyCalls,
-          from: payer,
-          signature: '0xsig',
-        })
-        mocks.submitRawSync.mockResolvedValue(mockReceipt)
-
-        const method = stake({
-          contract,
-          token,
-          feePayer: 'https://feepayer.example.com',
-          name: methodName,
-          preset,
-        })
-        const credential = {
-          ...makeCredential({
-            signature: serializedTx,
-            type: 'transaction',
-          }),
-          challenge: {
-            id: 'test-challenge-id',
-            intent: 'stake' as const,
-            method: methodName,
-            realm: 'test.example.com',
-            request: feePayerChallengeRequest,
-          },
-        }
-        await method.verify({
-          credential,
-          request: { ...routeRequest, feePayer: true },
-        })
-
-        expect(mocks.createClient).toHaveBeenCalledWith(
-          preset,
-          'https://feepayer.example.com',
-        )
-        expect(mocks.cosignWithFeePayer).not.toHaveBeenCalled()
-      })
-
-      it('accepts standard transactions for single-call permit flow', async () => {
-        const standardTx = '0x02aabbcc' as Hex
-        const permitCallData = encodeFunctionData({
-          abi: MPPEscrowAbi,
-          args: [
-            stakeKey,
-            payer,
-            counterparty,
-            beneficiary,
-            token,
-            5_000_000n,
-            {
-              deadline: 0n,
-              r: ('0x' + '00'.repeat(32)) as Hex,
-              s: ('0x' + '00'.repeat(32)) as Hex,
-              v: 27,
-            },
-          ],
-          functionName: 'createEscrowWithPermit',
-        })
-
-        mocks.isTempoTransaction.mockReturnValue(false)
-        mocks.parseTransaction.mockReturnValue({
-          data: permitCallData,
-          to: contract,
-        })
-        mocks.submitRawSync.mockResolvedValue(mockReceipt)
-
-        const method = stake({
-          contract,
-          token,
-          name: methodName,
-          preset,
-        })
-        const credential = makeCredential({
-          signature: standardTx,
-          type: 'transaction',
-        })
-
-        const result = await method.verify({
-          credential,
-          request: routeRequest,
-        })
-
-        expect(result).toEqual({
-          method: methodName,
-          reference: txHash,
-          status: 'success',
-          timestamp: expect.any(String),
-        })
-        expect(mocks.parseTransaction).toHaveBeenCalledWith(standardTx)
-        expect(mocks.submitRawSync).toHaveBeenCalledOnce()
-        expect(mocks.cosignWithFeePayer).not.toHaveBeenCalled()
-      })
-
-      it('rejects standard transactions when feePayer is configured', async () => {
-        mocks.isTempoTransaction.mockReturnValue(false)
-        mocks.parseTransaction.mockReturnValue({
-          data: legacyCalls[0]!.data,
-          to: legacyCalls[0]!.to,
-        })
-
-        const feePayerAccount = {
-          address: '0x5555555555555555555555555555555555555555',
-          type: 'local',
-        }
-        const method = stake({
-          contract,
-          token,
-          feePayer: feePayerAccount as never,
-          name: methodName,
-          preset,
-        })
-        const credential = {
-          ...makeCredential({
-            signature: '0x02aabbcc' as Hex,
-            type: 'transaction',
-          }),
-          challenge: {
-            id: 'test-challenge-id',
-            intent: 'stake' as const,
-            method: methodName,
-            realm: 'test.example.com',
-            request: feePayerChallengeRequest,
-          },
-        }
-
-        await expect(
-          method.verify({
-            credential,
-            request: { ...routeRequest, feePayer: true },
-          }),
-        ).rejects.toThrow(/fee payer.*requires.*tempo batch/i)
-      })
-
-      it('rejects unsigned transactions', async () => {
-        mocks.isTempoTransaction.mockReturnValue(true)
-        mocks.transactionDeserialize.mockReturnValue({
-          calls: [],
-          from: undefined,
-          signature: undefined,
-        })
-
-        const method = stake({
-          contract,
-          token,
-          name: methodName,
-          preset,
-        })
-        const credential = makeCredential({
-          signature: serializedTx,
-          type: 'transaction',
-        })
-
-        await expect(
-          method.verify({ credential, request: routeRequest }),
-        ).rejects.toThrow(/must be signed/i)
-      })
+      await expect(
+        method.verify({ credential, request: routeRequest }),
+      ).rejects.toThrow(/feePayer-backed stake challenges/i)
     })
 
     it('rejects when challenge request does not match', async () => {
