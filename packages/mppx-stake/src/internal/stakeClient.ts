@@ -1,6 +1,7 @@
 import { Credential, Method, z } from 'mppx'
 import type { Address } from 'viem'
 
+import type { NetworkPreset } from '../networkConfig.js'
 import * as Account from './account.js'
 import { detectTransportPolicy } from './chains.js'
 import type { EIP1193Provider } from './client.js'
@@ -18,6 +19,7 @@ type StakeMethod = Parameters<typeof Method.toClient>[0]
 
 export type StakeParameters = {
   feeToken?: Address | undefined
+  preset: NetworkPreset
   provider?: EIP1193Provider | undefined
 } & Account.GetResolverParameters
 
@@ -28,7 +30,8 @@ export type StakeParameters = {
  * 3. either broadcast locally or return a signed transaction for the server
  */
 export const createClientStake = (method: StakeMethod) => {
-  return (parameters: StakeParameters = {}) => {
+  return (parameters: StakeParameters) => {
+    const preset = parameters.preset
     const getAccount = Account.getResolver({ account: parameters.account })
 
     return Method.toClient(method, {
@@ -43,7 +46,13 @@ export const createClientStake = (method: StakeMethod) => {
         const typed = toTypedRequest(
           challenge.request as Parameters<typeof toTypedRequest>[0],
         )
-        const client = createClient({ chainId: typed.chainId })
+        if (typed.chainId !== preset.chain.id) {
+          throw new Error(
+            `challenge chainId ${typed.chainId} does not match the ${preset.id} preset (${preset.chain.id}).`,
+          )
+        }
+
+        const client = createClient(preset)
         const account = getAccount(client, context)
 
         const beneficiary = typed.beneficiary ?? account.address
@@ -86,7 +95,7 @@ export const createClientStake = (method: StakeMethod) => {
         if (!feePayer) {
           const hash = provider
             ? await providerSubmitCalls(client, account, calls, provider)
-            : await submitCalls(client, account, calls, feeToken)
+            : await submitCalls(client, preset, account, calls, feeToken)
           return Credential.serialize({
             challenge,
             payload: { hash, type: 'hash' },
@@ -103,7 +112,13 @@ export const createClientStake = (method: StakeMethod) => {
               'which cannot be cosigned by a fee payer.',
           )
 
-        const signature = await prepareAndSign(client, account, calls, feeToken)
+        const signature = await prepareAndSign(
+          client,
+          preset,
+          account,
+          calls,
+          feeToken,
+        )
         return Credential.serialize({
           challenge,
           payload: { signature, type: 'transaction' },

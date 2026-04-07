@@ -7,11 +7,10 @@ import {
   type StakeMethodParameters,
 } from '../Methods.js'
 
-type CreateServerStakeParameters = ServerStakeParameters & StakeMethodParameters
-type ServerStakeFactory = (
-  parameters: CreateServerStakeParameters,
-) => ReturnType<ReturnType<typeof createServerStake>>
-
 /** Server-side `stake` method implementation used to issue and verify challenges. */
-export const stake: ServerStakeFactory = ({ name, ...parameters }) =>
-  createServerStake(createStakeMethod({ name }))(parameters)
+export const stake: (
+  parameters: ServerStakeParameters & StakeMethodParameters,
+) => ReturnType<ReturnType<typeof createServerStake>> = ({
+  name,
+  ...parameters
+}) => createServerStake(createStakeMethod({ name }))(parameters)

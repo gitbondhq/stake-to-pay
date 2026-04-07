@@ -146,6 +146,7 @@ export function registerChallengeCommands(program: Command): void {
         const method = createStakeMethod({
           account,
           name: repoConfig.methodName,
+          preset: repoConfig.networkPreset,
         })
         const serializedCredential = await method.createCredential({
           challenge: forcedChallenge,

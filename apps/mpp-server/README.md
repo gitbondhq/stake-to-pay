@@ -56,7 +56,6 @@ npx mppx http://127.0.0.1:4020/documents/incident-report-7b
 |----------|---------|-------------|
 | `PORT` | `4020` | Server port |
 | `HOST` | `127.0.0.1` | Bind address |
-| `STAKE_CHAIN_ID` | `42431` | Chain ID (from network preset) |
 | `STAKE_TOKEN` | pathUSD | ERC-20 token address |
 | `STAKE_AMOUNT` | `5000000` | Stake amount in base units |
 | `STAKE_BENEFICIARY` | Payer | Refund recipient (defaults to payer) |
@@ -65,4 +64,4 @@ npx mppx http://127.0.0.1:4020/documents/incident-report-7b
 | `STAKE_DESCRIPTION` | — | Human-readable stake description |
 | `STAKE_POLICY` | `demo-document-v1` | Policy identifier |
 
-Defaults are also loaded from the repo-level `config.json`.
+Defaults are also loaded from the repo-level `config.json`, including the explicit `networkPreset` object passed into the SDK.

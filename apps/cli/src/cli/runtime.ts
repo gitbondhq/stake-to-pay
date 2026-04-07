@@ -13,7 +13,6 @@ import {
   PRIVATE_KEY_ENV,
   repoConfig,
   RPC_URL_ENV,
-  selectedNetwork,
 } from './context.js'
 import { printJson } from './format.js'
 import { asAddress, asHex32, requiredString } from './parsing.js'
@@ -108,9 +107,8 @@ function resolveRpcUrl(options: BaseCommandOptions): string {
   return requiredString(
     options.rpcUrl ??
       process.env[RPC_URL_ENV] ??
-      repoConfig.rpcUrl ??
-      selectedNetwork.chain.rpcUrls.default.http[0],
-    `Missing RPC URL. Pass --rpc-url, set ${RPC_URL_ENV}, or configure a default RPC URL for ${selectedNetwork.id}.`,
+      repoConfig.networkPreset.chain.rpcUrls.default.http[0],
+    `Missing RPC URL. Pass --rpc-url, set ${RPC_URL_ENV}, or configure a default RPC URL for ${repoConfig.networkPreset.id}.`,
   )
 }
 

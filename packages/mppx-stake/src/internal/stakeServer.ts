@@ -4,7 +4,7 @@ import { isAddressEqual, parseTransaction } from 'viem'
 import { getTransactionReceipt } from 'viem/actions'
 import { Transaction } from 'viem/tempo'
 
-import { getNetworkPresetByChainId } from '../networkConfig.js'
+import type { NetworkPreset } from '../networkConfig.js'
 import type {
   StakeChallengeRequest,
   StakeCredentialPayload,
@@ -25,7 +25,6 @@ type StakeMethod = Parameters<typeof Method.toServer>[0] & { name: string }
 
 export type StakeDefaults = {
   beneficiary?: Address | undefined
-  chainId?: number | undefined
   contract?: Address | undefined
   counterparty?: Address | undefined
   token?: Address | undefined
@@ -34,29 +33,25 @@ export type StakeDefaults = {
 
 export type StakeParameters = StakeDefaults & {
   feePayer?: ViemAccount | string | undefined
+  preset: NetworkPreset
 }
-
-const getFeePayerUrl = (parameters: StakeParameters) =>
-  typeof parameters.feePayer === 'string' ? parameters.feePayer : undefined
-
-const getFeePayer = (parameters: StakeParameters): ViemAccount | undefined =>
-  typeof parameters.feePayer === 'object' ? parameters.feePayer : undefined
 
 /**
  * Turns the shared stake schema into a server method that can issue stake
  * challenges and verify either submitted tx hashes or signed tx payloads.
  */
 export const createServerStake = (method: StakeMethod) => {
-  return <const parameters extends StakeParameters>(
-    parameters = {} as parameters,
-  ) => {
-    const feePayerUrl = getFeePayerUrl(parameters)
-    const feePayer = getFeePayer(parameters)
+  return (parameters: StakeParameters) => {
+    const preset = parameters.preset
+    const feePayerUrl =
+      typeof parameters.feePayer === 'string' ? parameters.feePayer : undefined
+    const feePayer =
+      typeof parameters.feePayer === 'object' ? parameters.feePayer : undefined
 
     return Method.toServer(method, {
       defaults: {
         beneficiary: parameters.beneficiary,
-        chainId: parameters.chainId,
+        chainId: preset.chain.id,
         contract: parameters.contract,
         counterparty: parameters.counterparty,
         token: parameters.token,
@@ -65,22 +60,16 @@ export const createServerStake = (method: StakeMethod) => {
 
       async request({ request }) {
         const currentRequest = request as Record<string, unknown> & {
-          chainId?: number | undefined
           feePayer?: boolean | undefined
         }
-        const chainId = currentRequest.chainId ?? parameters.chainId
-        if (!chainId) throw new Error('No chainId configured for stake route.')
-        const preset = getNetworkPresetByChainId(chainId)
         const defaultFeePayer =
-          feePayer || feePayerUrl
-            ? preset.capabilities.supportsFeePayer
-              ? true
-              : undefined
+          (feePayer || feePayerUrl) && preset.capabilities.supportsFeePayer
+            ? true
             : undefined
 
         return {
           ...currentRequest,
-          chainId,
+          chainId: preset.chain.id,
           ...(currentRequest.feePayer !== undefined
             ? { feePayer: currentRequest.feePayer }
             : defaultFeePayer !== undefined
@@ -92,10 +81,10 @@ export const createServerStake = (method: StakeMethod) => {
       async verify({ credential, request }) {
         const challengeRequest = credential.challenge
           .request as StakeChallengeRequest
-        const currentRequest = PaymentRequest.fromMethod(
-          method,
-          request as Record<string, unknown>,
-        ) as StakeChallengeRequest
+        const currentRequest = PaymentRequest.fromMethod(method, {
+          ...(request as Record<string, unknown>),
+          chainId: preset.chain.id,
+        }) as StakeChallengeRequest
         assertRequestMatches(currentRequest, challengeRequest)
 
         const typed = toTypedRequest(challengeRequest)
@@ -106,10 +95,7 @@ export const createServerStake = (method: StakeMethod) => {
           challengeRequest,
           credential.source,
         )
-        const client = createClient({
-          chainId: typed.chainId,
-          feePayerUrl: activeFeePayerUrl,
-        })
+        const client = createClient(preset, activeFeePayerUrl)
 
         const verifyParams = {
           beneficiary,
@@ -160,6 +146,7 @@ export const createServerStake = (method: StakeMethod) => {
             const finalTransaction = activeFeePayer
               ? await cosignWithFeePayer(
                   client,
+                  preset,
                   serializedTransaction,
                   activeFeePayer,
                   feeToken,

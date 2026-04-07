@@ -66,7 +66,7 @@ stake-mpp/
 ├── apps/mpp-server/         # Demo: stake-gated Express server
 ├── apps/cli/                # CLI for escrow + challenge operations
 ├── specs/intents/           # Draft IETF-style stake intent spec
-├── config.json              # Shared network + escrow defaults
+├── config.json              # Shared networkPreset + escrow defaults
 └── foundry.toml             # Solidity compiler config
 ```
 

@@ -1,12 +1,8 @@
 import { readFileSync } from 'node:fs'
 import process from 'node:process'
 
-import {
-  getNetworkPreset,
-  type NetworkId,
-  resolveNetworkId,
-} from '@gitbondhq/mppx-stake'
-import { isAddress } from 'viem'
+import { parseRepoConfig, type RepoConfig } from '@gitbondhq/mppx-stake'
+import { getAddress, isAddress } from 'viem'
 
 const defaultDocumentSlug = 'incident-report-7b'
 const defaultDocumentTitle = 'Incident Report 7B'
@@ -22,27 +18,23 @@ export type AppConfig = {
   host: string
   methodName: string
   mppSecretKey: string
-  network: NetworkId
+  networkPreset: RepoConfig['networkPreset']
   port: number
   stakeAmount: string
   stakeBeneficiary?: `0x${string}` | undefined
-  stakeChainId: number
   stakeContract: `0x${string}`
   stakeCounterparty: `0x${string}`
   stakeToken: `0x${string}`
   stakeDescription: string
   stakePolicy: string
   stakeResource: string
-  stakeTokenWhitelist: readonly `0x${string}`[]
+  stakeTokenWhitelist: RepoConfig['escrow']['tokenWhitelist']
 }
 
 export const loadConfig = (): AppConfig => {
   const repoConfig = loadRepoConfig()
   const documentSlug = getSlug('DOCUMENT_SLUG', defaultDocumentSlug)
-  const network = resolveNetworkId(
-    process.env.MPP_NETWORK?.trim() || repoConfig.network,
-  )
-  const preset = getNetworkPreset(network)
+  const networkPreset = repoConfig.networkPreset
 
   return {
     documentPath: `/documents/${documentSlug}`,
@@ -52,12 +44,11 @@ export const loadConfig = (): AppConfig => {
     host: getString('HOST', defaultHost),
     methodName: repoConfig.methodName,
     mppSecretKey: getRequiredString('MPP_SECRET_KEY'),
-    network,
+    networkPreset,
     port: getInteger('PORT', defaultPort),
     stakeAmount: getBaseUnitAmount('STAKE_AMOUNT', repoConfig.escrow.amount),
     stakeBeneficiary:
       getOptionalAddress('STAKE_BENEFICIARY') ?? repoConfig.escrow.beneficiary,
-    stakeChainId: preset.chain.id,
     stakeContract: getConfiguredAddress(
       'STAKE_CONTRACT',
       repoConfig.escrow.contract,
@@ -84,11 +75,11 @@ export const toPublicConfig = (config: AppConfig) => ({
   documentTitle: config.documentTitle,
   host: config.host,
   methodName: config.methodName,
-  network: config.network,
+  network: config.networkPreset.id,
   port: config.port,
   stakeAmount: config.stakeAmount,
   stakeBeneficiary: config.stakeBeneficiary ?? null,
-  stakeChainId: config.stakeChainId,
+  stakeChainId: config.networkPreset.chain.id,
   stakeContract: config.stakeContract,
   stakeCounterparty: config.stakeCounterparty,
   stakeToken: config.stakeToken,
@@ -119,7 +110,7 @@ const getOptionalAddress = (name: string): `0x${string}` | undefined => {
   const value = process.env[name]?.trim()
   if (!value) return undefined
   if (!isAddress(value)) throw new Error(`${name} must be a valid EVM address.`)
-  return value
+  return getAddress(value)
 }
 
 const getConfiguredAddress = (
@@ -129,7 +120,7 @@ const getConfiguredAddress = (
   const value = process.env[name]?.trim() || fallback
   if (!value) throw new Error(`${name} is required.`)
   if (!isAddress(value)) throw new Error(`${name} must be a valid EVM address.`)
-  return value
+  return getAddress(value)
 }
 
 const getRequiredString = (name: string): string => {
@@ -150,152 +141,5 @@ const getString = (name: string, fallback: string): string => {
   return value && value.length > 0 ? value : fallback
 }
 
-type RepoConfig = {
-  chainId: number
-  escrow: {
-    amount: string
-    beneficiary?: `0x${string}` | undefined
-    contract?: `0x${string}` | undefined
-    counterparty?: `0x${string}` | undefined
-    token: `0x${string}`
-    description: string
-    policy: string
-    tokenWhitelist: `0x${string}`[]
-  }
-  methodName: string
-  network: NetworkId
-  rpcUrl?: string | undefined
-}
-
-const loadRepoConfig = (): RepoConfig => {
-  const raw = JSON.parse(readFileSync(repoConfigPath, 'utf8')) as {
-    chainId?: unknown
-    escrow?: {
-      amount?: unknown
-      beneficiary?: unknown
-      contract?: unknown
-      counterparty?: unknown
-      token?: unknown
-      description?: unknown
-      policy?: unknown
-      tokenWhitelist?: unknown
-    }
-    methodName?: unknown
-    network?: unknown
-    rpcUrl?: unknown
-  }
-
-  const network = resolveNetworkId(
-    getRequiredJsonString(raw.network, 'network'),
-  )
-  const preset = getNetworkPreset(network)
-  const chainId = getRequiredJsonInteger(raw.chainId, 'chainId')
-  if (chainId !== preset.chain.id) {
-    throw new Error(
-      `config.json chainId ${chainId} does not match the ${network} preset (${preset.chain.id}).`,
-    )
-  }
-
-  const escrow = raw.escrow
-  if (!escrow || typeof escrow !== 'object') {
-    throw new Error('config.json escrow must be an object.')
-  }
-
-  const tokenWhitelist = getRequiredJsonAddressArray(
-    escrow.tokenWhitelist,
-    'escrow.tokenWhitelist',
-  )
-  const token = getRequiredJsonAddress(escrow.token, 'escrow.token')
-  if (
-    !tokenWhitelist.some(
-      candidate => candidate.toLowerCase() === token.toLowerCase(),
-    )
-  ) {
-    throw new Error(
-      'config.json escrow.token must be included in escrow.tokenWhitelist.',
-    )
-  }
-
-  return {
-    chainId,
-    escrow: {
-      amount: getRequiredJsonBaseUnitAmount(escrow.amount, 'escrow.amount'),
-      beneficiary: getOptionalJsonAddress(
-        escrow.beneficiary,
-        'escrow.beneficiary',
-      ),
-      contract: getOptionalJsonAddress(escrow.contract, 'escrow.contract'),
-      counterparty: getOptionalJsonAddress(
-        escrow.counterparty,
-        'escrow.counterparty',
-      ),
-      token,
-      description: getRequiredJsonString(
-        escrow.description,
-        'escrow.description',
-      ),
-      policy: getRequiredJsonString(escrow.policy, 'escrow.policy'),
-      tokenWhitelist,
-    },
-    methodName: getRequiredJsonString(raw.methodName, 'methodName'),
-    network,
-    rpcUrl:
-      raw.rpcUrl === null || raw.rpcUrl === undefined
-        ? undefined
-        : getRequiredJsonString(raw.rpcUrl, 'rpcUrl'),
-  }
-}
-
-const getRequiredJsonAddress = (
-  value: unknown,
-  label: string,
-): `0x${string}` => {
-  if (typeof value !== 'string' || !isAddress(value)) {
-    throw new Error(`config.json ${label} must be a valid EVM address.`)
-  }
-  return value
-}
-
-const getOptionalJsonAddress = (
-  value: unknown,
-  label: string,
-): `0x${string}` | undefined => {
-  if (value === null || value === undefined) return undefined
-  return getRequiredJsonAddress(value, label)
-}
-
-const getRequiredJsonAddressArray = (
-  value: unknown,
-  label: string,
-): `0x${string}`[] => {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error(`config.json ${label} must be a non-empty address array.`)
-  }
-  return value.map((item, index) =>
-    getRequiredJsonAddress(item, `${label}[${index}]`),
-  )
-}
-
-const getRequiredJsonBaseUnitAmount = (
-  value: unknown,
-  label: string,
-): string => {
-  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
-    throw new Error(`config.json ${label} must be a base-unit integer string.`)
-  }
-  return value
-}
-
-const getRequiredJsonInteger = (value: unknown, label: string): number => {
-  if (!Number.isSafeInteger(value) || Number(value) <= 0) {
-    throw new Error(`config.json ${label} must be a positive integer.`)
-  }
-  return Number(value)
-}
-
-const getRequiredJsonString = (value: unknown, label: string): string => {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error(`config.json ${label} must be a non-empty string.`)
-  }
-  return value.trim()
-}
+const loadRepoConfig = (): RepoConfig =>
+  parseRepoConfig(JSON.parse(readFileSync(repoConfigPath, 'utf8')))

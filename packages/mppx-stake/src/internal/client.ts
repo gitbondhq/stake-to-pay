@@ -9,7 +9,7 @@ import {
 import { Transaction } from 'viem/tempo'
 import { withFeePayer } from 'viem/tempo'
 
-import { getNetworkPresetByChainId } from '../networkConfig.js'
+import type { NetworkPreset } from '../networkConfig.js'
 
 export type EvmClient = Client<Transport, Chain>
 
@@ -17,25 +17,21 @@ export type EIP1193Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
 }
 
-/**
- * Creates a viem client for the selected chain preset. The caller must provide
- * an explicit chain id; this package does not choose a default network.
- */
-export const createClient = (parameters: {
-  chainId: number
-  feePayerUrl?: string | undefined
-}): EvmClient => {
-  const { chainId, feePayerUrl } = parameters
-  const preset = getNetworkPresetByChainId(chainId)
-  const url = preset.chain.rpcUrls.default.http[0]
-  if (!url) throw new Error(`No default RPC URL configured for ${preset.id}.`)
+export const createClient = (
+  preset: NetworkPreset,
+  feePayerUrl?: string | undefined,
+): EvmClient => {
+  const rpcUrl = preset.chain.rpcUrls.default.http[0]
+  if (!rpcUrl)
+    throw new Error(`No default RPC URL configured for ${preset.id}.`)
+
   return viemCreateClient({
     chain: preset.chain,
     transport: feePayerUrl
       ? preset.capabilities.supportsFeePayer
-        ? withFeePayer(http(url), http(feePayerUrl))
-        : http(url)
-      : http(url),
+        ? withFeePayer(http(rpcUrl), http(feePayerUrl))
+        : http(rpcUrl)
+      : http(rpcUrl),
   }) as EvmClient
 }
 
@@ -117,12 +113,6 @@ const signPreparedAction = signTransaction as unknown as SignPreparedFn
 const cosignAction = signTransaction as unknown as CosignFn
 const submitRawSyncAction = sendRawTransactionSync as unknown as SubmitRawSyncFn
 
-const getClientNetwork = (client: EvmClient) => {
-  const chainId = client.chain?.id
-  if (!chainId) throw new Error('Client is missing chain configuration.')
-  return getNetworkPresetByChainId(chainId)
-}
-
 /**
  * Prepares and signs a single normal EVM transaction. This is the fallback
  * path used on chains without Tempo batch call support.
@@ -165,11 +155,11 @@ const submitSequentialCalls = async (
  */
 export const submitCalls = async (
   client: EvmClient,
+  preset: NetworkPreset,
   account: Account,
   calls: readonly Call[],
   feeToken?: Address,
 ): Promise<Hex> => {
-  const preset = getClientNetwork(client)
   if (!preset.capabilities.supportsBatchCalls) {
     if (feeToken)
       throw new Error(`${preset.id} does not support fee-token batched calls.`)
@@ -193,11 +183,11 @@ export const submitCalls = async (
  */
 export const prepareAndSign = async (
   client: EvmClient,
+  preset: NetworkPreset,
   account: Account,
   calls: readonly Call[],
   feeToken?: Address,
 ): Promise<Hex> => {
-  const preset = getClientNetwork(client)
   if (!preset.capabilities.supportsBatchCalls) {
     if (feeToken)
       throw new Error(`${preset.id} does not support fee-token batched calls.`)
@@ -286,11 +276,11 @@ export const providerSubmitCalls = async (
  */
 export const cosignWithFeePayer = async (
   client: EvmClient,
+  preset: NetworkPreset,
   serializedTransaction: Hex,
   feePayer: Account,
   feeToken?: Address,
 ): Promise<Hex> => {
-  const preset = getClientNetwork(client)
   if (!preset.capabilities.supportsFeePayer)
     throw new Error(`${preset.id} does not support fee-payer cosigning.`)
 

@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto'
 
+import { parseStakeChallenge } from '@gitbondhq/mppx-stake'
 import { Credential } from 'mppx'
+import { isAddressEqual } from 'viem'
 
 import type { AppConfig } from './config.js'
 
@@ -18,17 +20,7 @@ export type StakeRouteOptions = {
   stakeKey: `0x${string}`
 }
 
-type StakeChallengeRequest = {
-  amount: string
-  counterparty?: string
-  externalId?: string
-  policy?: string
-  resource?: string
-  stakeKey: `0x${string}`
-  methodDetails?: {
-    feePayer?: boolean
-  }
-}
+type StakeChallengeRequest = ReturnType<typeof parseStakeChallenge>['request']
 
 const createStakeRouteOptions = (config: AppConfig): StakeRouteOptions => {
   const nonce = randomBytes(6).toString('hex')
@@ -53,62 +45,52 @@ const getPaymentCredential = (req: CredentialRequest) => {
   }
 }
 
-const isStakeChallengeRequest = (
-  value: unknown,
-): value is StakeChallengeRequest => {
-  if (!isRecord(value)) return false
+const getStakeChallengeRequest = (
+  req: CredentialRequest,
+  methodName: string,
+) => {
+  const credential = getPaymentCredential(req)
+  if (!credential) return null
 
-  const request = value
-  const methodDetails = request.methodDetails
-
-  return (
-    typeof request.amount === 'string' &&
-    isOptionalString(request.counterparty) &&
-    isOptionalString(request.externalId) &&
-    isOptionalString(request.policy) &&
-    isOptionalString(request.resource) &&
-    typeof request.stakeKey === 'string' &&
-    request.stakeKey.startsWith('0x') &&
-    (methodDetails === undefined ||
-      (isRecord(methodDetails) && isOptionalBoolean(methodDetails.feePayer)))
-  )
+  try {
+    return parseStakeChallenge(credential.challenge, {
+      methodName,
+    }).request
+  } catch {
+    return null
+  }
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
-
-const isOptionalBoolean = (value: unknown): value is boolean | undefined =>
-  value === undefined || typeof value === 'boolean'
-
-const isOptionalString = (value: unknown): value is string | undefined =>
-  value === undefined || typeof value === 'string'
+const matchesConfiguredRoute = (
+  config: AppConfig,
+  request: StakeChallengeRequest | null,
+): request is StakeChallengeRequest =>
+  request !== null &&
+  isAddressEqual(request.contract, config.stakeContract) &&
+  isAddressEqual(request.counterparty, config.stakeCounterparty) &&
+  isAddressEqual(request.token, config.stakeToken) &&
+  request.methodDetails.chainId === config.networkPreset.chain.id &&
+  request.resource === config.stakeResource &&
+  (config.stakeBeneficiary
+    ? request.beneficiary !== undefined &&
+      isAddressEqual(request.beneficiary, config.stakeBeneficiary)
+    : request.beneficiary === undefined)
 
 export const resolveStakeRouteOptions = (
   req: CredentialRequest,
   config: AppConfig,
   methodName: string,
 ): StakeRouteOptions => {
-  const credential = getPaymentCredential(req)
+  const challengeRequest = getStakeChallengeRequest(req, methodName)
 
-  if (
-    credential?.challenge.intent === 'stake' &&
-    credential.challenge.method === methodName &&
-    isStakeChallengeRequest(credential.challenge.request) &&
-    credential.challenge.request.counterparty === config.stakeCounterparty &&
-    credential.challenge.request.resource === config.stakeResource
-  ) {
+  if (matchesConfiguredRoute(config, challengeRequest)) {
     return {
-      amount: credential.challenge.request.amount,
+      amount: challengeRequest.amount,
       externalId:
-        typeof credential.challenge.request.externalId === 'string'
-          ? credential.challenge.request.externalId
-          : `document:${config.documentSlug}:retry`,
-      policy:
-        typeof credential.challenge.request.policy === 'string'
-          ? credential.challenge.request.policy
-          : config.stakePolicy,
+        challengeRequest.externalId ?? `document:${config.documentSlug}:retry`,
+      policy: challengeRequest.policy ?? config.stakePolicy,
       resource: config.stakeResource,
-      stakeKey: credential.challenge.request.stakeKey,
+      stakeKey: challengeRequest.stakeKey,
     }
   }
 

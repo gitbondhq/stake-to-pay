@@ -5,16 +5,8 @@ export {
   withStakeFeePayer,
 } from './challenge.js'
 export * as Methods from './Methods.js'
-export {
-  getNetworkPreset,
-  getNetworkPresetByChainId,
-  type NetworkCapabilities,
-  type NetworkId,
-  networkIds,
-  type NetworkPreset,
-  networkPresets,
-  resolveNetworkId,
-} from './networkConfig.js'
+export { type NetworkPreset, parseNetworkPreset } from './networkConfig.js'
+export { parseRepoConfig, type RepoConfig } from './repoConfig.js'
 export {
   type StakeChallengeRequest,
   type StakeCredentialPayload,

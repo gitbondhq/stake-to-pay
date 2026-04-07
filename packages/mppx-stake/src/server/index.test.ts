@@ -3,11 +3,13 @@ import { Mppx, tempo as upstreamTempo } from 'mppx/server'
 import type { Address, Hex, TransactionReceipt } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { tempoModerato } from 'viem/chains'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
 import { buildLegacyCalls } from '../internal/tx.js'
 import * as Methods from '../Methods.js'
+import type { NetworkPreset } from '../networkConfig.js'
 import { stake } from './index.js'
 
 const account = privateKeyToAccount(
@@ -24,6 +26,15 @@ const chainId = 42431
 const txHash =
   '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Hex
 const methodName = 'tempo'
+const preset = {
+  capabilities: {
+    supportsBatchCalls: true,
+    supportsFeePayer: true,
+  },
+  chain: tempoModerato,
+  family: 'evm',
+  id: 'tempoModerato',
+} as const satisfies NetworkPreset
 
 const rawInput = {
   amount: '5000000',
@@ -33,6 +44,14 @@ const rawInput = {
   counterparty,
   token,
   stakeKey,
+}
+const routeRequest = {
+  amount: rawInput.amount,
+  beneficiary: rawInput.beneficiary,
+  contract: rawInput.contract,
+  counterparty: rawInput.counterparty,
+  token: rawInput.token,
+  stakeKey: rawInput.stakeKey,
 }
 
 const stakeMethod = Methods.stake({ name: methodName })
@@ -103,7 +122,7 @@ describe('server stake exports', () => {
   it('composes with an existing method set', () => {
     const methods = [
       ...upstreamTempo({ account }),
-      stake({ name: methodName }),
+      stake({ name: methodName, preset }),
     ] as const
 
     expect(methods).toHaveLength(3)
@@ -114,7 +133,7 @@ describe('server stake exports', () => {
   })
 
   it('exposes the standalone stake server method', () => {
-    const method = stake({ name: methodName })
+    const method = stake({ name: methodName, preset })
     expect(method.name).toBe(methodName)
     expect(method.intent).toBe('stake')
   })
@@ -122,7 +141,10 @@ describe('server stake exports', () => {
   it('wires stake into Mppx.create()', () => {
     const mppx = Mppx.create({
       methods: [
-        [...upstreamTempo({ account }), stake({ name: methodName })] as const,
+        [
+          ...upstreamTempo({ account }),
+          stake({ name: methodName, preset }),
+        ] as const,
       ],
       secretKey: 'test-secret',
     })
@@ -136,12 +158,12 @@ describe('server stake verification', () => {
   it('keeps route defaults limited to shared request fields', () => {
     const method = stake({
       beneficiary,
-      chainId,
       contract,
       counterparty,
       token,
       description: 'Stake required',
       name: methodName,
+      preset,
     })
 
     expect(method.defaults).toEqual({
@@ -171,9 +193,17 @@ describe('server stake verification', () => {
       it('fetches receipt and verifies on-chain state', async () => {
         mocks.getTransactionReceipt.mockResolvedValue(mockReceipt)
 
-        const method = stake({ chainId, contract, token, name: methodName })
+        const method = stake({
+          contract,
+          token,
+          name: methodName,
+          preset,
+        })
         const credential = makeCredential({ hash: txHash, type: 'hash' })
-        const result = await method.verify({ credential, request: rawInput })
+        const result = await method.verify({
+          credential,
+          request: routeRequest,
+        })
 
         expect(result).toEqual({
           method: methodName,
@@ -189,7 +219,6 @@ describe('server stake verification', () => {
 
       it('rejects hash credentials when feePayer is true', async () => {
         const method = stake({
-          chainId,
           contract,
           token,
           feePayer: {
@@ -197,6 +226,7 @@ describe('server stake verification', () => {
             type: 'local',
           } as never,
           name: methodName,
+          preset,
         })
         const credential = {
           ...makeCredential({ hash: txHash, type: 'hash' }),
@@ -210,7 +240,10 @@ describe('server stake verification', () => {
         }
 
         await expect(
-          method.verify({ credential, request: feePayerRequest }),
+          method.verify({
+            credential,
+            request: { ...routeRequest, feePayer: true },
+          }),
         ).rejects.toThrow(/hash credentials.*feepayer/i)
       })
     })
@@ -234,12 +267,20 @@ describe('server stake verification', () => {
         })
         mocks.submitRawSync.mockResolvedValue(mockReceipt)
 
-        const method = stake({ chainId, contract, token, name: methodName })
+        const method = stake({
+          contract,
+          token,
+          name: methodName,
+          preset,
+        })
         const credential = makeCredential({
           signature: serializedTx,
           type: 'transaction',
         })
-        const result = await method.verify({ credential, request: rawInput })
+        const result = await method.verify({
+          credential,
+          request: routeRequest,
+        })
 
         expect(result).toEqual({
           method: methodName,
@@ -270,11 +311,11 @@ describe('server stake verification', () => {
           type: 'local',
         }
         const method = stake({
-          chainId,
           contract,
           token,
           feePayer: feePayerAccount as never,
           name: methodName,
+          preset,
         })
         const credential = {
           ...makeCredential({
@@ -289,10 +330,14 @@ describe('server stake verification', () => {
             request: feePayerChallengeRequest,
           },
         }
-        await method.verify({ credential, request: feePayerRequest })
+        await method.verify({
+          credential,
+          request: { ...routeRequest, feePayer: true },
+        })
 
         expect(mocks.cosignWithFeePayer).toHaveBeenCalledWith(
           expect.anything(),
+          preset,
           serializedTx,
           feePayerAccount,
           undefined,
@@ -312,11 +357,11 @@ describe('server stake verification', () => {
         mocks.submitRawSync.mockResolvedValue(mockReceipt)
 
         const method = stake({
-          chainId,
           contract,
           token,
           feePayer: 'https://feepayer.example.com',
           name: methodName,
+          preset,
         })
         const credential = {
           ...makeCredential({
@@ -331,12 +376,15 @@ describe('server stake verification', () => {
             request: feePayerChallengeRequest,
           },
         }
-        await method.verify({ credential, request: feePayerRequest })
-
-        expect(mocks.createClient).toHaveBeenCalledWith({
-          chainId,
-          feePayerUrl: 'https://feepayer.example.com',
+        await method.verify({
+          credential,
+          request: { ...routeRequest, feePayer: true },
         })
+
+        expect(mocks.createClient).toHaveBeenCalledWith(
+          preset,
+          'https://feepayer.example.com',
+        )
         expect(mocks.cosignWithFeePayer).not.toHaveBeenCalled()
       })
 
@@ -368,7 +416,12 @@ describe('server stake verification', () => {
         })
         mocks.submitRawSync.mockResolvedValue(mockReceipt)
 
-        const method = stake({ chainId, contract, token, name: methodName })
+        const method = stake({
+          contract,
+          token,
+          name: methodName,
+          preset,
+        })
         const credential = makeCredential({
           signature: standardTx,
           type: 'transaction',
@@ -376,7 +429,7 @@ describe('server stake verification', () => {
 
         const result = await method.verify({
           credential,
-          request: rawInput,
+          request: routeRequest,
         })
 
         expect(result).toEqual({
@@ -402,11 +455,11 @@ describe('server stake verification', () => {
           type: 'local',
         }
         const method = stake({
-          chainId,
           contract,
           token,
           feePayer: feePayerAccount as never,
           name: methodName,
+          preset,
         })
         const credential = {
           ...makeCredential({
@@ -423,7 +476,10 @@ describe('server stake verification', () => {
         }
 
         await expect(
-          method.verify({ credential, request: feePayerRequest }),
+          method.verify({
+            credential,
+            request: { ...routeRequest, feePayer: true },
+          }),
         ).rejects.toThrow(/fee payer.*requires.*tempo batch/i)
       })
 
@@ -435,20 +491,30 @@ describe('server stake verification', () => {
           signature: undefined,
         })
 
-        const method = stake({ chainId, contract, token, name: methodName })
+        const method = stake({
+          contract,
+          token,
+          name: methodName,
+          preset,
+        })
         const credential = makeCredential({
           signature: serializedTx,
           type: 'transaction',
         })
 
         await expect(
-          method.verify({ credential, request: rawInput }),
+          method.verify({ credential, request: routeRequest }),
         ).rejects.toThrow(/must be signed/i)
       })
     })
 
     it('rejects when challenge request does not match', async () => {
-      const method = stake({ chainId, contract, token, name: methodName })
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
       const mismatchedRequest = PaymentRequest.fromMethod(stakeMethod, {
         ...rawInput,
         amount: '9999999',
@@ -465,19 +531,24 @@ describe('server stake verification', () => {
       }
 
       await expect(
-        method.verify({ credential, request: rawInput }),
+        method.verify({ credential, request: routeRequest }),
       ).rejects.toThrow(/does not match/i)
     })
 
     it('rejects when source DID chainId does not match', async () => {
-      const method = stake({ chainId, contract, token, name: methodName })
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
       const credential = {
         ...makeCredential({ hash: txHash, type: 'hash' }),
         source: `did:pkh:eip155:1:${payer}`,
       }
 
       await expect(
-        method.verify({ credential, request: rawInput }),
+        method.verify({ credential, request: routeRequest }),
       ).rejects.toThrow(/chainId/i)
     })
   })

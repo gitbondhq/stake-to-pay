@@ -1,19 +1,30 @@
 import { Mppx, tempo as upstreamTempo } from 'mppx/client'
 import { privateKeyToAccount } from 'viem/accounts'
+import { tempoModerato } from 'viem/chains'
 import { describe, expect, it } from 'vitest'
 
+import type { NetworkPreset } from '../networkConfig.js'
 import { stake } from './index.js'
 
 const account = privateKeyToAccount(
   '0x8b3a350cf5c34c9194ca85829b4b6fd2e8f5f10f1f49ffb3874c7f5f7b6b2d44',
 )
 const methodName = 'tempo'
+const preset = {
+  capabilities: {
+    supportsBatchCalls: true,
+    supportsFeePayer: true,
+  },
+  chain: tempoModerato,
+  family: 'evm',
+  id: 'tempoModerato',
+} as const satisfies NetworkPreset
 
 describe('client stake exports', () => {
   it('composes with an existing method set', () => {
     const methods = [
       ...upstreamTempo({ account }),
-      stake({ account, name: methodName }),
+      stake({ account, name: methodName, preset }),
     ] as const
 
     expect(methods).toHaveLength(3)
@@ -24,7 +35,7 @@ describe('client stake exports', () => {
   })
 
   it('exposes the standalone stake client method', () => {
-    const method = stake({ account, name: methodName })
+    const method = stake({ account, name: methodName, preset })
     expect(method.name).toBe(methodName)
     expect(method.intent).toBe('stake')
   })
@@ -34,7 +45,7 @@ describe('client stake exports', () => {
       methods: [
         [
           ...upstreamTempo({ account }),
-          stake({ account, name: methodName }),
+          stake({ account, name: methodName, preset }),
         ] as const,
       ],
       polyfill: false,
@@ -44,7 +55,7 @@ describe('client stake exports', () => {
   })
 
   it('accepts valid context with feeToken', () => {
-    const method = stake({ name: methodName })
+    const method = stake({ name: methodName, preset })
 
     expect(
       method.context?.parse({
@@ -56,7 +67,7 @@ describe('client stake exports', () => {
   })
 
   it('rejects unknown context options', () => {
-    const method = stake({ name: methodName })
+    const method = stake({ name: methodName, preset })
 
     expect(() => method.context?.parse({ transportPolicy: 'permit' })).toThrow()
     expect(() => method.context?.parse({ preferPermit: true })).toThrow()

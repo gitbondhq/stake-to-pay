@@ -12,7 +12,7 @@ npm install @gitbondhq/mppx-stake
 
 | Import | Purpose |
 |--------|---------|
-| `@gitbondhq/mppx-stake` | Core exports: `Methods.stake`, `MPPEscrowAbi`, network presets |
+| `@gitbondhq/mppx-stake` | Core exports: `Methods.stake`, `MPPEscrowAbi`, network preset types |
 | `@gitbondhq/mppx-stake/client` | Client-side credential building |
 | `@gitbondhq/mppx-stake/server` | Server-side escrow verification |
 | `@gitbondhq/mppx-stake/abi` | Contract ABI only |
@@ -24,9 +24,20 @@ Register alongside other MPP methods:
 ```ts
 import { Mppx, tempo } from "mppx/client";
 import { stake } from "@gitbondhq/mppx-stake/client";
+import { tempoModerato } from "viem/chains";
+
+const preset = {
+  capabilities: {
+    supportsBatchCalls: true,
+    supportsFeePayer: true,
+  },
+  chain: tempoModerato,
+  family: "evm",
+  id: "tempoModerato",
+} as const;
 
 const mppx = Mppx.create({
-  methods: [[...tempo({ account }), stake({ account })]],
+  methods: [[...tempo({ account }), stake({ account, name: "tempo", preset })]],
 });
 ```
 
@@ -34,8 +45,19 @@ Or standalone:
 
 ```ts
 import { stake } from "@gitbondhq/mppx-stake/client";
+import { tempoModerato } from "viem/chains";
 
-const method = stake({ account });
+const preset = {
+  capabilities: {
+    supportsBatchCalls: true,
+    supportsFeePayer: true,
+  },
+  chain: tempoModerato,
+  family: "evm",
+  id: "tempoModerato",
+} as const;
+
+const method = stake({ account, name: "tempo", preset });
 ```
 
 ## Server usage
@@ -43,11 +65,23 @@ const method = stake({ account });
 ```ts
 import { Mppx } from "mppx/server";
 import { stake } from "@gitbondhq/mppx-stake/server";
+import { tempoModerato } from "viem/chains";
+
+const preset = {
+  capabilities: {
+    supportsBatchCalls: true,
+    supportsFeePayer: true,
+  },
+  chain: tempoModerato,
+  family: "evm",
+  id: "tempoModerato",
+} as const;
 
 const mppx = Mppx.create({
   methods: [
     stake({
-      chainId: 42431,
+      name: "tempo",
+      preset,
       contract: "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
       token: "0x20C0000000000000000000000000000000000000",
     }),
@@ -57,6 +91,7 @@ const mppx = Mppx.create({
 ```
 
 The server method verifies escrow state on-chain — no local state tracking needed.
+The preset supplies the chain metadata, including `chain.id`.
 
 ## Credential types
 
@@ -65,15 +100,23 @@ The server method verifies escrow state on-chain — no local state tracking nee
 | `transaction` | Client signs tx, server broadcasts |
 | `hash` | Client broadcasts tx, sends hash to server |
 
-## Network presets
+## Network preset objects
 
-Built-in presets for supported chains. The consuming app selects the active network:
+This package does not ship a named preset registry. The consuming app provides the preset object it wants to use:
 
 ```ts
-import { getNetworkPreset } from "@gitbondhq/mppx-stake";
+import type { NetworkPreset } from "@gitbondhq/mppx-stake";
+import { tempoModerato } from "viem/chains";
 
-const preset = getNetworkPreset("tempoModerato");
-// preset.chain, preset.rpcUrl, ...
+const preset: NetworkPreset = {
+  capabilities: {
+    supportsBatchCalls: true,
+    supportsFeePayer: true,
+  },
+  chain: tempoModerato,
+  family: "evm",
+  id: "tempoModerato",
+};
 ```
 
 ## Notes

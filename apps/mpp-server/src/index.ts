@@ -13,12 +13,12 @@ const config = loadConfig()
 const fakeDocument = createFakeDocument(config.documentTitle)
 const configuredStakeMethod = stake({
   ...(config.stakeBeneficiary ? { beneficiary: config.stakeBeneficiary } : {}),
-  chainId: config.stakeChainId,
   contract: config.stakeContract,
   counterparty: config.stakeCounterparty,
   token: config.stakeToken,
   description: config.stakeDescription,
   name: config.methodName,
+  preset: config.networkPreset,
 })
 const stakeIntent = `${configuredStakeMethod.name}/${configuredStakeMethod.intent}`
 
@@ -110,7 +110,7 @@ app.listen(config.port, config.host, () => {
   )
   console.log(`[mpp-server] protected route: ${origin}${config.documentPath}`)
   console.log(
-    `[mpp-server] network=${config.network} stake amount=${config.stakeAmount} chainId=${config.stakeChainId} contract=${config.stakeContract}`,
+    `[mpp-server] network=${config.networkPreset.id} stake amount=${config.stakeAmount} chainId=${config.networkPreset.chain.id} contract=${config.stakeContract}`,
   )
 })
 
