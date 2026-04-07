@@ -74,7 +74,7 @@ const method = stake({
 
 ```ts
 import { Mppx } from "mppx/server";
-import { stake } from "@gitbondhq/mppx-stake/server";
+import { serverStake } from "@gitbondhq/mppx-stake";
 import { tempoModerato } from "viem/chains";
 
 const preset = {
@@ -86,7 +86,7 @@ const preset = {
 
 const mppx = Mppx.create({
   methods: [
-    stake({
+    serverStake({
       name: "tempo",
       preset,
       contract: "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",

@@ -19,22 +19,30 @@ const contract = '0x1111111111111111111111111111111111111111' as Address
 const token = '0x20C0000000000000000000000000000000000000' as Address
 const stakeKey =
   '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex
+const alternateStakeKey =
+  '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex
 const chainId = 42431
 const txHash =
   '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Hex
 const methodName = 'tempo'
+const externalId = 'document:test:challenge'
+const policy = 'slash'
 const preset = {
   chain: tempoModerato,
   family: 'evm',
   id: 'tempoModerato',
   rpcUrl: 'https://rpc.moderato.tempo.xyz',
 } as const satisfies NetworkPreset
+const resource = 'documents/test'
 
 const rawInput = {
   amount: '5000000',
   beneficiary,
   contract,
   counterparty,
+  externalId,
+  policy,
+  resource,
   token,
   stakeKey,
   methodDetails: {
@@ -45,6 +53,9 @@ const routeRequest = {
   amount: rawInput.amount,
   contract: rawInput.contract,
   counterparty: rawInput.counterparty,
+  externalId: rawInput.externalId,
+  policy: rawInput.policy,
+  resource: rawInput.resource,
   token: rawInput.token,
   stakeKey: rawInput.stakeKey,
 }
@@ -151,6 +162,32 @@ describe('server stake verification', () => {
     expect(method.defaults).not.toHaveProperty('externalId')
   })
 
+  it('reuses echoed stakeKey and externalId when a credential is present', async () => {
+    const method = stake({
+      contract,
+      token,
+      name: methodName,
+      preset,
+    })
+    const credential = makeCredential({ hash: txHash, type: 'hash' })
+
+    const request = await method.request!({
+      credential,
+      request: {
+        ...routeRequest,
+        externalId: 'document:test:fresh',
+        stakeKey: alternateStakeKey,
+      },
+    })
+
+    expect(request).toEqual({
+      ...routeRequest,
+      methodDetails: {
+        chainId,
+      },
+    })
+  })
+
   describe('verify', () => {
     beforeEach(() => vi.clearAllMocks())
 
@@ -228,6 +265,32 @@ describe('server stake verification', () => {
       await expect(
         method.verify({ credential, request: routeRequest }),
       ).rejects.toThrow(/does not match/i)
+    })
+
+    it('rejects when challenge resource does not match', async () => {
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const credential = {
+        ...makeCredential({ hash: txHash, type: 'hash' }),
+        challenge: {
+          id: 'test-id',
+          intent: 'stake' as const,
+          method: methodName,
+          realm: 'test.example.com',
+          request: PaymentRequest.fromMethod(stakeMethod, {
+            ...rawInput,
+            resource: 'documents/other',
+          }),
+        },
+      }
+
+      await expect(
+        method.verify({ credential, request: routeRequest }),
+      ).rejects.toThrow(/resource/i)
     })
 
     it('rejects when source DID chainId does not match', async () => {

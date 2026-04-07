@@ -1,4 +1,4 @@
-import { Method, PaymentRequest } from 'mppx'
+import { Method, PaymentRequest, type Credential } from 'mppx'
 import type { Address } from 'viem'
 import { getTransactionReceipt } from 'viem/actions'
 
@@ -44,9 +44,12 @@ export const createServerStake = (method: StakeMethod) => {
         },
       },
 
-      async request({ request }) {
+      async request({ credential, request }) {
+        const echoedRequest = getEchoedChallengeRequest(credential, method)
+
         return {
           ...(request as Record<string, unknown>),
+          ...echoedRequest,
           methodDetails: {
             chainId: preset.chain.id,
           },
@@ -114,6 +117,9 @@ const assertRequestMatches = (
       challengeRequest.counterparty,
     ],
     ['contract', currentRequest.contract, challengeRequest.contract],
+    ['externalId', currentRequest.externalId, challengeRequest.externalId],
+    ['policy', currentRequest.policy, challengeRequest.policy],
+    ['resource', currentRequest.resource, challengeRequest.resource],
     ['stakeKey', currentRequest.stakeKey, challengeRequest.stakeKey],
     ['token', currentRequest.token, challengeRequest.token],
     [
@@ -126,4 +132,26 @@ const assertRequestMatches = (
   for (const [label, expected, received] of pairs)
     if (String(expected) !== String(received))
       throw new Error(`Challenge ${label} does not match this route.`)
+}
+
+const getEchoedChallengeRequest = (
+  credential: Credential.Credential | null | undefined,
+  method: StakeMethod,
+): Partial<Pick<StakeChallengeRequest, 'externalId' | 'stakeKey'>> => {
+  if (!credential) return {}
+  if (
+    credential.challenge.method !== method.name ||
+    credential.challenge.intent !== method.intent
+  ) {
+    return {}
+  }
+
+  const parsed = method.schema.request.safeParse(credential.challenge.request)
+  if (!parsed.success) return {}
+  const echoedRequest = parsed.data as StakeChallengeRequest
+
+  return {
+    ...(echoedRequest.externalId ? { externalId: echoedRequest.externalId } : {}),
+    stakeKey: echoedRequest.stakeKey,
+  }
 }

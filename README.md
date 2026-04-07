@@ -42,8 +42,9 @@ forge test
 Start the stake-gated server:
 
 ```sh
-cp apps/mpp-server/.env.example apps/mpp-server/.env
-# Edit .env: set MPP_SECRET_KEY, STAKE_CONTRACT, STAKE_COUNTERPARTY
+cp example.env .env
+# Edit .env: set MPP_SECRET_KEY
+# Edit config.json if you need different escrow/network values
 npm run dev --workspace=@stake-mpp/mpp-server
 ```
 
@@ -51,10 +52,10 @@ In another terminal, hit the paywall:
 
 ```sh
 # Preview (public)
-curl http://127.0.0.1:4020/documents/incident-report-7b/preview
+curl http://127.0.0.1:4020/documents/document/preview
 
 # Protected (triggers 402 → stake → access flow)
-npx mppx http://127.0.0.1:4020/documents/incident-report-7b
+npx mppx http://127.0.0.1:4020/documents/document
 ```
 
 ## Repository structure
@@ -81,7 +82,7 @@ TypeScript SDK extending MPP with the `stake` intent. Separate entry points for 
 import { stake } from "@gitbondhq/mppx-stake/client";
 
 // Server: verify escrow state on-chain
-import { stake } from "@gitbondhq/mppx-stake/server";
+import { serverStake } from "@gitbondhq/mppx-stake";
 ```
 
 ### [`@stake-mpp/mpp-server`](apps/mpp-server/)

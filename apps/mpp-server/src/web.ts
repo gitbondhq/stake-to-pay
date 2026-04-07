@@ -1,10 +1,13 @@
-import type { AppConfig } from './config.js'
-
 type HeaderMap = Record<string, string | string[] | undefined>
 
 type OriginRequest = {
   headers: HeaderMap
   protocol: string
+}
+
+type ServerBinding = {
+  host: string
+  port: number
 }
 
 type WebRequestInput = OriginRequest & {
@@ -18,12 +21,12 @@ type WebResponseTarget = {
   status(code: number): WebResponseTarget
 }
 
-export const getOrigin = (req: OriginRequest, config: AppConfig): string => {
+export const getOrigin = (req: OriginRequest, server: ServerBinding): string => {
   const hostHeader = req.headers.host
   const host =
     typeof hostHeader === 'string' && hostHeader.length > 0
       ? hostHeader
-      : `${config.host}:${config.port}`
+      : `${server.host}:${server.port}`
 
   return `${req.protocol}://${host}`
 }
@@ -41,7 +44,7 @@ export const sendWebResponse = async (
 
 export const toWebRequest = (
   req: WebRequestInput,
-  config: AppConfig,
+  server: ServerBinding,
 ): Request => {
   const headers = new Headers()
   for (const [key, value] of Object.entries(req.headers)) {
@@ -49,7 +52,7 @@ export const toWebRequest = (
     else if (typeof value === 'string') headers.set(key, value)
   }
 
-  return new Request(`${getOrigin(req, config)}${req.originalUrl}`, {
+  return new Request(`${getOrigin(req, server)}${req.originalUrl}`, {
     headers,
     method: req.method,
   })
