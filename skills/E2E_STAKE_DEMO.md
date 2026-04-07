@@ -18,7 +18,7 @@ Use this playbook when a user wants to run the stake demo end-to-end, try the pr
 | Network | Tempo Moderato |
 | Chain ID | 42431 |
 | RPC | `https://rpc.moderato.tempo.xyz` |
-| Escrow contract | `0x651B0DB0D25A49d0CBbF790a404cE10A3F401821` |
+| Escrow contract | `0xd334C82df572789E1EEF2eF7814dF6f6aE2D7Cce` |
 | Token (pathUSD) | `0x20c0000000000000000000000000000000000000` |
 | Stake amount | `5000000` (base units) |
 
@@ -36,16 +36,10 @@ forge build
 
 ## Step 2: Start the demo server
 
-```sh
-cp apps/mpp-server/.env.example apps/mpp-server/.env
-```
-
-Edit `apps/mpp-server/.env`:
+Edit the repo-root `.env`:
 
 ```dotenv
 MPP_SECRET_KEY=any-long-random-string-for-local-dev
-STAKE_CONTRACT=0x651B0DB0D25A49d0CBbF790a404cE10A3F401821
-STAKE_COUNTERPARTY=<your-wallet-address>
 ```
 
 Start:
@@ -58,14 +52,14 @@ Expected output:
 
 ```
 [mpp-server] listening on http://127.0.0.1:4020
-[mpp-server] preview route: http://127.0.0.1:4020/documents/incident-report-7b/preview
-[mpp-server] protected route: http://127.0.0.1:4020/documents/incident-report-7b
+[mpp-server] preview route: http://127.0.0.1:4020/documents/document/preview
+[mpp-server] protected route: http://127.0.0.1:4020/documents/document
 ```
 
 ## Step 3: Preview the paywalled content
 
 ```sh
-curl http://127.0.0.1:4020/documents/incident-report-7b/preview
+curl http://127.0.0.1:4020/documents/document/preview
 ```
 
 Returns a teaser — the document is locked.
@@ -73,7 +67,7 @@ Returns a teaser — the document is locked.
 ## Step 4: Hit the paywall
 
 ```sh
-curl -s http://127.0.0.1:4020/documents/incident-report-7b | jq .
+curl -s http://127.0.0.1:4020/documents/document | jq .
 ```
 
 Returns `402 Payment Required` with a stake challenge in the response headers/body.
@@ -83,7 +77,7 @@ Returns `402 Payment Required` with a stake challenge in the response headers/bo
 The fastest path uses `npx mppx` which handles the full 402 negotiation automatically:
 
 ```sh
-npx mppx http://127.0.0.1:4020/documents/incident-report-7b
+npx mppx http://127.0.0.1:4020/documents/document
 ```
 
 This will prompt for wallet interaction, create the escrow, and return the unlocked content.
@@ -94,15 +88,16 @@ For understanding each step individually, use the stake-mpp CLI:
 
 ```sh
 export MPP_ESCROW_RPC_URL=https://rpc.moderato.tempo.xyz
-export MPP_ESCROW_CONTRACT=0x651B0DB0D25A49d0CBbF790a404cE10A3F401821
-export MPP_ESCROW_PRIVATE_KEY=0x<your-private-key>
+export MPP_ESCROW_CONTRACT=0xd334C82df572789E1EEF2eF7814dF6f6aE2D7Cce
+export MPP_ESCROW_ACCOUNT=tempo-tester
+export MPP_ESCROW_PASSWORD_FILE=/absolute/path/to/password.txt
 ```
 
 ### 5a. Fetch the challenge
 
 ```sh
 npx --workspace @stake-mpp/cli stake-mpp challenge fetch \
-  --url http://127.0.0.1:4020/documents/incident-report-7b \
+  --url http://127.0.0.1:4020/documents/document \
   --out challenge.json
 ```
 
@@ -120,7 +115,8 @@ Shows: stake amount, token, counterparty, stakeKey, contract address.
 ```sh
 npx --workspace @stake-mpp/cli stake-mpp challenge respond \
   --challenge-file challenge.json \
-  --private-key "$MPP_ESCROW_PRIVATE_KEY" \
+  --account "$MPP_ESCROW_ACCOUNT" \
+  --password-file "$MPP_ESCROW_PASSWORD_FILE" \
   --out credential.txt
 ```
 
@@ -130,7 +126,7 @@ This broadcasts a `createEscrow` transaction on-chain, waits for confirmation, a
 
 ```sh
 npx --workspace @stake-mpp/cli stake-mpp challenge submit \
-  --url http://127.0.0.1:4020/documents/incident-report-7b \
+  --url http://127.0.0.1:4020/documents/document \
   --credential-file credential.txt
 ```
 
@@ -157,14 +153,16 @@ npx --workspace @stake-mpp/cli stake-mpp escrow refund-escrow \
   --key <stakeKey> \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT" \
-  --private-key "$MPP_ESCROW_PRIVATE_KEY"
+  --account "$MPP_ESCROW_ACCOUNT" \
+  --password-file password.txt
 
 # Violation — slash stake to counterparty
 npx --workspace @stake-mpp/cli stake-mpp escrow slash-escrow \
   --key <stakeKey> \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT" \
-  --private-key "$MPP_ESCROW_PRIVATE_KEY"
+  --account "$MPP_ESCROW_ACCOUNT" \
+  --password-file password.txt
 ```
 
 ---
@@ -174,8 +172,9 @@ npx --workspace @stake-mpp/cli stake-mpp escrow slash-escrow \
 | Problem | Fix |
 |---------|-----|
 | `402` after submitting credential | Escrow may not be confirmed yet. Check tx hash on explorer. Verify `stakeKey` matches. |
-| `STAKE_COUNTERPARTY` error on server start | Must be a valid EVM address in `.env`. |
+| `MPP_SECRET_KEY` error on server start | Set it in the repo-root `.env`. |
 | `createEscrow` reverts | Check: token is whitelisted, sufficient token balance, token approval in place. |
+| `corrupt keystore` | If `cast wallet address --keystore ... --password-file ...` works, rebuild the CLI so it picks up the cast-wallet fix, then retry. |
 | CLI can't find `stake-mpp` binary | Run `npm run build --workspace @stake-mpp/cli` first. |
 | Server doesn't see `config.json` | Run from repo root, or check the relative path in `apps/mpp-server/src/config.ts`. |
 

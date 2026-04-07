@@ -73,8 +73,10 @@ Interpretation:
 If approval is granted, install/upgrade with the `-n` flag before deployment:
 
 ```sh
-foundryup -n <tempo-foundry-version-or-tag>
+foundryup -n tempo
 ```
+
+This installs the latest Tempo nightly toolchain (`forge`, `cast`, `anvil`, and `chisel`). Confirm the active binary ends with `-tempo` before moving on.
 
 Then re-run:
 
@@ -114,19 +116,25 @@ and confirm the forked binary is active before moving to dry-run/broadcast.
    ```sh
    cast wallet list | rg -q "^${CAST_ACCOUNT}( \\(Local\\))?$" || (echo "Account not found"; exit 1)
    ```
-4. Confirm sender matches account:
-   ```sh
-   [ "$(cast wallet address --account "$CAST_ACCOUNT")" = "$SENDER_ADDRESS" ] || (echo "Sender mismatch"; exit 1)
-   ```
-5. Confirm sender has balance for deployment:
-   ```sh
-   cast balance "$SENDER_ADDRESS" --rpc-url "$RPC_URL"
-   ```
-6. Optional non-interactive password setup for automation:
+4. Optional non-interactive password setup for automation:
    ```sh
    export ETH_PASSWORD=/absolute/path/to/keystore-password.txt
    ```
-   Use `--keystore "$HOME/.foundry/keystores/$CAST_ACCOUNT"` with `--password-file "$ETH_PASSWORD"` when a TTY prompt is not available.
+   `ETH_PASSWORD` is a file path, not the password string. Prefer a temporary `chmod 600` file outside the repo.
+5. Confirm sender matches account:
+   Interactive:
+   ```sh
+   [ "$(cast wallet address --account "$CAST_ACCOUNT")" = "$SENDER_ADDRESS" ] || (echo "Sender mismatch"; exit 1)
+   ```
+   Non-interactive / macOS fallback:
+   ```sh
+   [ "$(cast wallet address --keystore "$HOME/.foundry/keystores/$CAST_ACCOUNT" --password-file "$ETH_PASSWORD")" = "$SENDER_ADDRESS" ] || (echo "Sender mismatch"; exit 1)
+   ```
+   Prefer the keystore form in non-interactive sessions; on some macOS setups `cast wallet address --account ...` can fail with `Device not configured (os error 6)`.
+6. Confirm sender has balance for deployment:
+   ```sh
+   cast balance "$SENDER_ADDRESS" --rpc-url "$RPC_URL"
+   ```
 7. Optional dry-run:
    ```sh
    forge script contracts/script/DeployMPPEscrow.s.sol \
@@ -135,6 +143,10 @@ and confirm the forked binary is active before moving to dry-run/broadcast.
      --account "$CAST_ACCOUNT" \
      --sender "$SENDER_ADDRESS"
    ```
+
+## Agent runtime note
+
+When running Foundry under the Codex macOS sandbox, RPC-backed `cast` / `forge` commands may panic in `system_configuration::dynamic_store` with `Attempted to create a NULL object`. Re-run the same command unsandboxed; dry-run and broadcast work normally outside the sandbox.
 
 ## Deployment command
 
@@ -163,6 +175,16 @@ forge script contracts/script/DeployMPPEscrow.s.sol \
 
 - `MPPEscrow deployed to: <address>`
 - Transaction hash lines from forge broadcast output
+
+If Tempo `forge script --broadcast` does not print the transaction hash to stdout, read it from the broadcast artifact instead:
+
+```sh
+sed -n '1,220p' broadcast/DeployMPPEscrow.s.sol/$CHAIN_ID/run-latest.json
+```
+
+Return both:
+- `transactions[0].hash` as the deployment transaction hash
+- `transactions[0].contractAddress` / `receipts[0].contractAddress` as the deployed escrow address
 
 ## Template placeholders only
 
