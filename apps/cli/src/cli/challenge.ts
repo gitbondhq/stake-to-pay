@@ -30,7 +30,9 @@ export async function resolveStakeChallengeForRespond(options: {
       )
     }
 
-    return getStakeChallengeFromResponse(response)
+    return parseStakeChallenge(response, {
+      methodName: repoConfig.methodName,
+    })
   }
 
   if (options.challengeFile) {
@@ -56,14 +58,6 @@ export async function loadStakeChallengeFromFile(
   return parseStakeChallenge(challenge, {
     methodName: repoConfig.methodName,
   })
-}
-
-export function getStakeChallengeFromResponse(
-  response: Response,
-): StakeChallenge {
-  return parseStakeChallenge(response, {
-    methodName: repoConfig.methodName,
-  }) as StakeChallenge
 }
 
 export async function resolveSerializedCredential(options: {

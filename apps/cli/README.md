@@ -18,7 +18,7 @@ npm run build --workspace @stake-mpp/cli
 ```sh
 export MPP_ESCROW_RPC_URL=https://rpc.moderato.tempo.xyz
 export MPP_ESCROW_CONTRACT=0x651B0DB0D25A49d0CBbF790a404cE10A3F401821
-export MPP_ESCROW_PRIVATE_KEY=0x...
+export MPP_ESCROW_ACCOUNT=my-deployer
 ```
 
 ## Commands
@@ -73,12 +73,13 @@ stake-mpp escrow create-escrow \
   --amount 5000000 \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT" \
-  --private-key "$MPP_ESCROW_PRIVATE_KEY"
+  --account "$MPP_ESCROW_ACCOUNT"
 ```
 
 ## Notes
 
 - All token amounts are in base units
 - Write commands wait for a receipt by default (`--no-wait` to skip)
+- Write commands and `challenge respond` accept `--private-key`, `--account`, or `--keystore`; use `--password-file` for non-interactive keystore unlocks
 - `challenge respond` uses client-side broadcast (`feePayer = false`)
 - ABI is auto-regenerated from Foundry build output on each `npm run build`

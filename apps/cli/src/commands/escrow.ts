@@ -1,4 +1,4 @@
-import { MPPEscrowAbi } from '@gitbondhq/mppx-stake/abi'
+import { MPPEscrowAbi } from '@gitbondhq/mppx-stake'
 import { Command } from 'commander'
 
 import {

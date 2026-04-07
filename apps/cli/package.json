@@ -32,6 +32,7 @@
   "dependencies": {
     "@gitbondhq/mppx-stake": "*",
     "commander": "^13.1.0",
+    "ox": "^0.14.10",
     "viem": "^2.47.6"
   },
   "devDependencies": {

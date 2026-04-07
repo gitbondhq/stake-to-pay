@@ -1,25 +1,24 @@
 import { writeFile } from 'node:fs/promises'
 
-import { type StakeCredentialPayload } from '@gitbondhq/mppx-stake'
-import { stake as createStakeMethod } from '@gitbondhq/mppx-stake/client'
+import { clientStake, parseStakeChallenge } from '@gitbondhq/mppx-stake'
 import { Command } from 'commander'
 import { Credential } from 'mppx'
-import { privateKeyToAccount } from 'viem/accounts'
 
 import {
-  getStakeChallengeFromResponse,
   loadStakeChallengeFromFile,
   resolveSerializedCredential,
   resolveStakeChallengeForRespond,
 } from '../cli/challenge.js'
-import { PRIVATE_KEY_ENV, repoConfig } from '../cli/context.js'
+import { repoConfig } from '../cli/context.js'
 import { printJson, writeJsonFile } from '../cli/format.js'
 import {
   collectRepeatableOption,
   fetchWithOptions,
   serializeHttpResponse,
 } from '../cli/http.js'
-import { asHex32, requiredString } from '../cli/parsing.js'
+import { requiredString } from '../cli/parsing.js'
+import { resolveAccount, withSigningOptions } from '../cli/runtime.js'
+import type { SigningOptions } from '../cli/types.js'
 
 export function registerChallengeCommands(program: Command): void {
   const challenge = program
@@ -62,7 +61,9 @@ export function registerChallengeCommands(program: Command): void {
 
         const challengeValue =
           response.status === 402
-            ? getStakeChallengeFromResponse(response)
+            ? parseStakeChallenge(response, {
+                methodName: repoConfig.methodName,
+              })
             : null
 
         if (options.out && challengeValue) {
@@ -97,79 +98,68 @@ export function registerChallengeCommands(program: Command): void {
       })
     })
 
-  challenge
-    .command('respond')
-    .description(
-      'Create a serialized credential for a stake challenge using client-side broadcast and return a tx-hash payload.',
-    )
-    .option(
-      '--url <url>',
-      'Protected resource URL to fetch for a 402 challenge',
-    )
-    .option('--challenge-file <path>', 'Path to a saved challenge JSON file')
-    .option(
-      '--method <method>',
-      'HTTP method used when fetching the challenge',
-      'GET',
-    )
-    .option(
-      '--header <name:value>',
-      'Additional HTTP header when fetching the challenge; repeat for multiple headers',
-      collectRepeatableOption,
-      [],
-    )
-    .requiredOption(
-      '--private-key <hex>',
-      `Private key for signing. Can also be provided via ${PRIVATE_KEY_ENV}.`,
-    )
-    .option('--out <path>', 'Write the serialized credential to a file')
-    .action(
-      async (options: {
+  withSigningOptions(
+    challenge
+      .command('respond')
+      .description(
+        'Create a serialized credential for a stake challenge using client-side broadcast and return a tx-hash payload.',
+      )
+      .option(
+        '--url <url>',
+        'Protected resource URL to fetch for a 402 challenge',
+      )
+      .option('--challenge-file <path>', 'Path to a saved challenge JSON file')
+      .option(
+        '--method <method>',
+        'HTTP method used when fetching the challenge',
+        'GET',
+      )
+      .option(
+        '--header <name:value>',
+        'Additional HTTP header when fetching the challenge; repeat for multiple headers',
+        collectRepeatableOption,
+        [],
+      )
+      .option('--out <path>', 'Write the serialized credential to a file'),
+  ).action(
+    async (
+      options: SigningOptions & {
         challengeFile?: string
         header?: string[]
         method?: string
         out?: string
-        privateKey?: string
         url?: string
-      }) => {
-        const challengeValue = await resolveStakeChallengeForRespond(options)
-        const account = privateKeyToAccount(
-          asHex32(
-            options.privateKey ?? process.env[PRIVATE_KEY_ENV],
-            '--private-key',
-          ),
-        )
-        const method = createStakeMethod({
-          account,
-          name: repoConfig.methodName,
-          preset: repoConfig.networkPreset,
-        })
-        const serializedCredential = await method.createCredential({
-          challenge: challengeValue,
-        })
-        const parsedCredential =
-          Credential.deserialize<StakeCredentialPayload>(serializedCredential)
-
-        if (parsedCredential.payload.type !== 'hash') {
-          throw new Error(
-            `challenge respond expected a tx-hash payload but received ${parsedCredential.payload.type}.`,
-          )
-        }
-
-        if (options.out) {
-          await writeFile(options.out, `${serializedCredential}\n`, 'utf8')
-        }
-
-        printJson({
-          challengeId: challengeValue.id,
-          credential: serializedCredential,
-          txHash: parsedCredential.payload.hash,
-          outputPath: options.out ?? null,
-          payloadType: parsedCredential.payload.type,
-          source: parsedCredential.source,
-        })
       },
-    )
+    ) => {
+      const challengeValue = await resolveStakeChallengeForRespond(options)
+      const account = await resolveAccount(options)
+      const method = clientStake({
+        account,
+        name: repoConfig.methodName,
+        preset: repoConfig.networkPreset,
+      })
+      const serializedCredential = await method.createCredential({
+        challenge: challengeValue,
+      })
+      const parsedCredential = Credential.deserialize<{
+        hash: string
+        type: string
+      }>(serializedCredential)
+
+      if (options.out) {
+        await writeFile(options.out, `${serializedCredential}\n`, 'utf8')
+      }
+
+      printJson({
+        challengeId: challengeValue.id,
+        credential: serializedCredential,
+        txHash: parsedCredential.payload.hash,
+        outputPath: options.out ?? null,
+        payloadType: parsedCredential.payload.type,
+        source: parsedCredential.source,
+      })
+    },
+  )
 
   challenge
     .command('submit')
@@ -211,7 +201,9 @@ export function registerChallengeCommands(program: Command): void {
 
         const challengeValue =
           response.status === 402
-            ? getStakeChallengeFromResponse(response)
+            ? parseStakeChallenge(response, {
+                methodName: repoConfig.methodName,
+              })
             : null
 
         printJson({

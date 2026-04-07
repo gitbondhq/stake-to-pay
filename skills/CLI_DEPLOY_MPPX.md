@@ -23,8 +23,9 @@ These serve as defaults when flags are omitted:
 
 ```sh
 export MPP_ESCROW_RPC_URL=https://rpc.moderato.tempo.xyz
-export MPP_ESCROW_CONTRACT=0x651B0DB0D25A49d0CBbF790a404cE10A3F401821
-export MPP_ESCROW_PRIVATE_KEY=0x...
+export MPP_ESCROW_CONTRACT=0xd334C82df572789E1EEF2eF7814dF6f6aE2D7Cce
+export MPP_ESCROW_ACCOUNT=tempo-tester
+export MPP_ESCROW_PASSWORD_FILE=/absolute/path/to/password.txt
 ```
 
 ---
@@ -39,7 +40,7 @@ Hit a protected endpoint and capture the 402 challenge:
 
 ```sh
 stake-mpp challenge fetch \
-  --url http://127.0.0.1:4020/documents/incident-report-7b \
+  --url http://127.0.0.1:4020/documents/document \
   --out challenge.json
 ```
 
@@ -66,11 +67,12 @@ Create the on-chain escrow and build a credential:
 ```sh
 stake-mpp challenge respond \
   --challenge-file challenge.json \
-  --private-key "$MPP_ESCROW_PRIVATE_KEY" \
+  --account "$MPP_ESCROW_ACCOUNT" \
+  --password-file "$MPP_ESCROW_PASSWORD_FILE" \
   --out credential.txt
 ```
 
-**Flags:** `--challenge-file <path>` OR `--url <url>` (mutually exclusive — use file from fetch, or fetch fresh), `--private-key` (required), `--method`, `--header`, `--out`.
+**Flags:** `--challenge-file <path>` OR `--url <url>` (mutually exclusive — use file from fetch, or fetch fresh), one signing method (`--private-key`, `--account`, or `--keystore`), optional `--password-file`, `--method`, `--header`, `--out`.
 
 **Output:** JSON with `credential` (serialized string), `txHash`, `challengeId`, `payloadType` ("hash" — client broadcasts tx).
 
@@ -82,7 +84,7 @@ Retry the protected request with the credential:
 
 ```sh
 stake-mpp challenge submit \
-  --url http://127.0.0.1:4020/documents/incident-report-7b \
+  --url http://127.0.0.1:4020/documents/document \
   --credential-file credential.txt
 ```
 
@@ -103,8 +105,9 @@ The `respond` command can also skip the saved file and fetch a fresh challenge i
 
 ```sh
 stake-mpp challenge respond \
-  --url http://127.0.0.1:4020/documents/incident-report-7b \
-  --private-key "$MPP_ESCROW_PRIVATE_KEY" \
+  --url http://127.0.0.1:4020/documents/document \
+  --account "$MPP_ESCROW_ACCOUNT" \
+  --password-file "$MPP_ESCROW_PASSWORD_FILE" \
   --out credential.txt
 ```
 
@@ -112,7 +115,7 @@ stake-mpp challenge respond \
 
 ## Escrow commands
 
-All escrow commands share: `--rpc-url`, `--contract`. Write commands add: `--private-key`, `--no-wait`.
+All escrow commands share: `--rpc-url`, `--contract`. Write commands add signing flags (`--private-key`, `--account`, `--keystore`, optional `--password-file`) and `--no-wait`.
 
 ### Write operations
 
@@ -147,6 +150,7 @@ All write commands return `functionName`, `hash`, and (unless `--no-wait`) `rece
 
 - All token amounts are base units (smallest denomination, no decimals).
 - If `--beneficiary` is omitted on create commands, the contract defaults to the payer.
+- Prefer `--password-file` with cast wallets in non-interactive sessions.
 - Prefer the challenge pipeline for end-to-end flows. Use escrow commands for direct contract interaction or debugging.
 - If a user asks for "deployment," clarify whether they mean contract deployment (`CONTRACTS_DEPLOY_MPPESCROW` skill) or CLI setup.
 - Keep command examples scoped to the exact task. Prefer non-destructive reads before writes.

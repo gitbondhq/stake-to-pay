@@ -3,7 +3,14 @@ export type BaseCommandOptions = {
   rpcUrl?: string
 }
 
-export type WriteCommandOptions = BaseCommandOptions & {
-  noWait?: boolean
+export type SigningOptions = {
+  account?: string
+  keystore?: string
+  passwordFile?: string
   privateKey?: string
 }
+
+export type WriteCommandOptions = BaseCommandOptions &
+  SigningOptions & {
+    noWait?: boolean
+  }
