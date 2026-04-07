@@ -159,7 +159,6 @@ Challenge requests contain:
 
 ```ts
 {
-  action: "createEscrow",     // Default, currently the only supported action
   amount: "5000000",          // Base-unit integer string
   beneficiary?: "0x...",      // Optional — defaults to payer
   contract: "0x...",
@@ -176,7 +175,7 @@ Challenge requests contain:
 }
 ```
 
-**Immutable fields** (must match exactly): `amount`, `counterparty`, `contract`, `stakeKey`, `token`, `action`, `chainId`, `feePayer`.
+**Immutable fields** (must match exactly): `amount`, `counterparty`, `contract`, `stakeKey`, `token`, `chainId`, `feePayer`.
 
 **Mutable fields** (can differ): `beneficiary`, `policy`, `resource`, `description`.
 

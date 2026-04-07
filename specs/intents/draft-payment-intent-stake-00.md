@@ -204,7 +204,6 @@ without padding per {{I-D.httpauth-payment}}.
 
 | Field         | Type   | Description                                                      |
 | ------------- | ------ | ---------------------------------------------------------------- |
-| `action`      | string | The escrow action (default: `"createEscrow"`)                    |
 | `beneficiary` | string | Address to receive refunded/withdrawn tokens (defaults to payer) |
 | `description` | string | Human-readable description of the stake requirement              |
 | `externalId`  | string | Server's reference identifier                                    |
