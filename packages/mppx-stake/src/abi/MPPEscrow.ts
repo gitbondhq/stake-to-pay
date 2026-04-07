@@ -109,7 +109,7 @@ export const MPPEscrowAbi = [
       {
         "name": "permit_",
         "type": "tuple",
-        "internalType": "struct MPPEscrow.PermitParams",
+        "internalType": "struct IMPPEscrow.PermitParams",
         "components": [
           {
             "name": "deadline",
@@ -151,7 +151,7 @@ export const MPPEscrowAbi = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct MPPEscrow.Escrow",
+        "internalType": "struct IMPPEscrow.Escrow",
         "components": [
           {
             "name": "payer",
