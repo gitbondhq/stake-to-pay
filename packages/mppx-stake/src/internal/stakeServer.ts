@@ -8,7 +8,6 @@ import type {
   StakeCredentialPayload,
 } from '../stakeSchema.js'
 import { createClient } from './client.js'
-import { toTypedRequest } from './request.js'
 import { resolvePayer } from './source.js'
 import {
   assertEscrowCreatedReceipt,
@@ -65,23 +64,24 @@ export const createServerStake = (method: StakeMethod) => {
         }) as StakeChallengeRequest
         assertRequestMatches(currentRequest, challengeRequest)
 
-        const typed = toTypedRequest(challengeRequest)
-        const payer = resolvePayer(typed.chainId, credential.source)
+        const chainId = challengeRequest.methodDetails.chainId
+        const amount = BigInt(challengeRequest.amount)
+        const payer = resolvePayer(chainId, credential.source)
         const client = createClient(preset)
         const payload = credential.payload as StakeCredentialPayload
-        const beneficiary = typed.beneficiary ?? payer
+        const beneficiary = challengeRequest.beneficiary ?? payer
 
         const verifyParams = {
           beneficiary,
-          counterparty: typed.counterparty,
-          token: typed.token,
+          counterparty: challengeRequest.counterparty,
+          token: challengeRequest.token,
           payer,
-          value: typed.amount,
+          value: amount,
         }
         const receiptParams = {
           ...verifyParams,
-          contract: typed.contract,
-          stakeKey: typed.stakeKey,
+          contract: challengeRequest.contract,
+          stakeKey: challengeRequest.stakeKey,
         }
 
         const receipt = await getTransactionReceipt(client, {
@@ -91,8 +91,8 @@ export const createServerStake = (method: StakeMethod) => {
         assertEscrowCreatedReceipt(receipt, receiptParams)
         await assertEscrowOnChain(
           client,
-          typed.contract,
-          typed.stakeKey,
+          challengeRequest.contract,
+          challengeRequest.stakeKey,
           verifyParams,
         )
 

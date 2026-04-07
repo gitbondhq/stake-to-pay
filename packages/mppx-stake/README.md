@@ -12,7 +12,7 @@ npm install @gitbondhq/mppx-stake
 
 | Import | Purpose |
 |--------|---------|
-| `@gitbondhq/mppx-stake` | Core exports: `Methods.stake`, `MPPEscrowAbi`, network preset types |
+| `@gitbondhq/mppx-stake` | Core exports: `stakeMethod`, `clientStake`, `serverStake`, `MPPEscrowAbi`, network preset types |
 | `@gitbondhq/mppx-stake/client` | Client-side credential building |
 | `@gitbondhq/mppx-stake/server` | Server-side escrow verification |
 | `@gitbondhq/mppx-stake/abi` | Contract ABI only |

@@ -1,10 +1,10 @@
 import { Credential, Method, z } from 'mppx'
 
 import type { NetworkPreset } from '../networkConfig.js'
+import type { StakeChallengeRequest } from '../stakeSchema.js'
 import * as Account from './account.js'
 import type { EIP1193Provider } from './client.js'
 import { createClient, providerSubmitCalls, submitCalls } from './client.js'
-import { toTypedRequest } from './request.js'
 import { buildStakeCalls } from './tx.js'
 
 type StakeMethod = Parameters<typeof Method.toClient>[0]
@@ -28,27 +28,26 @@ export const createClientStake = (method: StakeMethod) => {
       }),
 
       async createCredential({ challenge, context }) {
-        const typed = toTypedRequest(
-          challenge.request as Parameters<typeof toTypedRequest>[0],
-        )
-        if (typed.chainId !== preset.chain.id) {
+        const request = challenge.request as StakeChallengeRequest
+        const chainId = request.methodDetails.chainId
+        if (chainId !== preset.chain.id) {
           throw new Error(
-            `challenge chainId ${typed.chainId} does not match the ${preset.id} preset (${preset.chain.id}).`,
+            `challenge chainId ${chainId} does not match the ${preset.id} preset (${preset.chain.id}).`,
           )
         }
 
         const client = createClient(preset)
         const account = getAccount(client, context)
         const calls = buildStakeCalls({
-          amount: typed.amount,
-          beneficiary: typed.beneficiary ?? account.address,
-          contract: typed.contract,
-          counterparty: typed.counterparty,
-          token: typed.token,
-          stakeKey: typed.stakeKey,
+          amount: BigInt(request.amount),
+          beneficiary: request.beneficiary ?? account.address,
+          contract: request.contract,
+          counterparty: request.counterparty,
+          token: request.token,
+          stakeKey: request.stakeKey,
         })
 
-        const source = `did:pkh:eip155:${typed.chainId}:${account.address}`
+        const source = `did:pkh:eip155:${chainId}:${account.address}`
         const hash = parameters.provider
           ? await providerSubmitCalls(
               client,

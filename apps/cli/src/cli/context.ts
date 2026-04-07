@@ -1,4 +1,4 @@
-import { Methods } from '@gitbondhq/mppx-stake'
+import { stakeMethod as createStakeMethod } from '@gitbondhq/mppx-stake'
 
 import { loadRepoConfig } from './config.js'
 
@@ -11,4 +11,4 @@ export const repoConfigPath = new URL(
   import.meta.url,
 )
 export const repoConfig = loadRepoConfig(repoConfigPath)
-export const stakeMethod = Methods.stake({ name: repoConfig.methodName })
+export const stakeMethod = createStakeMethod({ name: repoConfig.methodName })

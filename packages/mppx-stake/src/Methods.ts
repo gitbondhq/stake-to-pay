@@ -1,10 +1,11 @@
 import { Method, z } from 'mppx'
 
-import { baseUnitAmount } from './internal/request.js'
-
 export type StakeMethodParameters = {
   name: string
 }
+
+const baseUnitAmount = () =>
+  z.string().check(z.regex(/^\d+$/, 'Invalid base-unit amount'))
 
 /**
  * Shared `name/stake` method schema used by both the client and server
