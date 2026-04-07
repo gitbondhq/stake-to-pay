@@ -1,10 +1,7 @@
 import { Challenge } from 'mppx'
 
 import { stake as createStakeMethod } from './Methods.js'
-import {
-  type StakeChallengeRequest,
-  toStakeMethodInput,
-} from './stakeSchema.js'
+import { type StakeChallengeRequest } from './stakeSchema.js'
 
 export type StakeChallenge = Challenge.Challenge<
   StakeChallengeRequest,
@@ -41,6 +38,6 @@ export const parseStakeChallenge = (
     id: parsed.id,
     ...(parsed.opaque ? { meta: parsed.opaque } : {}),
     realm: parsed.realm,
-    request: toStakeMethodInput(parsed.request as StakeChallengeRequest),
+    request: parsed.request as StakeChallengeRequest,
   }) as StakeChallenge
 }

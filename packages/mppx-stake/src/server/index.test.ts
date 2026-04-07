@@ -31,11 +31,13 @@ const preset = {
 
 const rawInput = {
   amount: '5000000',
-  chainId,
   contract,
   counterparty,
   token,
   stakeKey,
+  methodDetails: {
+    chainId,
+  },
 }
 const routeRequest = {
   amount: rawInput.amount,
@@ -136,11 +138,13 @@ describe('server stake verification', () => {
     })
 
     expect(method.defaults).toEqual({
-      chainId,
       contract,
       counterparty,
       token,
       description: 'Stake required',
+      methodDetails: {
+        chainId,
+      },
     })
     expect(method.defaults).not.toHaveProperty('externalId')
   })

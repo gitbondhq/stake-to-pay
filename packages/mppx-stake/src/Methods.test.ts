@@ -5,7 +5,6 @@ import * as Methods from './Methods.js'
 
 const request = {
   amount: '5000000',
-  chainId: 42431,
   contract: '0x1111111111111111111111111111111111111111',
   counterparty: '0x2222222222222222222222222222222222222222',
   token: '0x20C0000000000000000000000000000000000000',
@@ -15,6 +14,9 @@ const request = {
   resource: 'owner/repo#1',
   stakeKey:
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  methodDetails: {
+    chainId: 42431,
+  },
 } as const
 
 const stakeMethod = Methods.stake({ name: 'tempo' })
@@ -38,9 +40,7 @@ describe('stake method schema', () => {
       resource: request.resource,
       stakeKey: request.stakeKey,
       token: request.token,
-      methodDetails: {
-        chainId: request.chainId,
-      },
+      methodDetails: request.methodDetails,
     })
   })
 

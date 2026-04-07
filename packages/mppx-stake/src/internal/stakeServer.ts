@@ -36,17 +36,21 @@ export const createServerStake = (method: StakeMethod) => {
 
     return Method.toServer(method, {
       defaults: {
-        chainId: preset.chain.id,
         contract: parameters.contract,
         counterparty: parameters.counterparty,
         token: parameters.token,
         description: parameters.description,
+        methodDetails: {
+          chainId: preset.chain.id,
+        },
       },
 
       async request({ request }) {
         return {
           ...(request as Record<string, unknown>),
-          chainId: preset.chain.id,
+          methodDetails: {
+            chainId: preset.chain.id,
+          },
         }
       },
 
@@ -55,7 +59,9 @@ export const createServerStake = (method: StakeMethod) => {
           .request as StakeChallengeRequest
         const currentRequest = PaymentRequest.fromMethod(method, {
           ...(request as Record<string, unknown>),
-          chainId: preset.chain.id,
+          methodDetails: {
+            chainId: preset.chain.id,
+          },
         }) as StakeChallengeRequest
         assertRequestMatches(currentRequest, challengeRequest)
 
