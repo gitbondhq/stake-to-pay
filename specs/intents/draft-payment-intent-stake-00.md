@@ -49,8 +49,8 @@ entirely by the contract implementation.
 
 This specification defines the abstract challenge-response protocol for
 escrow-based access. It does not prescribe escrow contract behavior
-beyond requiring a standard interface for querying escrow state (see
-{{escrow-state-interface}}).
+beyond requiring that servers can verify escrow state (see
+{{escrow-verification}}).
 
 This model enables several patterns:
 
@@ -328,25 +328,15 @@ Each credential MUST be usable only once per stake key. Servers MUST
 reject replayed credentials. The `stakeKey` field ensures that each
 challenge maps to exactly one escrow instance.
 
-# Escrow State Interface {#escrow-state-interface}
+# Escrow Verification {#escrow-verification}
 
-Escrow contracts implementing the stake intent SHOULD expose a standard
-query interface to allow servers to verify escrow state without parsing
-transaction history. The canonical interface is:
+Servers MUST verify that an escrow is active and that its parameters
+match the original challenge before granting access. The mechanism used
+to query escrow state is an implementation detail and is outside the
+scope of this specification. Servers MAY use contract state queries,
+event logs, indexers, or any other method appropriate for their target
+platform.
 
-```
-isEscrowActive(key, payer) → bool
-```
-
-Where `key` is the 32-byte stake key and `payer` is the address that
-created the escrow. The function MUST return `true` if and only if an
-active escrow exists for the given key with a matching payer and the
-escrowed amount is at least the amount specified in the original
-challenge.
-
-Method specifications SHOULD define the concrete function signature
-and ABI for their target platform (e.g., Solidity function selector
-for EVM chains).
 
 # Verification
 
@@ -365,35 +355,23 @@ Servers verifying a "stake" credential MUST:
 ## On-Chain Verification {#on-chain-verification}
 
 Servers MUST verify that the escrow is active on-chain before granting
-access. There are two approaches:
+access. Transaction hash verification alone is insufficient: a payer
+could create an escrow and immediately withdraw it. Servers MUST
+confirm the escrow is currently active using whatever query mechanism
+is appropriate for their escrow contract and platform (see
+{{escrow-verification}}).
 
-### State Query (Recommended)
-
-The server calls the escrow contract's state query interface (see
-{{escrow-state-interface}}) to verify that an active escrow exists for
-the given stake key and payer. This is the RECOMMENDED approach because
-it is authoritative — it reflects the current on-chain state regardless
-of how or when the escrow was created.
-
-Transaction hash verification alone is insufficient: a payer could
-create an escrow and immediately withdraw it. The state query catches
-this case.
-
-### Event Verification (Supplementary)
-
-Servers MAY additionally verify escrow creation events in the
-transaction receipt as a supplementary check:
+When verifying escrow state, servers MUST confirm that the escrow
+parameters match the original challenge:
 
 - Payer matches the credential source
-- Beneficiary matches the request (or defaults to payer)
 - Counterparty matches the request
 - Token matches the request
-- Amount matches the request
-- Stake key matches the request
+- Amount meets or exceeds the requested stake
+- Beneficiary matches the request (or defaults to payer)
 
-Event verification is useful for auditing but MUST NOT be the sole
-verification mechanism. Servers MUST also confirm the escrow is
-currently active.
+Servers MAY additionally verify escrow creation events in the
+transaction receipt as a supplementary auditing mechanism.
 
 ## Ongoing Verification
 
@@ -482,6 +460,7 @@ create an escrow to gain access and immediately withdraw the stake.
 Servers MUST re-verify escrow state (see {{on-chain-verification}}) to
 detect this. Escrow contracts MAY implement time locks or other
 withdrawal conditions to mitigate this risk.
+
 
 # IANA Considerations
 
