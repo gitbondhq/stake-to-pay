@@ -234,19 +234,29 @@ Common method-specific fields include:
 The stake intent supports two credential types, aligned with the
 conventions established by existing payment method specifications:
 
-### Transaction Credential (type="transaction")
-
-The client signs the escrow creation transaction but does not broadcast
-it. The signed transaction payload is submitted to the server, which
-broadcasts it (and MAY arrange for a fee payer to sponsor gas). This is
-the RECOMMENDED flow when `feePayer` is `true`.
-
 ### Hash Credential (type="hash")
 
 The client broadcasts the escrow creation transaction itself and submits
 the confirmed transaction hash as proof. This is the standard flow for
-clients that manage their own gas. Clients MUST NOT use `type="hash"`
-when `methodDetails.feePayer` is `true`.
+clients that manage their own gas. Servers MUST support this type.
+
+### Transaction Credential (type="transaction") {#transaction-credential}
+
+The client signs the escrow creation transaction but does not broadcast
+it. The signed transaction payload is submitted to the server, which
+broadcasts it (and MAY arrange for a fee payer to sponsor gas).
+
+Support for this type is OPTIONAL. Unlike charge intents where the
+server simply forwards a signed transfer, server-side escrow creation
+introduces additional security surface — the server must validate
+transaction structure, manage broadcast reliability, and optionally
+coordinate fee-payer cosigning. Marking this type optional allows
+lighter server implementations that delegate transaction broadcast
+to the client. Servers that accept transaction credentials SHOULD
+advertise this via `credentialTypes` in `methodDetails`. Clients
+MUST NOT use `type="transaction"` unless the server has indicated
+support. Clients MUST NOT use `type="hash"` when
+`methodDetails.feePayer` is `true`.
 
 ## Examples
 
@@ -335,7 +345,6 @@ to query escrow state is an implementation detail and is outside the
 scope of this specification. Servers MAY use contract state queries,
 event logs, indexers, or any other method appropriate for their target
 platform.
-
 
 # Verification
 
@@ -459,7 +468,6 @@ create an escrow to gain access and immediately withdraw the stake.
 Servers MUST re-verify escrow state (see {{on-chain-verification}}) to
 detect this. Escrow contracts MAY implement time locks or other
 withdrawal conditions to mitigate this risk.
-
 
 # IANA Considerations
 
