@@ -1,7 +1,7 @@
 import type { Address, Client } from 'viem'
 import { readContract } from 'viem/actions'
 
-import { erc20PermitAbi } from '../abi/erc20.js'
+import { erc20Abi } from '../abi/erc20.js'
 
 export type TransportPolicy = 'permit' | 'legacy'
 
@@ -24,7 +24,7 @@ export const detectTransportPolicy = async (parameters: {
 
   try {
     await readContract(client, {
-      abi: erc20PermitAbi,
+      abi: erc20Abi,
       address: token,
       args: [owner],
       functionName: 'nonces',

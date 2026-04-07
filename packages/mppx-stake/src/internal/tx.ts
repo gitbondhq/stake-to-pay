@@ -8,7 +8,7 @@ import {
 } from 'viem'
 import { readContract } from 'viem/actions'
 
-import { erc20ApproveAbi } from '../abi/erc20.js'
+import { erc20Abi } from '../abi/erc20.js'
 import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
 import type { StakeChallengeRequest } from '../stakeSchema.js'
 import type { Account } from './account.js'
@@ -110,7 +110,7 @@ export const buildLegacyCalls = (parameters: {
   return [
     {
       data: encodeFunctionData({
-        abi: erc20ApproveAbi,
+        abi: erc20Abi,
         args: [contract, amount],
         functionName: 'approve',
       }),
@@ -207,7 +207,7 @@ export const matchStakeCalls = (parameters: {
       throw new Error('Invalid legacy transaction: wrong escrow target.')
 
     const approve = decodeFunctionData({
-      abi: erc20ApproveAbi,
+      abi: erc20Abi,
       data: approveCall.data,
     })
     if (approve.functionName !== 'approve')

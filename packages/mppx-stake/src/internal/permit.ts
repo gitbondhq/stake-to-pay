@@ -2,7 +2,7 @@ import type { Address, Client } from 'viem'
 import { parseSignature } from 'viem'
 import { readContract, signTypedData } from 'viem/actions'
 
-import { erc20NameAbi, erc20PermitAbi, erc20VersionAbi } from '../abi/erc20.js'
+import { erc20Abi } from '../abi/erc20.js'
 import type { Account } from './account.js'
 
 export type CreatePermitParameters = {
@@ -26,20 +26,20 @@ export const createPermitParams = async (
   const { account, amount, chainId, client, deadline, owner, spender, token } =
     parameters
   const nonce = await readContract(client, {
-    abi: erc20PermitAbi,
+    abi: erc20Abi,
     address: token,
     args: [owner],
     functionName: 'nonces',
   })
   const name = await readContract(client, {
-    abi: erc20NameAbi,
+    abi: erc20Abi,
     address: token,
     functionName: 'name',
   })
   const version = await (async () => {
     try {
       return await readContract(client, {
-        abi: erc20VersionAbi,
+        abi: erc20Abi,
         address: token,
         functionName: 'version',
       })
