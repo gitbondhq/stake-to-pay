@@ -11,7 +11,7 @@ consensus: true
 author:
   - name: Jonathan Schwartz
     ins: J. Schwartz
-    email: jonathan@gitbond.com
+    email: jonathan@glif.io
     org: GitBond
 
 normative:
@@ -205,23 +205,23 @@ without padding per {{I-D.httpauth-payment}}.
 
 ### Required Fields
 
-| Field          | Type   | Description                                     |
-| -------------- | ------ | ----------------------------------------------- |
-| `amount`       | string | Minimum stake amount in base units              |
-| `contract`     | string | Escrow contract address in method-native format |
-| `counterparty` | string | Address authorized to control the escrow        |
-| `scope`        | string | Stable identifier for the protected scope       |
+| Field          | Type   | Description                                           |
+| -------------- | ------ | ----------------------------------------------------- |
+| `amount`       | string | Minimum stake amount in base units                    |
+| `contract`     | string | Escrow contract address in method-native format       |
+| `counterparty` | string | Address authorized to control the escrow              |
+| `scope`        | string | Stable identifier for the protected scope             |
 | `token`        | string | Token identifier (contract address or method-defined) |
 
 ### Optional Fields
 
-| Field         | Type   | Description |
-| ------------- | ------ | ----------- |
+| Field         | Type   | Description                                                                                                     |
+| ------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
 | `beneficiary` | string | Beneficiary the server expects to authorize. If omitted, the beneficiary is recovered from the ownership proof. |
-| `description` | string | Human-readable description of the stake requirement |
-| `externalId`  | string | Server reference identifier |
-| `policy`      | string | Identifier for the counterparty's policy |
-| `resource`    | string | Identifier for the resource being accessed |
+| `description` | string | Human-readable description of the stake requirement                                                             |
+| `externalId`  | string | Server reference identifier                                                                                     |
+| `policy`      | string | Identifier for the counterparty's policy                                                                        |
+| `resource`    | string | Identifier for the resource being accessed                                                                      |
 
 Challenge expiry is conveyed by the `expires` auth-param in
 `WWW-Authenticate` per {{I-D.httpauth-payment}}, using {{RFC3339}}
@@ -261,9 +261,9 @@ The credential structure follows {{I-D.httpauth-payment}}, containing
 
 The `payload` for a "stake" intent MUST use a single proof type:
 
-| Proof Type    | `type` Value     | Description |
-| ------------- | ---------------- | ----------- |
-| Scope Active  | `"scope-active"` | Proof that the requester controls the beneficiary for the challenged scope |
+| Proof Type   | `type` Value     | Description                                                                |
+| ------------ | ---------------- | -------------------------------------------------------------------------- |
+| Scope Active | `"scope-active"` | Proof that the requester controls the beneficiary for the challenged scope |
 
 ### Scope-Active Payload
 
