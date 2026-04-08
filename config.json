@@ -15,7 +15,7 @@
     }
   },
   "escrow": {
-    "contract": "0xd334C82df572789E1EEF2eF7814dF6f6aE2D7Cce",
+    "contract": "0x3E7f584954f64530068ab95de96A9c182D72A447",
     "counterparty": "0x589B441c390D49426C3bB30Bea109d68659bcB56",
     "token": "0x20c0000000000000000000000000000000000000",
     "tokenWhitelist": [
