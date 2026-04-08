@@ -13,7 +13,9 @@
     "src"
   ],
   "scripts": {
+    "prebuild": "npm run build --workspace=@gitbondhq/mppx-stake",
     "build": "tsc -p tsconfig.json",
+    "precheck-types": "npm run build --workspace=@gitbondhq/mppx-stake",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "lint": "eslint . && npm run check-types",
