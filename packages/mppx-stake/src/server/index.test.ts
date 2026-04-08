@@ -1,4 +1,4 @@
-import { PaymentRequest } from 'mppx'
+import { Challenge, Credential, PaymentRequest } from 'mppx'
 import { Mppx, tempo as upstreamTempo } from 'mppx/server'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -29,6 +29,8 @@ const methodName = 'tempo'
 const externalId = 'document:test:challenge'
 const policy = 'slash'
 const expires = '2026-01-01T00:00:00.000Z'
+const realm = 'test.example.com'
+const secretKey = 'test-secret'
 const preset = {
   chain: tempoModerato,
   family: 'evm',
@@ -98,9 +100,40 @@ const makeCredential = async (parameters?: {
       id: 'test-challenge-id',
       intent: 'stake' as const,
       method: methodName,
-      realm: 'test.example.com',
+      realm,
       request,
     },
+    payload: {
+      signature,
+      type: 'scope-active' as const,
+    },
+    source:
+      parameters?.source ?? `did:pkh:eip155:${chainId}:${beneficiaryAccount.address}`,
+  }
+}
+
+const makeIssuedCredential = async (parameters?: {
+  challengeRequest?: typeof challengeRequest
+  source?: string
+}) => {
+  const request = parameters?.challengeRequest ?? challengeRequest
+  const challenge = Challenge.fromMethod(stakeMethod, {
+    expires,
+    realm,
+    request,
+    secretKey,
+  })
+  const signature = await signScopeActiveProof(beneficiaryAccount, {
+    beneficiary,
+    chainId,
+    challengeId: challenge.id,
+    contract,
+    expires: challenge.expires,
+    scope: request.scope as `0x${string}`,
+  })
+
+  return {
+    challenge,
     payload: {
       signature,
       type: 'scope-active' as const,
@@ -138,7 +171,7 @@ describe('server stake exports', () => {
           stake({ name: methodName, preset }),
         ] as const,
       ],
-      secretKey: 'test-secret',
+      secretKey,
     })
 
     expect(typeof mppx.stake).toBe('function')
@@ -197,6 +230,103 @@ describe('server stake verification', () => {
 
   describe('verify', () => {
     beforeEach(() => vi.clearAllMocks())
+
+    it('rejects a tampered credential at the HMAC challenge check', async () => {
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const mppx = Mppx.create({
+        methods: [method],
+        realm,
+        secretKey,
+      })
+      const stakeHandler = mppx.stake
+      if (!stakeHandler) throw new Error('Stake method is not configured.')
+      const credential = await makeIssuedCredential()
+      const tamperedCredential = {
+        ...credential,
+        challenge: {
+          ...credential.challenge,
+          request: PaymentRequest.fromMethod(stakeMethod, {
+            ...credential.challenge.request,
+            externalId: 'document:test:tampered',
+          }),
+        },
+      }
+
+      const result = await stakeHandler(routeRequest)(
+        new Request(`https://${realm}/${resource}`, {
+          headers: {
+            Authorization: Credential.serialize(tamperedCredential),
+          },
+        }),
+      )
+
+      expect(result.status).toBe(402)
+      if (result.status !== 402) throw new Error('Expected a 402 challenge.')
+
+      expect(await result.challenge.text()).toContain(
+        'challenge was not issued by this server',
+      )
+      expect(mocks.assertEscrowOnChain).not.toHaveBeenCalled()
+    })
+
+    it('rejects a challenge tampered before signing at the HMAC check', async () => {
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const mppx = Mppx.create({
+        methods: [method],
+        realm,
+        secretKey,
+      })
+      const issuedCredential = await makeIssuedCredential()
+      const tamperedChallengeRequest = PaymentRequest.fromMethod(stakeMethod, {
+        ...issuedCredential.challenge.request,
+        externalId: 'document:test:tampered-before-sign',
+      })
+      const signature = await signScopeActiveProof(beneficiaryAccount, {
+        beneficiary,
+        chainId,
+        challengeId: issuedCredential.challenge.id,
+        contract,
+        expires: issuedCredential.challenge.expires,
+        scope: tamperedChallengeRequest.scope as `0x${string}`,
+      })
+      const credential = {
+        ...issuedCredential,
+        challenge: {
+          ...issuedCredential.challenge,
+          request: tamperedChallengeRequest,
+        },
+        payload: {
+          signature,
+          type: 'scope-active' as const,
+        },
+      }
+
+      const result = await mppx.stake(routeRequest)(
+        new Request(`https://${realm}/${resource}`, {
+          headers: {
+            Authorization: Credential.serialize(credential),
+          },
+        }),
+      )
+
+      expect(result.status).toBe(402)
+      if (result.status !== 402) throw new Error('Expected a 402 challenge.')
+
+      expect(await result.challenge.text()).toContain(
+        'challenge was not issued by this server',
+      )
+      expect(mocks.assertEscrowOnChain).not.toHaveBeenCalled()
+    })
 
     it('recovers the beneficiary proof and verifies on-chain state', async () => {
       const method = stake({

@@ -18,7 +18,7 @@ Then in another terminal:
 # Public preview
 curl http://127.0.0.1:4020/documents/document/preview
 
-# Hit the paywall (triggers 402 → escrow → access)
+# Hit the paywall (triggers 402 → client-side escrow/reuse → access)
 npx mppx http://127.0.0.1:4020/documents/document
 ```
 
@@ -35,25 +35,24 @@ npx mppx http://127.0.0.1:4020/documents/document
 
 1. Client requests `/documents/document`
 2. Server returns `402 Payment Required` with a stake challenge carrying a stable `scope`
-3. Client creates or reuses an active escrow for that scope, then signs a `scope-active` credential
+3. Client, sponsor, or another external actor creates or reuses an active escrow for that scope, then signs a `scope-active` credential
 4. Client retries with credential in request header
 5. Server verifies active escrow on-chain by `(scope, beneficiary)` (stateless — no local escrow tracking)
 6. Server returns document + `Payment-Receipt` header
 
 ## Starter-kit note
 
-This demo intentionally derives one stable `scope` per protected document and
-uses the package's default "reuse any active escrow for this scope" behavior.
-That keeps the sample simple, but production apps should review scope
-versioning and custom `ensureActiveStake` behavior when stake terms may change
-over time.
+This demo intentionally derives one stable `scope` per protected document. The
+server only issues challenges and verifies active escrows; it does not submit
+`createEscrow` or other stake-creation transactions on behalf of callers.
+Production apps should keep any escrow-creation, sponsorship, or relaying
+logic outside the protected resource server and review scope versioning when
+stake terms may change over time.
 
 Examples:
 
 - if you change the required amount, token, or counterparty, you may want a new
   scope version
-- if stake creation is more complex than "create only when no active escrow
-  exists", override `ensureActiveStake`
 
 ## Configuration
 

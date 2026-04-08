@@ -4,31 +4,20 @@ import { isAddressEqual } from 'viem'
 
 import type { NetworkPreset } from '../networkConfig.js'
 import type { StakeChallengeRequest } from '../stakeSchema.js'
-import { createClient, submitCalls } from './client.js'
 import { signScopeActiveProof } from './scopeActiveProof.js'
-import { buildStakeCalls, hasActiveEscrow } from './tx.js'
-
-type EnsureActiveStake = (parameters: {
-  beneficiary: Account['address']
-  beneficiaryAccount: Account
-  payerAccount: Account
-  request: StakeChallengeRequest
-}) => Promise<void>
 
 type ClientStakeParameters = {
   account: Account
   beneficiaryAccount?: Account | undefined
-  ensureActiveStake?: EnsureActiveStake | undefined
   preset: NetworkPreset
 }
 
-/** Ensures an active escrow exists, then returns the signed scope-active proof. */
+/** Returns the signed scope-active proof for an already-active escrow. */
 export const createClientStake = (
   method: Parameters<typeof Method.toClient>[0],
 ) => {
   return (parameters: ClientStakeParameters) => {
     const preset = parameters.preset
-    const payerAccount = parameters.account
     const beneficiaryAccount =
       parameters.beneficiaryAccount ?? parameters.account
 
@@ -52,38 +41,6 @@ export const createClientStake = (
         }
 
         const beneficiary = request.beneficiary ?? beneficiaryAccount.address
-
-        if (parameters.ensureActiveStake) {
-          await parameters.ensureActiveStake({
-            beneficiary,
-            beneficiaryAccount,
-            payerAccount,
-            request,
-          })
-        } else {
-          const client = createClient(preset)
-          const isActive = await hasActiveEscrow(
-            client,
-            request.contract,
-            request.scope,
-            beneficiary,
-          )
-
-          if (!isActive) {
-            await submitCalls(
-              client,
-              payerAccount,
-              buildStakeCalls({
-                amount: BigInt(request.amount),
-                beneficiary,
-                contract: request.contract,
-                counterparty: request.counterparty,
-                scope: request.scope,
-                token: request.token,
-              }),
-            )
-          }
-        }
 
         const signature = await signScopeActiveProof(beneficiaryAccount, {
           beneficiary,

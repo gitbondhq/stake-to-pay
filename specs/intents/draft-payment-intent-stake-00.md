@@ -26,6 +26,17 @@ normative:
     author:
       - name: Jake Moxey
     date: 2026-01
+
+informative:
+  EIP-712:
+    title: 'Typed structured data hashing and signing'
+    target: https://eips.ethereum.org/EIPS/eip-712
+    author:
+      - name: Remco Bloemen
+    date: 2017-09
+  ERC-20:
+    title: 'Token Standard'
+    target: https://eips.ethereum.org/EIPS/eip-20
 ---
 
 --- abstract
@@ -59,7 +70,7 @@ This model enables several patterns:
 - **Enforcement via slashing**: The counterparty can penalize policy
   violations by slashing the stake
 - **Yield-based monetization**: Staked tokens may be deposited into
-  yield-bearing protocols while the beneficiary retains principal exposure
+  yield-bearing protocols, enabling new types of business models
 - **Sponsored access**: A payer can fund stake on behalf of a different
   beneficiary
 - **Reversible commitments**: Users can lock collateral rather than make
@@ -116,7 +127,9 @@ beneficiary, but sponsorship flows MAY use a different payer.
 Scope
 : A stable identifier for the protected access surface. A scope identifies what
 the active stake authorizes. It is not a per-challenge replay key and is not a
-contract storage key.
+contract storage key. Depending on the deployment profile, a scope MAY be an
+IPFS content identifier, a mutable application-level reference, a canonical
+resource path, or another stable identifier chosen by the server.
 
 Escrow ID
 : A contract-assigned identifier for one escrow instance. Escrow IDs are
@@ -161,14 +174,24 @@ The stake intent has a three-phase lifecycle:
 4. Server verifies active stake and grants access
 5. Server returns a `Payment-Receipt` header
 
+Servers MAY provide implementation-specific assistance to help a client
+establish an escrow, such as wallet UX hints, calldata templates, or links to
+separate staking flows. Such assistance is optional and is not part of the
+normative server role. A conforming server MAY be verification-only and need
+not submit, relay, sponsor, or otherwise cause escrow-creation transactions to
+execute.
+
 ### Phase 2: Active
 
 While the escrow is active, the beneficiary has ongoing access to the
 protected scope. An already-active stake MAY satisfy later challenges for the
 same scope without requiring a new escrow deposit, but later protected requests
 still use the normal challenge-response flow unless a higher-layer session
-mechanism defines otherwise. In that case, each later challenge requires its
-own fresh challenge-bound ownership proof.
+mechanism defines otherwise. A server MAY establish such a mechanism by issuing
+an optional `stake-session` token as described in
+{{optional-stake-session-tokens}}. When later protected requests continue to
+use the normal challenge-response flow, each later challenge requires its own
+fresh challenge-bound ownership proof.
 
 ### Phase 3: Resolution {#resolution}
 
@@ -211,7 +234,7 @@ without padding per {{I-D.httpauth-payment}}.
 | `contract`     | string | Escrow contract address in method-native format       |
 | `counterparty` | string | Address authorized to control the escrow              |
 | `scope`        | string | Stable identifier for the protected scope             |
-| `token`        | string | Token identifier (contract address or method-defined) |
+| `token`        | string | ERC-20 token contract address                         |
 
 ### Optional Fields
 
@@ -227,6 +250,9 @@ Challenge expiry is conveyed by the `expires` auth-param in
 `WWW-Authenticate` per {{I-D.httpauth-payment}}, using {{RFC3339}}
 format. Request objects MUST NOT duplicate the expiry value.
 
+`token` MUST identify an ERC-20 token contract. Blockchain-native tokens are
+out of scope for this specification and MUST NOT be represented in `token`.
+
 ## Scope Semantics
 
 `scope` is the canonical identifier for the protected access surface.
@@ -238,6 +264,11 @@ Method specifications or profiles MAY define concrete derivation rules. A
 profile MAY, for example, require `scope` to be a `bytes32` hash in EVM
 environments.
 
+`scope` does not need to be on-chain-native. Depending on the application, it
+MAY identify immutable content such as an IPFS content identifier, a mutable
+reference such as a document slug or application-specific handle, a canonical
+resource path, or another stable identifier for the protected surface.
+
 ## Method Extensions
 
 Payment methods MAY define additional fields in the `methodDetails`
@@ -245,6 +276,11 @@ object. These fields are method-specific and MUST be documented in the
 payment method specification. Clients that do not recognize a payment
 method SHOULD ignore `methodDetails` but MUST still be able to parse
 the shared fields.
+
+Method-specific extensions MAY include optional fields that help clients or
+their delegates establish an escrow. Such fields are advisory only; defining
+them does not require a server to submit, relay, or sponsor escrow-creation
+transactions.
 
 Example method-specific fields include:
 
@@ -258,6 +294,13 @@ Example method-specific fields include:
 
 The credential structure follows {{I-D.httpauth-payment}}, containing
 `challenge`, `payload`, and an optional `source` field.
+
+For a stake credential to be verifiable, the server MUST be able to determine
+the beneficiary identity from the credential. This identity MAY be conveyed in
+the challenged `beneficiary` field, MAY be recoverable directly from the
+signature scheme, or MAY be conveyed in `source` when the payment method
+defines how `source` maps to the beneficiary identity. At least one of these
+mechanisms MUST be available.
 
 The `payload` for a "stake" intent MUST use a single proof type:
 
@@ -274,11 +317,16 @@ The `payload` for a "stake" intent MUST use a single proof type:
 }
 ```
 
+The `signature` field is method-specific. This specification defines the
+required semantics, but each payment method MUST define the exact signature
+algorithm, encoding, verification procedure, and beneficiary recovery rules.
 The signature MUST be bound to the challenge and MUST allow the server to
 recover or verify the beneficiary address. The signature MUST NOT merely prove
 that some past escrow-creation transaction occurred.
 
 If `source` is present, it MUST match the recovered beneficiary identity.
+`source` alone is not authoritative and MUST NOT override the beneficiary
+obtained from the method-defined proof verification procedure.
 
 ## Challenge Freshness
 
@@ -298,6 +346,11 @@ scope of this specification. Servers MAY use contract state queries,
 event logs, indexers, or any other method appropriate for their target
 platform.
 
+Server-side escrow creation or transaction submission is outside the scope of
+this specification. A server MAY choose to offer such functionality as an
+implementation-specific UX feature, but conforming servers are only required to
+issue challenges and verify active escrow state.
+
 Implementations SHOULD expose a canonical active lookup by `(scope, beneficiary)`.
 Escrow IDs are internal implementation details and SHOULD NOT appear in the
 public challenge or credential shape.
@@ -310,11 +363,14 @@ Servers verifying a "stake" credential MUST:
 
 1. Verify the challenge `id` matches an outstanding challenge
 2. Verify the challenge has not expired
-3. Verify the `scope-active` ownership proof and recover or validate the
+3. Determine the beneficiary from the challenged `beneficiary` field, from
+   method-defined signature recovery, or from a method-defined mapping of
+   `source`
+4. Verify the `scope-active` ownership proof and recover or validate that
    beneficiary
-4. Verify that an active escrow exists for `(scope, beneficiary)`
-5. Verify that the escrow parameters match the challenge
-6. Verify that the escrow principal meets or exceeds the requested amount
+5. Verify that an active escrow exists for `(scope, beneficiary)`
+6. Verify that the escrow parameters match the challenge
+7. Verify that the escrow principal meets or exceeds the requested amount
 
 ## On-Chain Verification {#on-chain-verification}
 
@@ -349,23 +405,106 @@ SHOULD issue a fresh challenge and require a fresh `scope-active` proof, while
 reusing the same active stake if it still satisfies the challenged scope and
 terms.
 
+## Optional Stake-Session Tokens {#optional-stake-session-tokens}
+
+After successfully verifying a `scope-active` credential, a server MAY
+establish a higher-layer session for the beneficiary and protected scope. This
+specification refers to such a server-issued session artifact as a
+`stake-session` token.
+
+A `stake-session` token is not part of the public Payment challenge or
+credential format. It is a higher-layer mechanism that allows later protected
+requests to omit a fresh `scope-active` proof while the session remains valid.
+A `stake-session` token attests only that the server previously verified
+challenge-bound beneficiary control and an active matching escrow. It does not
+itself prove current beneficiary control.
+
+The encoding and transport of a `stake-session` token are out of scope for this
+specification. Implementations MAY use an opaque session identifier, a signed
+token such as JWS, or another integrity-protected session artifact. The
+`Payment-Receipt` header is a settlement receipt, not a `stake-session` token,
+unless another specification explicitly defines such use.
+
+If a server issues a `stake-session` token, the associated session state,
+whether self-contained or lookup-based, MUST be bound to at least:
+
+- beneficiary
+- scope
+- contract
+- counterparty
+- token
+- minimum authorized amount
+- payment method
+- relevant method details needed to uniquely identify the escrow environment
+  (for example, `chainId`)
+- issuance time
+- expiry time
+- unique session identifier
+- intended audience or origin, when applicable
+
+Before granting access on the basis of a `stake-session` token, the server
+MUST:
+
+1. verify the token is valid and unexpired;
+2. verify the token corresponds to the protected scope being accessed;
+3. verify the escrow is still active for the bound beneficiary; and
+4. verify the escrow terms still satisfy the bound session parameters.
+
+Servers MUST revoke or reject a `stake-session` token when the corresponding
+escrow is withdrawn, refunded, slashed, expired according to server policy, or
+otherwise no longer satisfies the bound scope and terms. Servers SHOULD keep
+`stake-session` tokens short-lived and SHOULD re-verify escrow state before
+renewal.
+
+When a valid `stake-session` token is accepted, the server MAY skip issuing a
+fresh payment challenge and MAY authorize access without obtaining a new
+`scope-active` proof for that request. When no valid `stake-session` token is
+present, the normal challenge-response flow applies.
+
 ## Method-Specific Proof Rules
 
 This specification defines the semantics of `scope-active`, but each payment
 method MUST specify how the proof is represented.
 
-For EVM-based stake methods, a suitable construction is an EIP-712 signature
-whose domain binds the escrow contract and chain, and whose message binds at
-least:
+For EVM-based stake methods, the `scope-active` proof MUST be an EIP-712
+signature over typed structured data using the beneficiary's secp256k1 key.
+
+The proof MUST bind all of the following values:
+
+Domain:
+
+- `chainId`
+- `verifyingContract`
+
+Message:
 
 - `challenge.id`
 - `expires`
 - `scope`
 - `beneficiary`
+- `counterparty`
+- `token`
+- `amount`
+
+If the challenge explicitly specifies `beneficiary`, the signed `beneficiary`
+MUST match it. If the challenge omits `beneficiary`, the recovered signer MUST
+be treated as the beneficiary for escrow verification.
+
+An EVM-based stake method MUST define the exact typed-data schema, signature
+encoding, and signer-recovery procedure. For interoperability, EVM-based stake
+methods SHOULD accept the canonical 65-byte ECDSA encoding (`r || s || v`) and
+MAY additionally accept the 64-byte compact EIP-2098 form. Implementations
+SHOULD use a single canonical typed-data schema for interoperability rather
+than defining server-specific variants.
+
+For EVM-based stake methods, `source` is OPTIONAL and MUST NOT be used as a
+substitute for signer recovery. If present, it MUST be treated only as an
+additional claimed identifier and MUST match the recovered beneficiary
+identity.
 
 Other payment methods MAY define equivalent ownership-proof envelopes so long as
 they provide the same semantics: challenge-bound beneficiary control for the
-challenged scope.
+challenged scope and stake terms.
 
 # Examples
 
@@ -511,4 +650,4 @@ registry established by {{I-D.httpauth-payment}}:
 | ------- | ------------------------------ | ------------- |
 | `stake` | Collateral-based escrow access | This document |
 
-Contact: GitBond (<jonathan@gitbond.com>)
+Contact: Jonathan Schwartz (<jonathan@glif.io>)

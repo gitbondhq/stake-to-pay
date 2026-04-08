@@ -55,25 +55,23 @@ const mppx = Mppx.create({
 
 ```ts
 stake({
-  account,              // Account that funds escrow creation
+  account,              // Default account used to sign the beneficiary proof
   beneficiaryAccount,   // Optional separate signer for the beneficiary proof
-  ensureActiveStake,    // Optional custom escrow-creation hook
 })
 ```
 
 ### How client credentials work
 
 1. Client receives a 402 challenge with stake request fields including `scope`.
-2. SDK checks whether an active escrow already exists for `(scope, beneficiary)`.
-3. If no active escrow exists, SDK uses the simple `approve` then `createEscrow` flow.
-4. SDK signs an EIP-712 `scope-active` proof as the beneficiary.
-5. SDK produces a single public credential:
+2. The calling app or wallet ensures an active escrow already exists for `(scope, beneficiary)`.
+3. SDK signs an EIP-712 `scope-active` proof as the beneficiary.
+4. SDK produces a single public credential:
    - `type: "scope-active"` — credential contains the beneficiary signature.
 
 ### Gotchas
 
 - `scope` must be stable for the protected resource or policy.
-- `beneficiary` is the access subject; `payer` is only the funding account.
+- `beneficiary` is the access subject; `account` is only the default signer used by the client helper.
 - If the challenge specifies `beneficiary`, the beneficiary signing account must match it.
 
 ---

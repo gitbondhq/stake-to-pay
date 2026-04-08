@@ -1,6 +1,6 @@
 # @gitbondhq/mppx-stake
 
-Stake intent method for [MPP](https://github.com/anthropics/mpp). This package is a lightweight development kit for stake-to-pay primitives: clients ensure an escrow exists for a `scope`, then prove beneficiary control with a `scope-active` signature.
+Stake intent method for [MPP](https://github.com/anthropics/mpp). This package is a lightweight development kit for stake-to-pay primitives: clients prove beneficiary control for a `scope-active` escrow, and servers verify the active escrow on-chain.
 
 ## Install
 
@@ -65,25 +65,10 @@ const mppx = Mppx.create({
 });
 ```
 
-By default the client:
-
-1. checks `isEscrowActive(scope, beneficiary)`
-2. creates a new escrow only if none is active
-3. signs an EIP-712 `scope-active` proof as the beneficiary
-
-If you need custom stake-creation behavior, pass `ensureActiveStake`:
-
-```ts
-const method = stake({
-  account: payerAccount,
-  beneficiaryAccount,
-  ensureActiveStake: async ({ beneficiary, payerAccount, request }) => {
-    // custom tx orchestration, sponsorship, or wallet UX
-  },
-  name: "tempo",
-  preset,
-});
-```
+The client method only signs an EIP-712 `scope-active` proof as the
+beneficiary. It does not create escrows, submit transactions, or orchestrate
+sponsorship flows. Any escrow creation or reuse checks should happen in the
+calling app or wallet UX before invoking the MPP client.
 
 ## Server usage
 
@@ -142,8 +127,7 @@ const preset: NetworkPreset = {
 - Method identity: `method="stake"`, `intent="stake"`
 - All token amounts are base-unit integer strings
 - `scope` should be stable for the protected surface being authorized
-- If stake terms can change over time, consider scope versioning and/or a
-  custom `ensureActiveStake` hook instead of assuming any active escrow for a
-  scope is always reusable
+- If stake terms can change over time, consider scope versioning instead of
+  assuming any active escrow for a scope is always reusable
 - `beneficiary` is the authorization subject; `payer` is the funding account
 - This package only handles the stake method. For `charge`, `session`, or other intents, register those from `mppx` directly.

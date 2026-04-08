@@ -1,41 +1,8 @@
 import type { Address, Client, Hex } from 'viem'
-import { encodeFunctionData, isAddressEqual } from 'viem'
+import { isAddressEqual } from 'viem'
 import { readContract } from 'viem/actions'
 
 import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
-import { erc20Abi } from '../abi/erc20.js'
-
-/** Builds the approve + createEscrow flow used by this SDK. */
-export const buildStakeCalls = (parameters: {
-  amount: bigint
-  beneficiary: Address
-  contract: Address
-  counterparty: Address
-  scope: Hex
-  token: Address
-}) => {
-  const { amount, beneficiary, contract, counterparty, scope, token } =
-    parameters
-
-  return [
-    {
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        args: [contract, amount],
-        functionName: 'approve',
-      }),
-      to: token,
-    },
-    {
-      data: encodeFunctionData({
-        abi: MPPEscrowAbi,
-        args: [scope, counterparty, beneficiary, token, amount],
-        functionName: 'createEscrow',
-      }),
-      to: contract,
-    },
-  ] as const
-}
 
 type EscrowVerificationParams = {
   beneficiary: Address

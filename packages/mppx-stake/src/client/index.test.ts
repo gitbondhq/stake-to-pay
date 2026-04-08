@@ -2,7 +2,7 @@ import { Challenge, Credential } from 'mppx'
 import { Mppx, tempo as upstreamTempo } from 'mppx/client'
 import { privateKeyToAccount } from 'viem/accounts'
 import { tempoModerato } from 'viem/chains'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { stake as createStakeMethod } from '../Methods.js'
 import type { NetworkPreset } from '../networkConfig.js'
@@ -76,19 +76,10 @@ describe('client stake exports', () => {
     expect(method.context).toBeUndefined()
   })
 
-  it('signs a scope-active credential after the app ensures the stake exists', async () => {
-    const ensureActiveStake = vi.fn(async parameters => {
-      expect(parameters.request).toEqual(request)
-      expect(parameters.payerAccount.address).toBe(payerAccount.address)
-      expect(parameters.beneficiaryAccount.address).toBe(
-        beneficiaryAccount.address,
-      )
-      expect(parameters.beneficiary).toBe(beneficiaryAccount.address)
-    })
+  it('signs a scope-active credential for an already-active escrow', async () => {
     const method = stake({
       account: payerAccount,
       beneficiaryAccount,
-      ensureActiveStake,
       name: methodName,
       preset,
     })
@@ -102,7 +93,6 @@ describe('client stake exports', () => {
     const credential =
       Credential.deserialize<StakeCredentialPayload>(serialized)
 
-    expect(ensureActiveStake).toHaveBeenCalledOnce()
     expect(credential.payload.type).toBe('scope-active')
     expect(credential.source).toBe(
       `did:pkh:eip155:${preset.chain.id}:${beneficiaryAccount.address}`,

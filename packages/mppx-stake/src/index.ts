@@ -3,8 +3,6 @@ export { parseStakeChallenge, type StakeChallenge } from './challenge.js'
 export {
   stake as clientStake,
   type ClientStakeParameters,
-  type EnsureActiveStake,
-  type EnsureActiveStakeParameters,
 } from './client/index.js'
 export { resolveBeneficiary, resolveDid } from './internal/source.js'
 export { stake as stakeMethod, type StakeMethodParameters } from './Methods.js'
