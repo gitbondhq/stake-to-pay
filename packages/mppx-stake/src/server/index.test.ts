@@ -286,6 +286,8 @@ describe('server stake verification', () => {
         realm,
         secretKey,
       })
+      const stakeHandler = mppx.stake
+      if (!stakeHandler) throw new Error('Stake method is not configured.')
       const issuedCredential = await makeIssuedCredential()
       const tamperedChallengeRequest = PaymentRequest.fromMethod(stakeMethod, {
         ...issuedCredential.challenge.request,
@@ -311,7 +313,7 @@ describe('server stake verification', () => {
         },
       }
 
-      const result = await mppx.stake(routeRequest)(
+      const result = await stakeHandler(routeRequest)(
         new Request(`https://${realm}/${resource}`, {
           headers: {
             Authorization: Credential.serialize(credential),
