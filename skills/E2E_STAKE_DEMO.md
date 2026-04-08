@@ -108,7 +108,7 @@ This writes a timestamped challenge file under `challenges/` (gitignored).
 npm run stake-mpp -- challenge inspect
 ```
 
-Shows: stake amount, token, counterparty, stakeKey, contract address from the latest saved challenge file.
+Shows: stake amount, token, counterparty, scope, and contract address from the latest saved challenge file.
 
 ### 5c. Create escrow and build credential
 
@@ -116,7 +116,7 @@ Shows: stake amount, token, counterparty, stakeKey, contract address from the la
 npm run stake-mpp -- challenge respond
 ```
 
-This broadcasts a `createEscrow` transaction on-chain, waits for confirmation, and writes `credential.txt`.
+This ensures an active escrow exists for the challenged `scope`, signs a `scope-active` credential, and writes `credential.txt`.
 
 ### 5d. Submit credential and get access
 
@@ -130,12 +130,12 @@ Returns the full document content with a `Payment-Receipt` header.
 
 ```sh
 npx --workspace @stake-mpp/cli stake-mpp escrow get-escrow \
-  --key <stakeKey-from-challenge> \
+  --escrow-id <escrowId> \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT"
 ```
 
-Shows the escrow struct: payer, counterparty, token, amount, status.
+Shows the escrow struct: scope, payer, beneficiary, counterparty, token, amount, status.
 
 ## Step 7: Resolve the escrow
 
@@ -144,7 +144,7 @@ As the counterparty, refund or slash:
 ```sh
 # Happy path — return stake to user
 npx --workspace @stake-mpp/cli stake-mpp escrow refund-escrow \
-  --key <stakeKey> \
+  --escrow-id <escrowId> \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT" \
   --account "$MPP_ESCROW_ACCOUNT" \
@@ -152,7 +152,7 @@ npx --workspace @stake-mpp/cli stake-mpp escrow refund-escrow \
 
 # Violation — slash stake to counterparty
 npx --workspace @stake-mpp/cli stake-mpp escrow slash-escrow \
-  --key <stakeKey> \
+  --escrow-id <escrowId> \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT" \
   --account "$MPP_ESCROW_ACCOUNT" \
@@ -165,7 +165,7 @@ npx --workspace @stake-mpp/cli stake-mpp escrow slash-escrow \
 
 | Problem | Fix |
 |---------|-----|
-| `402` after submitting credential | Escrow may not be confirmed yet. Check tx hash on explorer. Verify `stakeKey` matches. |
+| `402` after submitting credential | Escrow may not be confirmed yet, or the active escrow may not match the challenged `scope`. Check the on-chain active escrow for `(scope, beneficiary)`. |
 | `MPP_SECRET_KEY` error on server start | Set it in the repo-root `.env`. |
 | `createEscrow` reverts | Check: token is whitelisted, sufficient token balance, token approval in place. |
 | `corrupt keystore` | If `cast wallet address --keystore ... --password-file ...` works, rebuild the CLI so it picks up the cast-wallet fix, then retry. |
@@ -183,4 +183,4 @@ npx --workspace @stake-mpp/cli stake-mpp escrow slash-escrow \
 - The manual CLI pipeline (5a–5d) is preferred when the user wants to understand the flow. `npx mppx` is preferred when they just want to see it work.
 - All amounts are in base units. `5000000` pathUSD = 5 pathUSD (6 decimals).
 - The server is stateless — it verifies escrow on-chain for every request. No session to manage.
-- The `stakeKey` from the challenge is the key that links everything together. It appears in the challenge, the escrow creation, and the on-chain state query.
+- The stable `scope` from the challenge is the public identifier that links access checks together. The contract's internal `escrowId` is used for refund and slash operations.

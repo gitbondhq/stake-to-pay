@@ -1,6 +1,6 @@
 # @gitbondhq/mppx-stake
 
-Stake intent method for [MPP](https://github.com/anthropics/mpp). Lock tokens in an on-chain escrow to gain access — refundable for well-behaved users, slashable for violations.
+Stake intent method for [MPP](https://github.com/anthropics/mpp). This package is a lightweight development kit for stake-to-pay primitives: clients ensure an escrow exists for a `scope`, then prove beneficiary control with a `scope-active` signature.
 
 ## Install
 
@@ -13,9 +13,36 @@ npm install @gitbondhq/mppx-stake
 | Import | Purpose |
 |--------|---------|
 | `@gitbondhq/mppx-stake` | Core exports: `stakeMethod`, `clientStake`, `serverStake`, `MPPEscrowAbi`, network preset types |
-| `@gitbondhq/mppx-stake/client` | Client-side credential building |
-| `@gitbondhq/mppx-stake/server` | Server-side escrow verification |
+| `@gitbondhq/mppx-stake/client` | Client-side active-stake proof creation |
+| `@gitbondhq/mppx-stake/server` | Server-side active-stake verification |
 | `@gitbondhq/mppx-stake/abi` | Contract ABI only |
+
+## Challenge model
+
+Stake requests are centered on a stable `scope`:
+
+```json
+{
+  "amount": "5000000",
+  "beneficiary": "0x1234...",
+  "contract": "0x651B...",
+  "counterparty": "0x742d...",
+  "scope": "0xabcd...",
+  "token": "0x20c0...",
+  "methodDetails": {
+    "chainId": 42431
+  }
+}
+```
+
+The public credential is a single proof type:
+
+```json
+{
+  "signature": "0x...",
+  "type": "scope-active"
+}
+```
 
 ## Client usage
 
@@ -38,32 +65,20 @@ const mppx = Mppx.create({
 });
 ```
 
-Or standalone:
+By default the client:
 
-```ts
-import { stake } from "@gitbondhq/mppx-stake/client";
-import { tempoModerato } from "viem/chains";
+1. checks `isEscrowActive(scope, beneficiary)`
+2. creates a new escrow only if none is active
+3. signs an EIP-712 `scope-active` proof as the beneficiary
 
-const preset = {
-  chain: tempoModerato,
-  family: "evm",
-  id: "tempoModerato",
-  rpcUrl: "https://rpc.moderato.tempo.xyz",
-} as const;
-
-const method = stake({ account, name: "tempo", preset });
-```
-
-If a UI wants to control transaction submission itself, pass
-`getTransactionHash`. The callback receives the account and stake request, then
-returns the final `createEscrow` transaction hash:
+If you need custom stake-creation behavior, pass `ensureActiveStake`:
 
 ```ts
 const method = stake({
-  account,
-  getTransactionHash: async ({ account, request }) => {
-    await submitApproval(account, request);
-    return submitCreateEscrow(account, request);
+  account: payerAccount,
+  beneficiaryAccount,
+  ensureActiveStake: async ({ beneficiary, payerAccount, request }) => {
+    // custom tx orchestration, sponsorship, or wallet UX
   },
   name: "tempo",
   preset,
@@ -97,14 +112,14 @@ const mppx = Mppx.create({
 });
 ```
 
-The server method verifies escrow state on-chain — no local state tracking needed.
-The preset supplies the chain metadata, including `chain.id`.
+The server:
 
-## Credential types
+1. verifies the challenged `scope`
+2. recovers the beneficiary from the `scope-active` signature
+3. checks on-chain active stake by `(scope, beneficiary)`
+4. validates the active escrow terms and principal
 
-| Type | Flow |
-|------|------|
-| `hash` | Client broadcasts tx, sends hash to server |
+No tx-hash receipt exchange is part of the public protocol anymore.
 
 ## Network preset objects
 
@@ -125,5 +140,10 @@ const preset: NetworkPreset = {
 ## Notes
 
 - Method identity: `method="stake"`, `intent="stake"`
-- All token amounts are in base units (smallest denomination)
+- All token amounts are base-unit integer strings
+- `scope` should be stable for the protected surface being authorized
+- If stake terms can change over time, consider scope versioning and/or a
+  custom `ensureActiveStake` hook instead of assuming any active escrow for a
+  scope is always reusable
+- `beneficiary` is the authorization subject; `payer` is the funding account
 - This package only handles the stake method. For `charge`, `session`, or other intents, register those from `mppx` directly.

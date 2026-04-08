@@ -36,6 +36,8 @@ export MPP_RESOURCE_URL=http://127.0.0.1:4020/documents/document
 
 ```sh
 stake-mpp escrow create-escrow       # Lock tokens in escrow
+stake-mpp escrow get-active-escrow-id # Resolve active escrow id from scope + beneficiary
+stake-mpp escrow get-active-escrow    # Read active escrow by scope + beneficiary
 stake-mpp escrow get-escrow          # Read escrow state
 stake-mpp escrow refund-escrow       # Return stake to beneficiary
 stake-mpp escrow slash-escrow        # Send stake to counterparty
@@ -46,7 +48,7 @@ stake-mpp escrow slash-escrow        # Send stake to counterparty
 ```sh
 stake-mpp challenge fetch     # Get the 402 challenge and save it under challenges/
 stake-mpp challenge inspect   # Parse the latest saved challenge
-stake-mpp challenge respond   # Build credential.txt (broadcasts tx, returns hash credential)
+stake-mpp challenge respond   # Build credential.txt (ensures stake, returns scope-active signature)
 stake-mpp challenge submit    # Post credential.txt to the server
 ```
 
@@ -61,11 +63,31 @@ npm run stake-mpp -- challenge submit
 
 ## Examples
 
-Read escrow state:
+Resolve the active escrow id:
+
+```sh
+stake-mpp escrow get-active-escrow-id \
+  --scope 0xaaaa...aaaa \
+  --beneficiary 0x1111...1111 \
+  --rpc-url "$MPP_ESCROW_RPC_URL" \
+  --contract "$MPP_ESCROW_CONTRACT"
+```
+
+Read the active escrow directly:
+
+```sh
+stake-mpp escrow get-active-escrow \
+  --scope 0xaaaa...aaaa \
+  --beneficiary 0x1111...1111 \
+  --rpc-url "$MPP_ESCROW_RPC_URL" \
+  --contract "$MPP_ESCROW_CONTRACT"
+```
+
+Read escrow state by id:
 
 ```sh
 stake-mpp escrow get-escrow \
-  --key 0xaaaa...aaaa \
+  --escrow-id 1 \
   --rpc-url "$MPP_ESCROW_RPC_URL" \
   --contract "$MPP_ESCROW_CONTRACT"
 ```
@@ -74,7 +96,7 @@ Create escrow:
 
 ```sh
 stake-mpp escrow create-escrow \
-  --key 0xaaaa...aaaa \
+  --scope 0xaaaa...aaaa \
   --counterparty 0x2222...2222 \
   --token 0x20C0...0000 \
   --amount 5000000 \
@@ -86,6 +108,8 @@ stake-mpp escrow create-escrow \
 ## Notes
 
 - The CLI intentionally exposes only the core challenge flow and core escrow lifecycle commands.
+- `escrow get-active-escrow-id` is the lookup step before `get-escrow`, `refund-escrow`, or `slash-escrow` when you only have `(scope, beneficiary)`.
+- `escrow get-active-escrow` mirrors the contract’s active lookup and returns the resolved active escrow record in one read.
 - `challenge fetch` defaults to the demo URL and writes a timestamped file under `challenges/`, which is gitignored.
 - `challenge inspect` defaults to the latest file in `challenges/`.
 - `challenge respond` defaults to writing `credential.txt`, and will use the latest saved challenge in `challenges/` before fetching a fresh challenge.
@@ -93,5 +117,5 @@ stake-mpp escrow create-escrow \
 - All token amounts are in base units
 - Write commands wait for a receipt by default (`--no-wait` to skip)
 - Write commands and `challenge respond` accept `--private-key`, `--account`, or `--keystore`; use `MPP_ESCROW_PASSWORD_FILE` or `--password-file` for non-interactive keystore unlocks
-- `challenge respond` uses client-side broadcast (`feePayer = false`)
+- `challenge respond` uses the `scope-active` signature flow and will create escrow only when no active stake already exists for the challenged scope
 - ABI is auto-regenerated from Foundry build output on each `npm run build`

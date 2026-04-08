@@ -15,17 +15,17 @@ Client                         Server                      Chain
   ├── GET /resource ────────────>│                           │
   │<──── 402 + stake challenge ──┤                           │
   │                              │                           │
-  ├── createEscrow(tokens) ──────┼──────────────────────────>│
-  │<─────────────────────────────┼──── escrow confirmed ─────┤
+  ├── ensure active escrow ──────┼──────────────────────────>│
+  │<─────────────────────────────┼──── active stake exists ──┤
   │                              │                           │
   ├── GET /resource + credential>│                           │
-  │                       verify │── getEscrow(key) ─────────>│
-  │                              │<──── escrow record ───────┤
+  │                       verify │── getActiveEscrow(scope, beneficiary) ─────>│
+  │                              │<──── active escrow record ──────────────────┤
   │<──── 200 + content ─────────┤                           │
   │                              │                           │
   │          (later)             │                           │
-  │                              ├── refundEscrow() ────────>│  happy path
-  │                              ├── slashEscrow() ─────────>│  violation
+  │                              ├── refundEscrow(escrowId) ─>│  happy path
+  │                              ├── slashEscrow(escrowId) ──>│  violation
 ```
 
 ## Quick start
@@ -102,10 +102,10 @@ stake-mpp/
 TypeScript SDK extending MPP with the `stake` intent. Separate entry points for client and server:
 
 ```ts
-// Client: build escrow credentials
+// Client: ensure active stake, then sign a scope-active credential
 import { stake } from "@gitbondhq/mppx-stake/client";
 
-// Server: verify escrow state on-chain
+// Server: verify active stake on-chain
 import { serverStake } from "@gitbondhq/mppx-stake";
 ```
 
@@ -121,17 +121,18 @@ ABI-driven CLI for escrow lifecycle operations (`create`, `refund`, `slash`) and
 
 The `MPPEscrow` contract provides:
 
-- **`createEscrow`** / **`createEscrowWithPermit`** — lock whitelisted ERC-20 tokens
+- **`createEscrow`** — lock whitelisted ERC-20 tokens for a `scope`
 - **`refundEscrow`** — return stake to the beneficiary (happy path)
 - **`slashEscrow`** — send stake to the counterparty (violation)
-- **`getEscrow`** — returns the full escrow record (payer, token, amount, counterparty, etc.)
+- **`getActiveEscrow`** / **`isEscrowActive`** — verify active stake by `(scope, beneficiary)`
+- **`getEscrow`** — returns the full historical escrow record by `escrowId`
 - Delegate pattern for operational separation of refund/slash authority
 
 > Only whitelist tokens you have reviewed for decimals, fee-on-transfer behavior, rebasing mechanics, and hooks. The contract assumes exact-transfer ERC-20 behavior.
 
 ### Escrow design patterns
 
-The stake spec intentionally leaves escrow contract design to the implementer. The reference `MPPEscrow` contract exposes `isEscrowActive(key, payer)` for a fast active-state check and `getEscrow(key)` for the full escrow record, which enables several patterns:
+The stake spec intentionally leaves escrow contract design to the implementer. The reference `MPPEscrow` contract exposes `isEscrowActive(scope, beneficiary)` for a fast active-state check and `getActiveEscrow(scope, beneficiary)` for the canonical active record, which enables several patterns:
 
 **Tiered access** — The server reads the staked amount and maps it to access levels. For example, 100 USDC could grant basic API access while 1000 USDC unlocks premium rate limits. The contract doesn't need to know about tiers; the server applies its own policy based on the on-chain state.
 

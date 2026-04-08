@@ -70,6 +70,6 @@ If you change `packages/mppx-stake`, rebuild it before testing the server:
 - Preserve the intentionally small shape of the server unless the user explicitly asks for more.
 - Do not add databases, sessions, or background jobs unless requested.
 - Keep secrets out of public responses and logs.
-- Generate a fresh `stakeKey` for new challenges.
-- Let `serverStake()` reuse echoed challenge values that must stay stable on credential retries, especially `stakeKey`.
+- Derive a stable `scope` for each protected resource or policy.
+- Let `serverStake()` reuse echoed challenge values that must stay stable on credential retries, especially `scope`.
 - Register only `serverStake()` from `@gitbondhq/mppx-stake` unless the user explicitly wants charge or session flows; `tempo()` pulls in extra methods that need additional configuration.

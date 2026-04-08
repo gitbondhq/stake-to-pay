@@ -77,7 +77,7 @@ stake-mpp challenge inspect
 
 **Flags:** optional `--file` (defaults to the latest saved file in `challenges/`).
 
-**Output:** JSON with `description`, `id`, `intent`, `method`, `opaque`, `realm`, `request` (contains `amount`, `contract`, `counterparty`, `stakeKey`, `token`, etc.).
+**Output:** JSON with `description`, `id`, `intent`, `method`, `opaque`, `realm`, `request` (contains `amount`, `contract`, `counterparty`, `scope`, `token`, etc.).
 
 ### 3. Respond to the challenge
 
@@ -95,9 +95,9 @@ Default behavior:
 
 **Flags:** optional `--challenge-file <path>` OR optional `--url <url>` (mutually exclusive), one signing method (`--private-key`, `--account`, or `--keystore`), optional `--password-file`, optional `--out` (defaults to `credential.txt`).
 
-**Output:** JSON with `credential` (serialized string), `txHash`, `challengeId`, `payloadType` ("hash" — client broadcasts tx).
+**Output:** JSON with `credential` (serialized string), `signature`, `challengeId`, and `payloadType` (`"scope-active"`).
 
-**What happens:** The CLI broadcasts a `createEscrow` transaction on-chain, waits for confirmation, then produces a hash credential. It forces `feePayer = false` (client always broadcasts).
+**What happens:** The CLI ensures an active escrow exists for the challenged `scope`, then signs a `scope-active` credential as the beneficiary.
 
 ### 4. Submit the credential
 
@@ -135,6 +135,8 @@ stake-mpp challenge respond \
 The CLI intentionally exposes only the core escrow lifecycle:
 
 - `escrow create-escrow`
+- `escrow get-active-escrow-id`
+- `escrow get-active-escrow`
 - `escrow get-escrow`
 - `escrow refund-escrow`
 - `escrow slash-escrow`
@@ -145,9 +147,9 @@ All escrow commands share: `--rpc-url`, `--contract`. Write commands add signing
 
 | Command | Key flags | Purpose |
 |---------|-----------|---------|
-| `escrow create-escrow` | `--key`, `--counterparty`, `--token`, `--amount`, `--beneficiary` (opt) | Lock tokens |
-| `escrow refund-escrow` | `--key` | Return stake (happy path) |
-| `escrow slash-escrow` | `--key` | Penalize payer |
+| `escrow create-escrow` | `--scope`, `--counterparty`, `--token`, `--amount`, `--beneficiary` (opt) | Lock tokens |
+| `escrow refund-escrow` | `--escrow-id` | Return stake (happy path) |
+| `escrow slash-escrow` | `--escrow-id` | Penalize payer |
 
 All write commands return `functionName`, `hash`, and (unless `--no-wait`) `receipt` + `status`.
 
@@ -155,7 +157,13 @@ All write commands return `functionName`, `hash`, and (unless `--no-wait`) `rece
 
 | Command | Key flags | Returns |
 |---------|-----------|---------|
-| `escrow get-escrow` | `--key` | Full escrow struct |
+| `escrow get-active-escrow-id` | `--scope`, `--beneficiary` | Active escrow id for `(scope, beneficiary)` |
+| `escrow get-active-escrow` | `--scope`, `--beneficiary` | Active escrow struct for `(scope, beneficiary)` |
+| `escrow get-escrow` | `--escrow-id` | Full escrow struct |
+
+Use `get-active-escrow-id` as the lookup step before `refund-escrow`,
+`slash-escrow`, or `get-escrow` when an operator only has the public
+challenge-facing identifiers.
 
 ---
 
