@@ -31,11 +31,28 @@ Client                         Server                      Chain
 ## Quick start
 
 ```sh
+# One-command fresh clone setup
+npm run bootstrap
+
+# Or step through it manually
 npm install
 npm run build
-forge build
 forge test
 ```
+
+`npm install` at the repo root installs the JavaScript dependencies for every workspace under `apps/*` and `packages/*`. Foundry libs are already vendored in `lib/`, so there is no separate `forge install` step for a normal clone.
+
+### Useful root scripts
+
+- `npm run bootstrap` - install workspace deps and build the repo
+- `npm run build` - build contracts-derived SDK artifacts and workspace apps
+- `npm run build:contracts` - run `forge build`
+- `npm run build:mppx-stake` - regenerate the ABI package output and build the SDK
+- `npm run build:cli` - build `@stake-mpp/cli`
+- `npm run stake-mpp -- <args>` - run the built CLI from the repo root
+- `npm run build:server` - build `@stake-mpp/mpp-server`
+- `npm run start:server` - run the demo server from the repo root
+- `npm run dev:server` - run the demo server in watch mode from the repo root
 
 ### Run the demo
 
@@ -45,8 +62,10 @@ Start the stake-gated server:
 cp example.env .env
 # Edit .env: set MPP_SECRET_KEY
 # Edit config.json if you need different escrow/network values
-npm run dev --workspace=@stake-mpp/mpp-server
+npm run start:server
 ```
+
+If you want watch mode while editing the server, use `npm run dev:server`.
 
 In another terminal, hit the paywall:
 
@@ -56,6 +75,11 @@ curl http://127.0.0.1:4020/documents/document/preview
 
 # Protected (triggers 402 → stake → access flow)
 npx mppx http://127.0.0.1:4020/documents/document
+
+# Or use the repo's own built CLI with demo defaults
+npm run stake-mpp -- challenge fetch
+npm run stake-mpp -- challenge respond
+npm run stake-mpp -- challenge submit
 ```
 
 ## Repository structure
@@ -141,7 +165,7 @@ The stake intent is defined in [`specs/intents/draft-payment-intent-stake-00.md`
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 24 recommended (`apps/mpp-server` and `packages/mppx-stake` require it; the root workspace and CLI currently declare `>=18`)
+- [Node.js](https://nodejs.org/) >= 24
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) (forge, cast, anvil)
 
 ## License

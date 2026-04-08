@@ -17,6 +17,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import {
   ACCOUNT_ENV,
   CONTRACT_ENV,
+  PASSWORD_FILE_ENV,
   PRIVATE_KEY_ENV,
   repoConfig,
   RPC_URL_ENV,
@@ -61,7 +62,7 @@ export function withSigningOptions(command: Command): Command {
     .option('--keystore <path>', 'Path to a cast wallet keystore JSON file.')
     .option(
       '--password-file <path>',
-      'Path to a file containing the keystore passphrase for non-interactive use.',
+      `Path to a file containing the keystore passphrase for non-interactive use. Can also be provided via ${PASSWORD_FILE_ENV}.`,
     )
 }
 
@@ -160,8 +161,9 @@ export async function resolveAccount(
   }
 
   const keystore = await readKeystore(keystorePath)
-  const password = options.passwordFile
-    ? (await readFile(options.passwordFile, 'utf8')).trim()
+  const passwordFile = options.passwordFile ?? process.env[PASSWORD_FILE_ENV]
+  const password = passwordFile
+    ? (await readFile(passwordFile, 'utf8')).trim()
     : await promptPassword()
   // ox@0.14.x async scrypt derivation does not preserve Foundry keystore
   // parameters correctly for some cast wallets. The sync path does.

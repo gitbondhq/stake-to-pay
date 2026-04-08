@@ -91,43 +91,37 @@ export MPP_ESCROW_RPC_URL=https://rpc.moderato.tempo.xyz
 export MPP_ESCROW_CONTRACT=0xd334C82df572789E1EEF2eF7814dF6f6aE2D7Cce
 export MPP_ESCROW_ACCOUNT=tempo-tester
 export MPP_ESCROW_PASSWORD_FILE=/absolute/path/to/password.txt
+export MPP_RESOURCE_URL=http://127.0.0.1:4020/documents/document
 ```
 
 ### 5a. Fetch the challenge
 
 ```sh
-npx --workspace @stake-mpp/cli stake-mpp challenge fetch \
-  --url http://127.0.0.1:4020/documents/document \
-  --out challenge.json
+npm run stake-mpp -- challenge fetch
 ```
+
+This writes a timestamped challenge file under `challenges/` (gitignored).
 
 ### 5b. Inspect it
 
 ```sh
-npx --workspace @stake-mpp/cli stake-mpp challenge inspect \
-  --file challenge.json
+npm run stake-mpp -- challenge inspect
 ```
 
-Shows: stake amount, token, counterparty, stakeKey, contract address.
+Shows: stake amount, token, counterparty, stakeKey, contract address from the latest saved challenge file.
 
 ### 5c. Create escrow and build credential
 
 ```sh
-npx --workspace @stake-mpp/cli stake-mpp challenge respond \
-  --challenge-file challenge.json \
-  --account "$MPP_ESCROW_ACCOUNT" \
-  --password-file "$MPP_ESCROW_PASSWORD_FILE" \
-  --out credential.txt
+npm run stake-mpp -- challenge respond
 ```
 
-This broadcasts a `createEscrow` transaction on-chain, waits for confirmation, and outputs a hash credential.
+This broadcasts a `createEscrow` transaction on-chain, waits for confirmation, and writes `credential.txt`.
 
 ### 5d. Submit credential and get access
 
 ```sh
-npx --workspace @stake-mpp/cli stake-mpp challenge submit \
-  --url http://127.0.0.1:4020/documents/document \
-  --credential-file credential.txt
+npm run stake-mpp -- challenge submit
 ```
 
 Returns the full document content with a `Payment-Receipt` header.
@@ -175,6 +169,8 @@ npx --workspace @stake-mpp/cli stake-mpp escrow slash-escrow \
 | `MPP_SECRET_KEY` error on server start | Set it in the repo-root `.env`. |
 | `createEscrow` reverts | Check: token is whitelisted, sufficient token balance, token approval in place. |
 | `corrupt keystore` | If `cast wallet address --keystore ... --password-file ...` works, rebuild the CLI so it picks up the cast-wallet fix, then retry. |
+| CLI says `No TTY available for passphrase prompt` | Set `MPP_ESCROW_PASSWORD_FILE` in the repo-root `.env`, or pass `--password-file`. |
+| CLI says `fetch failed` against `127.0.0.1` | In Codex, rerun the CLI command unsandboxed before treating it as an application bug. |
 | CLI can't find `stake-mpp` binary | Run `npm run build --workspace @stake-mpp/cli` first. |
 | Server doesn't see `config.json` | Run from repo root, or check the relative path in `apps/mpp-server/src/config.ts`. |
 

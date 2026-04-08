@@ -1,28 +1,8 @@
-export function collectRepeatableOption(
-  value: string,
-  previous: string[],
-): string[] {
-  return [...previous, value]
-}
-
 export async function fetchWithOptions(parameters: {
   authorization?: string | undefined
-  headers?: string[] | undefined
-  method?: string | undefined
   url: string
 }): Promise<Response> {
   const headers = new Headers()
-
-  for (const header of parameters.headers ?? []) {
-    const [name, ...rest] = header.split(':')
-    if (!name || rest.length === 0) {
-      throw new Error(
-        `Invalid --header value "${header}". Expected "name:value".`,
-      )
-    }
-
-    headers.set(name.trim(), rest.join(':').trim())
-  }
 
   if (parameters.authorization) {
     headers.set('authorization', parameters.authorization)
@@ -30,7 +10,7 @@ export async function fetchWithOptions(parameters: {
 
   return fetch(parameters.url, {
     headers,
-    method: parameters.method ?? 'GET',
+    method: 'GET',
   })
 }
 

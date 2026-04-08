@@ -5,7 +5,9 @@ import { Command } from 'commander'
 import {
   ACCOUNT_ENV,
   CONTRACT_ENV,
+  PASSWORD_FILE_ENV,
   PRIVATE_KEY_ENV,
+  RESOURCE_URL_ENV,
   RPC_URL_ENV,
 } from './cli/context.js'
 import { registerChallengeCommands } from './commands/challenge.js'
@@ -25,6 +27,8 @@ Environment variables:
   ${CONTRACT_ENV}       Default MPPEscrow contract address
   ${PRIVATE_KEY_ENV}    Default private key for write commands
   ${ACCOUNT_ENV}        Default cast wallet account name for write commands
+  ${PASSWORD_FILE_ENV}  Default keystore password file for write commands
+  ${RESOURCE_URL_ENV}   Default protected demo resource URL for challenge commands
 
 Repo config:
   config.json          Shared network preset and escrow defaults at the repo root

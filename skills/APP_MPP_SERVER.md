@@ -39,6 +39,8 @@ Stake and network defaults come from the repo-level `config.json`.
 
 Runtime env is loaded from the repo-root `.env` when using the workspace scripts:
 
+- `npm run start:server`
+- `npm run dev:server`
 - `npm run dev --workspace=@stake-mpp/mpp-server`
 - `npm run start --workspace=@stake-mpp/mpp-server`
 
@@ -48,10 +50,14 @@ Do not rely on `apps/mpp-server/.env` for normal local runs unless the user expl
 
 In the Codex sandbox, localhost `curl` / `fetch` checks may fail with `EPERM` even when the server boot logs look correct. If that happens, rerun the server and HTTP verification unsandboxed before treating it as an application bug.
 
+On some machines, `node --watch` can also fail with `EMFILE: too many open files, watch`. If that happens, use the non-watch path (`npm run start:server`) after building instead of treating it as an app bug.
+
 ## Helpful commands
 
 - `npm run check-types --workspace=@stake-mpp/mpp-server`
 - `npm run build --workspace=@stake-mpp/mpp-server`
+- `npm run start:server`
+- `npm run dev:server`
 - `npm run dev --workspace=@stake-mpp/mpp-server`
 - `npm run start --workspace=@stake-mpp/mpp-server`
 
