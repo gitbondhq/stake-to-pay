@@ -44,7 +44,7 @@ export const MPPEscrowAbi = [
     "name": "createEscrow",
     "inputs": [
       {
-        "name": "key",
+        "name": "scope",
         "type": "bytes32",
         "internalType": "bytes32"
       },
@@ -69,17 +69,28 @@ export const MPPEscrowAbi = [
         "internalType": "uint256"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "escrowId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "getEscrow",
+    "name": "getActiveEscrow",
     "inputs": [
       {
-        "name": "key",
+        "name": "scope",
         "type": "bytes32",
         "internalType": "bytes32"
+      },
+      {
+        "name": "beneficiary",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
@@ -88,6 +99,106 @@ export const MPPEscrowAbi = [
         "type": "tuple",
         "internalType": "struct IMPPEscrow.Escrow",
         "components": [
+          {
+            "name": "id",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "scope",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "payer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "beneficiary",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "counterparty",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "token",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "principal",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "depositedAt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "isActive",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getActiveEscrowId",
+    "inputs": [
+      {
+        "name": "scope",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "beneficiary",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "escrowId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEscrow",
+    "inputs": [
+      {
+        "name": "escrowId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IMPPEscrow.Escrow",
+        "components": [
+          {
+            "name": "id",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "scope",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
           {
             "name": "payer",
             "type": "address",
@@ -133,12 +244,12 @@ export const MPPEscrowAbi = [
     "name": "isEscrowActive",
     "inputs": [
       {
-        "name": "key",
+        "name": "scope",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "payer",
+        "name": "beneficiary",
         "type": "address",
         "internalType": "address"
       }
@@ -148,6 +259,19 @@ export const MPPEscrowAbi = [
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nextEscrowId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -181,9 +305,9 @@ export const MPPEscrowAbi = [
     "name": "refundEscrow",
     "inputs": [
       {
-        "name": "key",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "escrowId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -244,9 +368,9 @@ export const MPPEscrowAbi = [
     "name": "slashEscrow",
     "inputs": [
       {
-        "name": "key",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "escrowId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -308,7 +432,13 @@ export const MPPEscrowAbi = [
     "name": "EscrowCreated",
     "inputs": [
       {
-        "name": "key",
+        "name": "escrowId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "scope",
         "type": "bytes32",
         "indexed": true,
         "internalType": "bytes32"
@@ -351,7 +481,13 @@ export const MPPEscrowAbi = [
     "name": "EscrowRefunded",
     "inputs": [
       {
-        "name": "key",
+        "name": "escrowId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "scope",
         "type": "bytes32",
         "indexed": true,
         "internalType": "bytes32"
@@ -365,7 +501,7 @@ export const MPPEscrowAbi = [
       {
         "name": "beneficiary",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       },
       {
@@ -388,21 +524,33 @@ export const MPPEscrowAbi = [
     "name": "EscrowSlashed",
     "inputs": [
       {
-        "name": "key",
+        "name": "escrowId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "scope",
         "type": "bytes32",
         "indexed": true,
         "internalType": "bytes32"
       },
       {
-        "name": "beneficiary",
+        "name": "payer",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
+        "name": "beneficiary",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
         "name": "counterparty",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       },
       {

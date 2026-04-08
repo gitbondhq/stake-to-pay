@@ -1,17 +1,20 @@
 import { Challenge, Credential } from 'mppx'
 import { Mppx, tempo as upstreamTempo } from 'mppx/client'
-import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { tempoModerato } from 'viem/chains'
 import { describe, expect, it, vi } from 'vitest'
 
 import { stake as createStakeMethod } from '../Methods.js'
 import type { NetworkPreset } from '../networkConfig.js'
+import { recoverScopeActiveProofSigner } from '../internal/scopeActiveProof.js'
 import type { StakeCredentialPayload } from '../stakeSchema.js'
 import { stake } from './index.js'
 
-const account = privateKeyToAccount(
+const payerAccount = privateKeyToAccount(
   '0x8b3a350cf5c34c9194ca85829b4b6fd2e8f5f10f1f49ffb3874c7f5f7b6b2d44',
+)
+const beneficiaryAccount = privateKeyToAccount(
+  '0x59c6995e998f97a5a0044976f3c9d4e6f7b0f3c0a4f4f6c9c8f58d15a1b2c3d4',
 )
 const methodName = 'tempo'
 const preset = {
@@ -20,16 +23,14 @@ const preset = {
   id: 'tempoModerato',
   rpcUrl: 'https://rpc.moderato.tempo.xyz',
 } as const satisfies NetworkPreset
-const txHash =
-  '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Hex
 const request = {
   amount: '5000000',
-  beneficiary: '0x3333333333333333333333333333333333333333',
+  beneficiary: beneficiaryAccount.address,
   contract: '0x1111111111111111111111111111111111111111',
   counterparty: '0x2222222222222222222222222222222222222222',
-  token: '0x20C0000000000000000000000000000000000000',
-  stakeKey:
+  scope:
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  token: '0x20C0000000000000000000000000000000000000',
   methodDetails: {
     chainId: preset.chain.id,
   },
@@ -38,8 +39,8 @@ const request = {
 describe('client stake exports', () => {
   it('composes with an existing method set', () => {
     const methods = [
-      ...upstreamTempo({ account }),
-      stake({ account, name: methodName, preset }),
+      ...upstreamTempo({ account: payerAccount }),
+      stake({ account: payerAccount, name: methodName, preset }),
     ] as const
 
     expect(methods).toHaveLength(3)
@@ -50,7 +51,7 @@ describe('client stake exports', () => {
   })
 
   it('exposes the standalone stake client method', () => {
-    const method = stake({ account, name: methodName, preset })
+    const method = stake({ account: payerAccount, name: methodName, preset })
     expect(method.name).toBe(methodName)
     expect(method.intent).toBe('stake')
   })
@@ -59,8 +60,8 @@ describe('client stake exports', () => {
     const mppx = Mppx.create({
       methods: [
         [
-          ...upstreamTempo({ account }),
-          stake({ account, name: methodName, preset }),
+          ...upstreamTempo({ account: payerAccount }),
+          stake({ account: payerAccount, name: methodName, preset }),
         ] as const,
       ],
       polyfill: false,
@@ -70,44 +71,53 @@ describe('client stake exports', () => {
   })
 
   it('does not expose client context overrides', () => {
-    const method = stake({ account, name: methodName, preset })
+    const method = stake({ account: payerAccount, name: methodName, preset })
 
     expect(method.context).toBeUndefined()
   })
 
-  it('lets the app provide the final escrow hash from the request', async () => {
-    const getTransactionHash = vi.fn(
-      async ({ account: receivedAccount, request: receivedRequest }) => {
-        expect(receivedAccount).toBe(account)
-        expect(receivedRequest).toEqual(request)
-        return txHash
-      },
-    )
+  it('signs a scope-active credential after the app ensures the stake exists', async () => {
+    const ensureActiveStake = vi.fn(async parameters => {
+      expect(parameters.request).toEqual(request)
+      expect(parameters.payerAccount.address).toBe(payerAccount.address)
+      expect(parameters.beneficiaryAccount.address).toBe(
+        beneficiaryAccount.address,
+      )
+      expect(parameters.beneficiary).toBe(beneficiaryAccount.address)
+    })
     const method = stake({
-      account,
-      getTransactionHash,
+      account: payerAccount,
+      beneficiaryAccount,
+      ensureActiveStake,
       name: methodName,
       preset,
     })
-    const challenge = Challenge.fromMethod(
-      createStakeMethod({ name: methodName }),
-      {
-        id: 'challenge-1',
-        realm: 'api.example.com',
-        request,
-      },
-    )
+    const challenge = Challenge.fromMethod(createStakeMethod({ name: methodName }), {
+      expires: '2026-01-01T00:00:00.000Z',
+      id: 'challenge-1',
+      realm: 'api.example.com',
+      request,
+    })
     const serialized = await method.createCredential({ challenge })
     const credential =
       Credential.deserialize<StakeCredentialPayload>(serialized)
 
-    expect(getTransactionHash).toHaveBeenCalledOnce()
-    expect(credential.payload).toEqual({
-      hash: txHash,
-      type: 'hash',
-    })
+    expect(ensureActiveStake).toHaveBeenCalledOnce()
+    expect(credential.payload.type).toBe('scope-active')
     expect(credential.source).toBe(
-      `did:pkh:eip155:${preset.chain.id}:${account.address}`,
+      `did:pkh:eip155:${preset.chain.id}:${beneficiaryAccount.address}`,
     )
+
+    await expect(
+      recoverScopeActiveProofSigner({
+        beneficiary: beneficiaryAccount.address,
+        chainId: preset.chain.id,
+        challengeId: challenge.id,
+        contract: request.contract,
+        expires: challenge.expires,
+        scope: request.scope,
+        signature: credential.payload.signature,
+      }),
+    ).resolves.toBe(beneficiaryAccount.address)
   })
 })

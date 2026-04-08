@@ -15,9 +15,9 @@ const input = {
   beneficiary: '0x3333333333333333333333333333333333333333',
   contract: '0x1111111111111111111111111111111111111111',
   counterparty: '0x2222222222222222222222222222222222222222',
-  token: '0x20C0000000000000000000000000000000000000',
-  stakeKey:
+  scope:
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  token: '0x20C0000000000000000000000000000000000000',
 } as const
 
 describe('stake transaction helpers', () => {
@@ -39,7 +39,7 @@ describe('stake transaction helpers', () => {
     })
     expect(createEscrow.functionName).toBe('createEscrow')
     expect(createEscrow.args).toEqual([
-      input.stakeKey,
+      input.scope,
       input.counterparty,
       input.beneficiary,
       input.token,
@@ -53,16 +53,18 @@ describe('stake transaction helpers', () => {
         {
           beneficiary: input.beneficiary,
           counterparty: input.counterparty,
+          id: 1n,
           isActive: true,
           payer: payer.address,
           principal: input.amount,
+          scope: input.scope,
           token: input.token,
         },
         {
           beneficiary: input.beneficiary,
           counterparty: input.counterparty,
+          scope: input.scope,
           token: input.token,
-          payer: payer.address,
           value: input.amount,
         },
       ),
@@ -75,16 +77,18 @@ describe('stake transaction helpers', () => {
         {
           beneficiary: input.beneficiary,
           counterparty: input.counterparty,
+          id: 1n,
           isActive: true,
           payer: payer.address,
           principal: input.amount + 1n,
+          scope: input.scope,
           token: input.token,
         },
         {
           beneficiary: input.beneficiary,
           counterparty: input.counterparty,
+          scope: input.scope,
           token: input.token,
-          payer: payer.address,
           value: input.amount,
         },
       ),

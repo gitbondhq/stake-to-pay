@@ -1,6 +1,6 @@
 import { Method, PaymentRequest, type Credential } from 'mppx'
 import type { Address } from 'viem'
-import { getTransactionReceipt } from 'viem/actions'
+import { isAddressEqual } from 'viem'
 
 import type { NetworkPreset } from '../networkConfig.js'
 import type {
@@ -8,12 +8,9 @@ import type {
   StakeCredentialPayload,
 } from '../stakeSchema.js'
 import { createClient } from './client.js'
-import { resolvePayer } from './source.js'
-import {
-  assertEscrowCreatedReceipt,
-  assertEscrowOnChain,
-  toReceipt,
-} from './tx.js'
+import { recoverScopeActiveProofSigner } from './scopeActiveProof.js'
+import { assertSourceDidMatches, resolveBeneficiary } from './source.js'
+import { assertEscrowOnChain, toReceipt } from './tx.js'
 
 type StakeMethod = Parameters<typeof Method.toServer>[0] & { name: string }
 
@@ -28,7 +25,7 @@ export type StakeParameters = StakeDefaults & {
   preset: NetworkPreset
 }
 
-/** Issues stake challenges and verifies submitted tx hashes. */
+/** Issues stake challenges and verifies beneficiary-controlled scope-active proofs. */
 export const createServerStake = (method: StakeMethod) => {
   return (parameters: StakeParameters) => {
     const preset = parameters.preset
@@ -68,38 +65,47 @@ export const createServerStake = (method: StakeMethod) => {
         assertRequestMatches(currentRequest, challengeRequest)
 
         const chainId = challengeRequest.methodDetails.chainId
-        const amount = BigInt(challengeRequest.amount)
-        const payer = resolvePayer(chainId, credential.source)
-        const client = createClient(preset)
-        const payload = credential.payload as StakeCredentialPayload
-        const beneficiary = challengeRequest.beneficiary ?? payer
-
-        const verifyParams = {
-          beneficiary,
-          counterparty: challengeRequest.counterparty,
-          token: challengeRequest.token,
-          payer,
-          value: amount,
-        }
-        const receiptParams = {
-          ...verifyParams,
+        const hintedBeneficiary =
+          challengeRequest.beneficiary ??
+          resolveBeneficiary(chainId, credential.source)
+        const beneficiary = await recoverScopeActiveProofSigner({
+          beneficiary: hintedBeneficiary,
+          chainId,
+          challengeId: credential.challenge.id,
           contract: challengeRequest.contract,
-          stakeKey: challengeRequest.stakeKey,
-        }
-
-        const receipt = await getTransactionReceipt(client, {
-          hash: payload.hash,
+          expires: credential.challenge.expires,
+          scope: challengeRequest.scope,
+          signature: (credential.payload as StakeCredentialPayload).signature,
         })
 
-        assertEscrowCreatedReceipt(receipt, receiptParams)
-        await assertEscrowOnChain(
-          client,
-          challengeRequest.contract,
-          challengeRequest.stakeKey,
-          verifyParams,
-        )
+        if (
+          challengeRequest.beneficiary &&
+          !isAddressEqual(challengeRequest.beneficiary, beneficiary)
+        ) {
+          throw new Error(
+            'Recovered beneficiary does not match the challenged beneficiary.',
+          )
+        }
 
-        return toReceipt(receipt, method.name)
+        assertSourceDidMatches(chainId, credential.source, beneficiary)
+
+        const client = createClient(preset)
+        await assertEscrowOnChain(client, challengeRequest.contract, {
+          beneficiary,
+          counterparty: challengeRequest.counterparty,
+          scope: challengeRequest.scope,
+          token: challengeRequest.token,
+          value: BigInt(challengeRequest.amount),
+        })
+
+        return toReceipt(
+          {
+            beneficiary,
+            contract: challengeRequest.contract,
+            scope: challengeRequest.scope,
+          },
+          method.name,
+        )
       },
     })
   }
@@ -111,6 +117,7 @@ const assertRequestMatches = (
 ) => {
   const pairs = [
     ['amount', currentRequest.amount, challengeRequest.amount],
+    ['beneficiary', currentRequest.beneficiary ?? '', challengeRequest.beneficiary ?? ''],
     [
       'counterparty',
       currentRequest.counterparty,
@@ -120,7 +127,7 @@ const assertRequestMatches = (
     ['externalId', currentRequest.externalId, challengeRequest.externalId],
     ['policy', currentRequest.policy, challengeRequest.policy],
     ['resource', currentRequest.resource, challengeRequest.resource],
-    ['stakeKey', currentRequest.stakeKey, challengeRequest.stakeKey],
+    ['scope', currentRequest.scope, challengeRequest.scope],
     ['token', currentRequest.token, challengeRequest.token],
     [
       'chainId',
@@ -137,7 +144,7 @@ const assertRequestMatches = (
 const getEchoedChallengeRequest = (
   credential: Credential.Credential | null | undefined,
   method: StakeMethod,
-): Partial<Pick<StakeChallengeRequest, 'externalId' | 'stakeKey'>> => {
+): Partial<Pick<StakeChallengeRequest, 'beneficiary' | 'externalId' | 'scope'>> => {
   if (!credential) return {}
   if (
     credential.challenge.method !== method.name ||
@@ -151,7 +158,10 @@ const getEchoedChallengeRequest = (
   const echoedRequest = parsed.data as StakeChallengeRequest
 
   return {
+    ...(echoedRequest.beneficiary
+      ? { beneficiary: echoedRequest.beneficiary }
+      : {}),
     ...(echoedRequest.externalId ? { externalId: echoedRequest.externalId } : {}),
-    stakeKey: echoedRequest.stakeKey,
+    scope: echoedRequest.scope,
   }
 }

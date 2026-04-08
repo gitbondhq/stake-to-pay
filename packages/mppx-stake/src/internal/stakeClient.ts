@@ -1,29 +1,36 @@
 import { Credential, Method } from 'mppx'
-import type { Account, Hex } from 'viem'
+import type { Account } from 'viem'
+import { isAddressEqual } from 'viem'
 
 import type { NetworkPreset } from '../networkConfig.js'
 import type { StakeChallengeRequest } from '../stakeSchema.js'
 import { createClient, submitCalls } from './client.js'
-import { buildStakeCalls } from './tx.js'
+import { signScopeActiveProof } from './scopeActiveProof.js'
+import { buildStakeCalls, hasActiveEscrow } from './tx.js'
 
-type GetTransactionHash = (parameters: {
-  account: Account
+type EnsureActiveStake = (parameters: {
+  beneficiary: Account['address']
+  beneficiaryAccount: Account
+  payerAccount: Account
   request: StakeChallengeRequest
-}) => Promise<Hex>
+}) => Promise<void>
 
 type ClientStakeParameters = {
   account: Account
-  getTransactionHash?: GetTransactionHash | undefined
+  beneficiaryAccount?: Account | undefined
+  ensureActiveStake?: EnsureActiveStake | undefined
   preset: NetworkPreset
 }
 
-/** Builds and broadcasts stake transactions, then returns the tx hash. */
+/** Ensures an active escrow exists, then returns the signed scope-active proof. */
 export const createClientStake = (
   method: Parameters<typeof Method.toClient>[0],
 ) => {
   return (parameters: ClientStakeParameters) => {
     const preset = parameters.preset
-    const account = parameters.account
+    const payerAccount = parameters.account
+    const beneficiaryAccount =
+      parameters.beneficiaryAccount ?? parameters.account
 
     return Method.toClient(method, {
       async createCredential({ challenge }) {
@@ -35,29 +42,65 @@ export const createClientStake = (
           )
         }
 
-        const source = `did:pkh:eip155:${chainId}:${account.address}`
-        const hash = parameters.getTransactionHash
-          ? await parameters.getTransactionHash({
-              account,
-              request,
-            })
-          : await submitCalls(
-              createClient(preset),
-              account,
+        if (
+          request.beneficiary &&
+          !isAddressEqual(request.beneficiary, beneficiaryAccount.address)
+        ) {
+          throw new Error(
+            'Challenge beneficiary does not match the beneficiary signing account.',
+          )
+        }
+
+        const beneficiary = request.beneficiary ?? beneficiaryAccount.address
+
+        if (parameters.ensureActiveStake) {
+          await parameters.ensureActiveStake({
+            beneficiary,
+            beneficiaryAccount,
+            payerAccount,
+            request,
+          })
+        } else {
+          const client = createClient(preset)
+          const isActive = await hasActiveEscrow(
+            client,
+            request.contract,
+            request.scope,
+            beneficiary,
+          )
+
+          if (!isActive) {
+            await submitCalls(
+              client,
+              payerAccount,
               buildStakeCalls({
                 amount: BigInt(request.amount),
-                beneficiary: request.beneficiary ?? account.address,
+                beneficiary,
                 contract: request.contract,
                 counterparty: request.counterparty,
+                scope: request.scope,
                 token: request.token,
-                stakeKey: request.stakeKey,
               }),
             )
+          }
+        }
+
+        const signature = await signScopeActiveProof(beneficiaryAccount, {
+          beneficiary,
+          chainId,
+          challengeId: challenge.id,
+          contract: request.contract,
+          expires: challenge.expires,
+          scope: request.scope,
+        })
 
         return Credential.serialize({
           challenge,
-          payload: { hash, type: 'hash' },
-          source,
+          payload: {
+            signature,
+            type: 'scope-active',
+          },
+          source: `did:pkh:eip155:${chainId}:${beneficiaryAccount.address}`,
         })
       },
     })

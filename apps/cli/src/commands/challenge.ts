@@ -91,7 +91,7 @@ export function registerChallengeCommands(program: Command): void {
     challenge
       .command('respond')
       .description(
-        'Create a serialized credential for a stake challenge using client-side broadcast and return a tx-hash payload.',
+        'Create a serialized credential for a stake challenge using the scope-active signature flow.',
       )
       .option(
         '--url <url>',
@@ -125,7 +125,7 @@ export function registerChallengeCommands(program: Command): void {
         challenge: challengeValue,
       })
       const parsedCredential = Credential.deserialize<{
-        hash: string
+        signature: string
         type: string
       }>(serializedCredential)
 
@@ -136,9 +136,9 @@ export function registerChallengeCommands(program: Command): void {
       printJson({
         challengeId: challengeValue.id,
         credential: serializedCredential,
-        txHash: parsedCredential.payload.hash,
         outputPath: options.out ?? null,
         payloadType: parsedCredential.payload.type,
+        signature: parsedCredential.payload.signature,
         source: parsedCredential.source,
       })
     },

@@ -18,7 +18,7 @@ const request = {
   externalId: 'github:owner/repo:pr:1',
   policy: 'repo-pr-v1',
   resource: 'owner/repo#1',
-  stakeKey:
+  scope:
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   methodDetails: {
     chainId: 42431,

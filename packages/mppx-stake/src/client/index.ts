@@ -1,4 +1,4 @@
-import type { Account, Hex } from 'viem'
+import type { Account, Address } from 'viem'
 
 import { createClientStake } from '../internal/stakeClient.js'
 import {
@@ -8,18 +8,21 @@ import {
 import type { NetworkPreset } from '../networkConfig.js'
 import type { StakeChallengeRequest } from '../stakeSchema.js'
 
-export type GetTransactionHashParameters = {
-  account: Account
+export type EnsureActiveStakeParameters = {
+  beneficiary: Address
+  beneficiaryAccount: Account
+  payerAccount: Account
   request: StakeChallengeRequest
 }
 
-export type GetTransactionHash = (
-  parameters: GetTransactionHashParameters,
-) => Promise<Hex>
+export type EnsureActiveStake = (
+  parameters: EnsureActiveStakeParameters,
+) => Promise<void>
 
 export type ClientStakeParameters = {
   account: Account
-  getTransactionHash?: GetTransactionHash | undefined
+  beneficiaryAccount?: Account | undefined
+  ensureActiveStake?: EnsureActiveStake | undefined
   preset: NetworkPreset
 }
 

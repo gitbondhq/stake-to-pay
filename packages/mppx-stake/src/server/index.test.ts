@@ -1,32 +1,34 @@
 import { PaymentRequest } from 'mppx'
 import { Mppx, tempo as upstreamTempo } from 'mppx/server'
-import type { Address, Hex, TransactionReceipt } from 'viem'
+import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { tempoModerato } from 'viem/chains'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as Methods from '../Methods.js'
 import type { NetworkPreset } from '../networkConfig.js'
+import { signScopeActiveProof } from '../internal/scopeActiveProof.js'
 import { stake } from './index.js'
 
 const account = privateKeyToAccount(
   '0x8b3a350cf5c34c9194ca85829b4b6fd2e8f5f10f1f49ffb3874c7f5f7b6b2d44',
 )
-const payer = '0x4444444444444444444444444444444444444444' as Address
-const beneficiary = '0x3333333333333333333333333333333333333333' as Address
+const beneficiaryAccount = privateKeyToAccount(
+  '0x59c6995e998f97a5a0044976f3c9d4e6f7b0f3c0a4f4f6c9c8f58d15a1b2c3d4',
+)
+const beneficiary = beneficiaryAccount.address
 const counterparty = '0x2222222222222222222222222222222222222222' as Address
 const contract = '0x1111111111111111111111111111111111111111' as Address
 const token = '0x20C0000000000000000000000000000000000000' as Address
-const stakeKey =
-  '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Hex
-const alternateStakeKey =
-  '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Hex
+const scope =
+  '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const
+const alternateScope =
+  '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as const
 const chainId = 42431
-const txHash =
-  '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Hex
 const methodName = 'tempo'
 const externalId = 'document:test:challenge'
 const policy = 'slash'
+const expires = '2026-01-01T00:00:00.000Z'
 const preset = {
   chain: tempoModerato,
   family: 'evm',
@@ -37,14 +39,13 @@ const resource = 'documents/test'
 
 const rawInput = {
   amount: '5000000',
-  beneficiary,
   contract,
   counterparty,
   externalId,
   policy,
   resource,
+  scope,
   token,
-  stakeKey,
   methodDetails: {
     chainId,
   },
@@ -56,18 +57,16 @@ const routeRequest = {
   externalId: rawInput.externalId,
   policy: rawInput.policy,
   resource: rawInput.resource,
+  scope: rawInput.scope,
   token: rawInput.token,
-  stakeKey: rawInput.stakeKey,
 }
 
 const stakeMethod = Methods.stake({ name: methodName })
 const challengeRequest = PaymentRequest.fromMethod(stakeMethod, rawInput)
 
 const mocks = vi.hoisted(() => ({
-  assertEscrowCreatedReceipt: vi.fn(),
   assertEscrowOnChain: vi.fn().mockResolvedValue(undefined),
   createClient: vi.fn(() => ({})),
-  getTransactionReceipt: vi.fn(),
 }))
 
 vi.mock('../internal/client.js', () => ({
@@ -76,32 +75,40 @@ vi.mock('../internal/client.js', () => ({
 
 vi.mock('../internal/tx.js', async importOriginal => ({
   ...(await importOriginal<typeof import('../internal/tx.js')>()),
-  assertEscrowCreatedReceipt: mocks.assertEscrowCreatedReceipt,
   assertEscrowOnChain: mocks.assertEscrowOnChain,
 }))
 
-vi.mock('viem/actions', async importOriginal => ({
-  ...(await importOriginal<typeof import('viem/actions')>()),
-  getTransactionReceipt: mocks.getTransactionReceipt,
-}))
+const makeCredential = async (parameters?: {
+  challengeRequest?: typeof challengeRequest
+  source?: string
+}) => {
+  const request = parameters?.challengeRequest ?? challengeRequest
+  const signature = await signScopeActiveProof(beneficiaryAccount, {
+    beneficiary,
+    chainId,
+    challengeId: 'test-challenge-id',
+    contract,
+    expires,
+    scope: request.scope as `0x${string}`,
+  })
 
-const mockReceipt = {
-  logs: [],
-  status: 'success',
-  transactionHash: txHash,
-} as unknown as TransactionReceipt
-
-const makeCredential = (payload: { hash: Hex; type: 'hash' }) => ({
-  challenge: {
-    id: 'test-challenge-id',
-    intent: 'stake' as const,
-    method: methodName,
-    realm: 'test.example.com',
-    request: challengeRequest,
-  },
-  payload,
-  source: `did:pkh:eip155:${chainId}:${payer}`,
-})
+  return {
+    challenge: {
+      expires,
+      id: 'test-challenge-id',
+      intent: 'stake' as const,
+      method: methodName,
+      realm: 'test.example.com',
+      request,
+    },
+    payload: {
+      signature,
+      type: 'scope-active' as const,
+    },
+    source:
+      parameters?.source ?? `did:pkh:eip155:${chainId}:${beneficiaryAccount.address}`,
+  }
+}
 
 describe('server stake exports', () => {
   it('composes with an existing method set', () => {
@@ -162,21 +169,21 @@ describe('server stake verification', () => {
     expect(method.defaults).not.toHaveProperty('externalId')
   })
 
-  it('reuses echoed stakeKey and externalId when a credential is present', async () => {
+  it('reuses echoed scope and externalId when a credential is present', async () => {
     const method = stake({
       contract,
       token,
       name: methodName,
       preset,
     })
-    const credential = makeCredential({ hash: txHash, type: 'hash' })
+    const credential = await makeCredential()
 
     const request = await method.request!({
       credential,
       request: {
         ...routeRequest,
         externalId: 'document:test:fresh',
-        stakeKey: alternateStakeKey,
+        scope: alternateScope,
       },
     })
 
@@ -191,16 +198,14 @@ describe('server stake verification', () => {
   describe('verify', () => {
     beforeEach(() => vi.clearAllMocks())
 
-    it('fetches receipt and verifies on-chain state', async () => {
-      mocks.getTransactionReceipt.mockResolvedValue(mockReceipt)
-
+    it('recovers the beneficiary proof and verifies on-chain state', async () => {
       const method = stake({
         contract,
         token,
         name: methodName,
         preset,
       })
-      const credential = makeCredential({ hash: txHash, type: 'hash' })
+      const credential = await makeCredential()
       const result = await method.verify({
         credential,
         request: routeRequest,
@@ -208,32 +213,18 @@ describe('server stake verification', () => {
 
       expect(result).toEqual({
         method: methodName,
-        reference: txHash,
+        reference: `${contract}:${scope}:${beneficiary}`,
         status: 'success',
         timestamp: expect.any(String),
       })
       expect(mocks.createClient).toHaveBeenCalledWith(preset)
-      expect(mocks.getTransactionReceipt).toHaveBeenCalledOnce()
-      expect(mocks.assertEscrowCreatedReceipt).toHaveBeenCalledWith(
-        mockReceipt,
-        expect.objectContaining({
-          beneficiary,
-          contract,
-          counterparty,
-          payer,
-          stakeKey,
-          token,
-          value: 5_000_000n,
-        }),
-      )
       expect(mocks.assertEscrowOnChain).toHaveBeenCalledWith(
         {},
         contract,
-        stakeKey,
         expect.objectContaining({
           beneficiary,
           counterparty,
-          payer,
+          scope,
           token,
           value: 5_000_000n,
         }),
@@ -251,16 +242,9 @@ describe('server stake verification', () => {
         ...rawInput,
         amount: '9999999',
       })
-      const credential = {
-        ...makeCredential({ hash: txHash, type: 'hash' }),
-        challenge: {
-          id: 'test-id',
-          intent: 'stake' as const,
-          method: methodName,
-          realm: 'test.example.com',
-          request: mismatchedRequest,
-        },
-      }
+      const credential = await makeCredential({
+        challengeRequest: mismatchedRequest,
+      })
 
       await expect(
         method.verify({ credential, request: routeRequest }),
@@ -274,19 +258,13 @@ describe('server stake verification', () => {
         name: methodName,
         preset,
       })
-      const credential = {
-        ...makeCredential({ hash: txHash, type: 'hash' }),
-        challenge: {
-          id: 'test-id',
-          intent: 'stake' as const,
-          method: methodName,
-          realm: 'test.example.com',
-          request: PaymentRequest.fromMethod(stakeMethod, {
-            ...rawInput,
-            resource: 'documents/other',
-          }),
-        },
-      }
+      const mismatchedRequest = PaymentRequest.fromMethod(stakeMethod, {
+        ...rawInput,
+        resource: 'documents/other',
+      })
+      const credential = await makeCredential({
+        challengeRequest: mismatchedRequest,
+      })
 
       await expect(
         method.verify({ credential, request: routeRequest }),
@@ -300,14 +278,31 @@ describe('server stake verification', () => {
         name: methodName,
         preset,
       })
-      const credential = {
-        ...makeCredential({ hash: txHash, type: 'hash' }),
-        source: `did:pkh:eip155:1:${payer}`,
-      }
+      const credential = await makeCredential({
+        source: `did:pkh:eip155:1:${beneficiary}`,
+      })
 
       await expect(
         method.verify({ credential, request: routeRequest }),
       ).rejects.toThrow(/chainId/i)
+    })
+
+    it('rejects when source DID address does not match the recovered beneficiary', async () => {
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const wrongSourceAddress =
+        '0x4444444444444444444444444444444444444444' as Address
+      const credential = await makeCredential({
+        source: `did:pkh:eip155:${chainId}:${wrongSourceAddress}`,
+      })
+
+      await expect(
+        method.verify({ credential, request: routeRequest }),
+      ).rejects.toThrow(/recovered beneficiary/i)
     })
   })
 })

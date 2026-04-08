@@ -24,7 +24,7 @@ export function registerEscrowCommands(program: Command): void {
     escrow
       .command('create-escrow')
       .description('Call MPPEscrow.createEscrow')
-      .requiredOption('--key <bytes32>', 'Escrow key as a 32-byte hex value')
+      .requiredOption('--scope <bytes32>', 'Escrow scope as a 32-byte hex value')
       .requiredOption('--counterparty <address>', 'Counterparty address')
       .option(
         '--beneficiary <address>',
@@ -48,7 +48,7 @@ export function registerEscrowCommands(program: Command): void {
             address,
             functionName: 'createEscrow',
             args: [
-              asBytes32(options.key, '--key'),
+              asBytes32(options.scope, '--scope'),
               asAddress(options.counterparty, '--counterparty'),
               asOptionalBeneficiary(options.beneficiary),
               asAddress(options.token, '--token'),
@@ -71,7 +71,7 @@ export function registerEscrowCommands(program: Command): void {
     escrow
       .command('refund-escrow')
       .description('Call MPPEscrow.refundEscrow')
-      .requiredOption('--key <bytes32>', 'Escrow key as a 32-byte hex value'),
+      .requiredOption('--escrow-id <uint256>', 'Escrow id as a uint256 value'),
   ).action(
     async (
       options: WriteCommandOptions & Record<string, string | undefined>,
@@ -84,7 +84,7 @@ export function registerEscrowCommands(program: Command): void {
             account,
             address,
             functionName: 'refundEscrow',
-            args: [asBytes32(options.key, '--key')],
+            args: [asUint256(options.escrowId, '--escrow-id')] as const,
           })
 
           const hash = await walletClient.writeContract(simulation.request)
@@ -102,7 +102,7 @@ export function registerEscrowCommands(program: Command): void {
     escrow
       .command('slash-escrow')
       .description('Call MPPEscrow.slashEscrow')
-      .requiredOption('--key <bytes32>', 'Escrow key as a 32-byte hex value'),
+      .requiredOption('--escrow-id <uint256>', 'Escrow id as a uint256 value'),
   ).action(
     async (
       options: WriteCommandOptions & Record<string, string | undefined>,
@@ -115,7 +115,7 @@ export function registerEscrowCommands(program: Command): void {
             account,
             address,
             functionName: 'slashEscrow',
-            args: [asBytes32(options.key, '--key')],
+            args: [asUint256(options.escrowId, '--escrow-id')] as const,
           })
 
           const hash = await walletClient.writeContract(simulation.request)
@@ -131,9 +131,69 @@ export function registerEscrowCommands(program: Command): void {
 
   withReadOptions(
     escrow
+      .command('get-active-escrow-id')
+      .description('Call MPPEscrow.getActiveEscrowId')
+      .requiredOption('--scope <bytes32>', 'Escrow scope as a 32-byte hex value')
+      .requiredOption('--beneficiary <address>', 'Beneficiary address'),
+  ).action(
+    async (
+      options: BaseCommandOptions & Record<string, string | undefined>,
+    ) => {
+      await executeRead(options, async ({ address, publicClient }) => {
+        const scope = asBytes32(options.scope, '--scope')
+        const beneficiary = asAddress(options.beneficiary, '--beneficiary')
+        const escrowId = await publicClient.readContract({
+          abi: MPPEscrowAbi,
+          address,
+          functionName: 'getActiveEscrowId',
+          args: [scope, beneficiary] as const,
+        })
+
+        return {
+          beneficiary,
+          escrowId,
+          functionName: 'getActiveEscrowId',
+          scope,
+        }
+      })
+    },
+  )
+
+  withReadOptions(
+    escrow
+      .command('get-active-escrow')
+      .description('Call MPPEscrow.getActiveEscrow')
+      .requiredOption('--scope <bytes32>', 'Escrow scope as a 32-byte hex value')
+      .requiredOption('--beneficiary <address>', 'Beneficiary address'),
+  ).action(
+    async (
+      options: BaseCommandOptions & Record<string, string | undefined>,
+    ) => {
+      await executeRead(options, async ({ address, publicClient }) => {
+        const scope = asBytes32(options.scope, '--scope')
+        const beneficiary = asAddress(options.beneficiary, '--beneficiary')
+        const escrowState = await publicClient.readContract({
+          abi: MPPEscrowAbi,
+          address,
+          functionName: 'getActiveEscrow',
+          args: [scope, beneficiary] as const,
+        })
+
+        return {
+          beneficiary,
+          escrow: escrowState,
+          functionName: 'getActiveEscrow',
+          scope,
+        }
+      })
+    },
+  )
+
+  withReadOptions(
+    escrow
       .command('get-escrow')
       .description('Call MPPEscrow.getEscrow')
-      .requiredOption('--key <bytes32>', 'Escrow key as a 32-byte hex value'),
+      .requiredOption('--escrow-id <uint256>', 'Escrow id as a uint256 value'),
   ).action(
     async (
       options: BaseCommandOptions & Record<string, string | undefined>,
@@ -143,7 +203,7 @@ export function registerEscrowCommands(program: Command): void {
           abi: MPPEscrowAbi,
           address,
           functionName: 'getEscrow',
-          args: [asBytes32(options.key, '--key')],
+          args: [asUint256(options.escrowId, '--escrow-id')] as const,
         })
 
         return {

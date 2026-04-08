@@ -7,7 +7,7 @@ export type StakeChallengeRequest = {
   counterparty: Address
   policy?: string | undefined
   resource?: string | undefined
-  stakeKey: Hex
+  scope: Hex
   token: Address
   description?: string | undefined
   externalId?: string | undefined
@@ -16,4 +16,7 @@ export type StakeChallengeRequest = {
   }
 }
 
-export type StakeCredentialPayload = { hash: Hex; type: 'hash' }
+export type StakeCredentialPayload = {
+  signature: Hex
+  type: 'scope-active'
+}

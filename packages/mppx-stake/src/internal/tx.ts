@@ -1,9 +1,9 @@
-import type { Address, Client, Hex, TransactionReceipt } from 'viem'
-import { encodeFunctionData, isAddressEqual, parseEventLogs } from 'viem'
+import type { Address, Client, Hex } from 'viem'
+import { encodeFunctionData, isAddressEqual } from 'viem'
 import { readContract } from 'viem/actions'
 
-import { erc20Abi } from '../abi/erc20.js'
 import { MPPEscrowAbi } from '../abi/MPPEscrow.js'
+import { erc20Abi } from '../abi/erc20.js'
 
 /** Builds the approve + createEscrow flow used by this SDK. */
 export const buildStakeCalls = (parameters: {
@@ -11,10 +11,10 @@ export const buildStakeCalls = (parameters: {
   beneficiary: Address
   contract: Address
   counterparty: Address
+  scope: Hex
   token: Address
-  stakeKey: Hex
 }) => {
-  const { amount, beneficiary, contract, counterparty, token, stakeKey } =
+  const { amount, beneficiary, contract, counterparty, scope, token } =
     parameters
 
   return [
@@ -29,7 +29,7 @@ export const buildStakeCalls = (parameters: {
     {
       data: encodeFunctionData({
         abi: MPPEscrowAbi,
-        args: [stakeKey, counterparty, beneficiary, token, amount],
+        args: [scope, counterparty, beneficiary, token, amount],
         functionName: 'createEscrow',
       }),
       to: contract,
@@ -40,98 +40,88 @@ export const buildStakeCalls = (parameters: {
 type EscrowVerificationParams = {
   beneficiary: Address
   counterparty: Address
+  scope: Hex
   token: Address
-  payer: Address
   value: bigint
-}
-
-/** Confirms the transaction receipt emitted the expected `EscrowCreated` event. */
-export const assertEscrowCreatedReceipt = (
-  receipt: TransactionReceipt,
-  parameters: EscrowVerificationParams & {
-    contract: Address
-    stakeKey: Hex
-  },
-) => {
-  if (receipt.status !== 'success')
-    throw new Error(`Stake transaction reverted: ${receipt.transactionHash}`)
-
-  const { beneficiary, contract, counterparty, token, payer, stakeKey, value } =
-    parameters
-  const logs = parseEventLogs({
-    abi: MPPEscrowAbi,
-    eventName: 'EscrowCreated',
-    logs: receipt.logs,
-  })
-  const match = logs.find(
-    log =>
-      isAddressEqual(log.address, contract) &&
-      log.args.key === stakeKey &&
-      isAddressEqual(log.args.payer, payer) &&
-      isAddressEqual(log.args.beneficiary, beneficiary) &&
-      isAddressEqual(log.args.counterparty, counterparty) &&
-      isAddressEqual(log.args.token, token) &&
-      log.args.amount >= value,
-  )
-
-  if (!match) throw new Error('No matching EscrowCreated event found.')
 }
 
 export type EscrowState = {
   beneficiary: Address
   counterparty: Address
+  id: bigint
   isActive: boolean
   payer: Address
   principal: bigint
+  scope: Hex
   token: Address
 }
 
-/** Confirms the resolved on-chain escrow matches the expected payer and terms. */
+/** Confirms the resolved on-chain escrow matches the expected beneficiary and terms. */
 export const assertEscrowState = (
   escrow: EscrowState,
   parameters: EscrowVerificationParams,
 ) => {
-  const { beneficiary, counterparty, token, payer, value } = parameters
+  const { beneficiary, counterparty, scope, token, value } = parameters
 
   if (!escrow.isActive) throw new Error('Escrow is not active.')
-  assertAddress('escrow.payer', escrow.payer, payer)
   assertAddress('escrow.beneficiary', escrow.beneficiary, beneficiary)
   assertAddress('escrow.counterparty', escrow.counterparty, counterparty)
   assertAddress('escrow.token', escrow.token, token)
+  assertHex('escrow.scope', escrow.scope, scope)
   assertAtLeast('escrow.principal', escrow.principal, value)
 }
+
+export const hasActiveEscrow = async (
+  client: Client,
+  contract: Address,
+  scope: Hex,
+  beneficiary: Address,
+) =>
+  (await readContract(client, {
+    abi: MPPEscrowAbi,
+    address: contract,
+    args: [scope, beneficiary],
+    functionName: 'isEscrowActive',
+  })) as boolean
 
 /** Verifies the canonical active-state query, then checks the full escrow record. */
 export const assertEscrowOnChain = async (
   client: Client,
   contract: Address,
-  stakeKey: Hex,
   parameters: EscrowVerificationParams,
 ) => {
-  const isActive = (await readContract(client, {
-    abi: MPPEscrowAbi,
-    address: contract,
-    args: [stakeKey, parameters.payer],
-    functionName: 'isEscrowActive',
-  })) as boolean
+  const isActive = await hasActiveEscrow(
+    client,
+    contract,
+    parameters.scope,
+    parameters.beneficiary,
+  )
 
-  if (!isActive) throw new Error('Escrow is not active for the expected payer.')
+  if (!isActive)
+    throw new Error('Escrow is not active for the expected beneficiary.')
 
   const escrow = (await readContract(client, {
     abi: MPPEscrowAbi,
     address: contract,
-    args: [stakeKey],
-    functionName: 'getEscrow',
+    args: [parameters.scope, parameters.beneficiary],
+    functionName: 'getActiveEscrow',
   })) as EscrowState
 
   assertEscrowState(escrow, parameters)
 }
 
-/** Converts a successful transaction receipt into the MPP receipt shape. */
-export const toReceipt = (receipt: TransactionReceipt, method: string) =>
+/** Converts a successful active-stake verification into the MPP receipt shape. */
+export const toReceipt = (
+  parameters: {
+    beneficiary: Address
+    contract: Address
+    scope: Hex
+  },
+  method: string,
+) =>
   ({
     method,
-    reference: receipt.transactionHash,
+    reference: `${parameters.contract}:${parameters.scope}:${parameters.beneficiary}`,
     status: 'success',
     timestamp: new Date().toISOString(),
   }) as const
@@ -142,4 +132,9 @@ const assertAddress = (label: string, actual: Address, expected: Address) => {
 
 const assertAtLeast = (label: string, actual: bigint, expected: bigint) => {
   if (actual < expected) throw new Error(`Mismatched ${label}.`)
+}
+
+const assertHex = (label: string, actual: Hex, expected: Hex) => {
+  if (actual.toLowerCase() !== expected.toLowerCase())
+    throw new Error(`Mismatched ${label}.`)
 }

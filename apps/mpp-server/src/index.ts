@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import process from 'node:process'
 
 import { serverStake } from '@gitbondhq/mppx-stake'
@@ -9,9 +9,22 @@ import { loadConfig } from './config.js'
 import { loadDocument } from './content.js'
 import { getOrigin, sendWebResponse, toWebRequest } from './web.js'
 
+function deriveScope(parameters: {
+  policy?: string | undefined
+  resource: string
+}) {
+  return `0x${createHash('sha256')
+    .update(`${parameters.policy ?? ''}:${parameters.resource}`)
+    .digest('hex')}` as `0x${string}`
+}
+
 const config = loadConfig()
 const document = loadDocument()
 const { escrow, methodName, networkPreset } = config.repoConfig
+const documentScope = deriveScope({
+  policy: escrow.policy,
+  resource: document.resource,
+})
 const configuredStakeMethod = serverStake({
   contract: escrow.contract,
   counterparty: escrow.counterparty,
@@ -56,6 +69,7 @@ app.get('/', (req, res) => {
       stakeDescription: escrow.description,
       stakePolicy: escrow.policy,
       stakeResource: document.resource,
+      stakeScope: documentScope,
       stakeToken: escrow.token,
       stakeTokenWhitelist: escrow.tokenWhitelist,
     },
@@ -148,13 +162,11 @@ process.on('unhandledRejection', error => {
 })
 
 const createStakeRouteRequest = () => {
-  const nonce = randomBytes(6).toString('hex')
-
   return {
     amount: escrow.amount,
-    externalId: `document:${document.slug}:${Date.now()}:${nonce}`,
+    externalId: `document:${document.slug}`,
     policy: escrow.policy,
     resource: document.resource,
-    stakeKey: `0x${randomBytes(32).toString('hex')}` as `0x${string}`,
+    scope: documentScope,
   }
 }

@@ -13,7 +13,7 @@ const request = {
   externalId: 'github:owner/repo:pr:1',
   policy: 'repo-pr-v1',
   resource: 'owner/repo#1',
-  stakeKey:
+  scope:
     '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   methodDetails: {
     chainId: 42431,
@@ -40,7 +40,7 @@ describe('stake method schema', () => {
       externalId: request.externalId,
       policy: request.policy,
       resource: request.resource,
-      stakeKey: request.stakeKey,
+      scope: request.scope,
       token: request.token,
       methodDetails: request.methodDetails,
     })
@@ -52,24 +52,26 @@ describe('stake method schema', () => {
     ).toThrow(/base-unit amount/i)
   })
 
-  it('rejects an invalid stake key', () => {
+  it('rejects an invalid scope', () => {
     expect(() =>
       PaymentRequest.fromMethod(stakeMethod, {
         ...request,
-        stakeKey: '0x1234',
+        scope: '0x1234',
       }),
     ).toThrow(/hash/i)
   })
 
-  it('accepts hash payloads', () => {
+  it('accepts scope-active payloads', () => {
     expect(
       stakeMethod.schema.credential.payload.parse({
-        hash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        type: 'hash',
+        signature:
+          '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        type: 'scope-active',
       }),
     ).toEqual({
-      hash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-      type: 'hash',
+      signature:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      type: 'scope-active',
     })
   })
 })
