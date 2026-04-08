@@ -183,16 +183,14 @@ contract MPPEscrow is IMPPEscrow {
     /// @notice Called before the refund transfer. Use this to withdraw funds
     ///         from an external protocol, deduct fees, etc.
     function _beforeRefund(uint256 escrowId, bytes32 scope, address token, address beneficiary, uint256 amount)
-        internal
-    {
+        internal {
         // no-op by default
     }
 
     /// @notice Called before the slash transfer. Use this to withdraw funds
     ///         from an external protocol, take a platform cut, etc.
     function _beforeSlash(uint256 escrowId, bytes32 scope, address token, address counterparty, uint256 amount)
-        internal
-    {
+        internal {
         // no-op by default
     }
 
