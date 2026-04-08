@@ -2,9 +2,13 @@ import { Credential, Method } from 'mppx'
 import type { Account } from 'viem'
 import { isAddressEqual } from 'viem'
 
+import { stake as createStakeMethod } from '../Methods.js'
 import type { NetworkPreset } from '../networkConfig.js'
 import type { StakeChallengeRequest } from '../stakeSchema.js'
 import { signScopeActiveProof } from './scopeActiveProof.js'
+
+/** The concrete stake method type produced by `Methods.stake`. */
+export type StakeMethod = ReturnType<typeof createStakeMethod>
 
 type ClientStakeParameters = {
   account: Account
@@ -13,9 +17,7 @@ type ClientStakeParameters = {
 }
 
 /** Returns the signed scope-active proof for an already-active escrow. */
-export const createClientStake = (
-  method: Parameters<typeof Method.toClient>[0],
-) => {
+export const createClientStake = (method: StakeMethod) => {
   return (parameters: ClientStakeParameters) => {
     const preset = parameters.preset
     const beneficiaryAccount =

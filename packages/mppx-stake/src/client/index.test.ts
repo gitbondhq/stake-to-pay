@@ -89,7 +89,13 @@ describe('client stake exports', () => {
       realm: 'api.example.com',
       request,
     })
-    const serialized = await method.createCredential({ challenge })
+    // `Challenge.fromMethod` widens `intent`/`method` to `string` in its return
+    // type, so we cast here to satisfy the literal-typed `method.createCredential`.
+    const serialized = await method.createCredential({
+      challenge: challenge as Parameters<
+        typeof method.createCredential
+      >[0]['challenge'],
+    })
     const credential =
       Credential.deserialize<StakeCredentialPayload>(serialized)
 

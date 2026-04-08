@@ -2,6 +2,7 @@ import { Method, PaymentRequest, type Credential } from 'mppx'
 import type { Address } from 'viem'
 import { isAddressEqual } from 'viem'
 
+import { stake as createStakeMethod } from '../Methods.js'
 import type { NetworkPreset } from '../networkConfig.js'
 import type {
   StakeChallengeRequest,
@@ -12,7 +13,8 @@ import { recoverScopeActiveProofSigner } from './scopeActiveProof.js'
 import { assertSourceDidMatches, resolveBeneficiary } from './source.js'
 import { assertEscrowOnChain, toReceipt } from './tx.js'
 
-type StakeMethod = Parameters<typeof Method.toServer>[0] & { name: string }
+/** The concrete stake method type produced by `Methods.stake`. */
+export type StakeMethod = ReturnType<typeof createStakeMethod>
 
 export type StakeDefaults = {
   contract?: Address | undefined
@@ -45,7 +47,7 @@ export const createServerStake = (method: StakeMethod) => {
         const echoedRequest = getEchoedChallengeRequest(credential, method)
 
         return {
-          ...(request as Record<string, unknown>),
+          ...request,
           ...echoedRequest,
           methodDetails: {
             chainId: preset.chain.id,
@@ -57,7 +59,7 @@ export const createServerStake = (method: StakeMethod) => {
         const challengeRequest = credential.challenge
           .request as StakeChallengeRequest
         const currentRequest = PaymentRequest.fromMethod(method, {
-          ...(request as Record<string, unknown>),
+          ...request,
           methodDetails: {
             chainId: preset.chain.id,
           },

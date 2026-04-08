@@ -13,10 +13,11 @@ export type ClientStakeParameters = {
   preset: NetworkPreset
 }
 
+type StakeClientReturn = ReturnType<ReturnType<typeof createClientStake>>
+
 /** Client-side `stake` method implementation used to create credentials. */
-export const stake: (
-  parameters: ClientStakeParameters & StakeMethodParameters,
-) => ReturnType<ReturnType<typeof createClientStake>> = ({
+export const stake = ({
   name,
   ...parameters
-}) => createClientStake(createStakeMethod({ name }))(parameters)
+}: ClientStakeParameters & StakeMethodParameters): StakeClientReturn =>
+  createClientStake(createStakeMethod({ name }))(parameters)
