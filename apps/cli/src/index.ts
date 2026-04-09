@@ -3,9 +3,11 @@
 import { Command } from 'commander'
 
 import {
+  ACCOUNT_ENV,
   CONTRACT_ENV,
-  NETWORK_ENV,
+  PASSWORD_FILE_ENV,
   PRIVATE_KEY_ENV,
+  RESOURCE_URL_ENV,
   RPC_URL_ENV,
 } from './cli/context.js'
 import { registerChallengeCommands } from './commands/challenge.js'
@@ -21,13 +23,15 @@ program
     'after',
     `
 Environment variables:
-  ${NETWORK_ENV}        Active network preset for SDK defaults
   ${RPC_URL_ENV}        Default RPC URL
   ${CONTRACT_ENV}       Default MPPEscrow contract address
   ${PRIVATE_KEY_ENV}    Default private key for write commands
+  ${ACCOUNT_ENV}        Default cast wallet account name for write commands
+  ${PASSWORD_FILE_ENV}  Default keystore password file for write commands
+  ${RESOURCE_URL_ENV}   Default protected demo resource URL for challenge commands
 
 Repo config:
-  config.json          Shared network and escrow defaults at the repo root
+  config.json          Shared methodName, chainId, optional rpcUrl, and escrow defaults at the repo root
 `,
   )
 

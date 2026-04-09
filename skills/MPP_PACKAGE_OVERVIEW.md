@@ -55,28 +55,25 @@ const mppx = Mppx.create({
 
 ```ts
 stake({
-  account,              // Address or Account — the payer
-  provider,             // Optional EIP-1193 provider (wallet)
-  feeToken,             // Optional fee token address
+  account,              // Default account used to sign the beneficiary proof
+  beneficiaryAccount,   // Optional separate signer for the beneficiary proof
 })
 ```
 
 ### How client credentials work
 
-1. Client receives a 402 challenge with stake request (amount, contract, counterparty, stakeKey, token).
-2. SDK detects whether the token supports ERC-2612 permits (`detectTransportPolicy`).
-3. **Permit path:** Single `createEscrowWithPermit` call.
-4. **Legacy path:** Two calls — `approve` then `createEscrow`.
-5. On Tempo chains, calls are batched into a single transaction (type 0x76).
-6. SDK produces a credential:
-   - `type: "hash"` — client broadcasts tx, credential contains tx hash.
-   - `type: "transaction"` — client signs tx, credential contains signed payload for server to broadcast.
+1. Client receives a 402 challenge with stake request fields including `scope`.
+2. The calling app or wallet ensures an active escrow already exists for `(scope, beneficiary)`.
+3. SDK signs an EIP-712 `scope-active` proof as the beneficiary.
+4. SDK produces a single public credential:
+   - `type: "scope-active"` — credential contains the beneficiary signature.
 
 ### Gotchas
 
-- **Fee-payer + wallet provider conflict:** If the challenge has `feePayer=true`, an EIP-1193 provider cannot be used (can't sign Tempo batch txs). Use an account directly.
-- **Fee-payer on non-Tempo chains:** Silently disabled — only Tempo supports batch cosigning.
-- **Permit deadline:** Defaults to 1 hour.
+- `scope` must be stable for the protected resource or policy.
+- `beneficiary` is the access subject; `account` is only the default signer used by the client helper.
+- If the challenge specifies `beneficiary`, the beneficiary signing account must match it.
+- If the challenge omits `beneficiary`, the client credential still needs a `source` DID so the server can reconstruct the signed EIP-712 message before recovering the beneficiary.
 
 ---
 
@@ -122,9 +119,8 @@ stake({
   contract,         // MPPEscrow address
   counterparty,     // Address authorized to refund/slash
   token,            // ERC-20 token address
-  beneficiary,      // Optional — defaults to payer
+  beneficiary,      // Optional — if present, challenge expects this beneficiary
   description,      // Optional — human-readable
-  feePayer,         // Optional — ViemAccount or fee-payer RPC URL string
   name,             // Optional — method name (default: inferred)
 })
 ```
@@ -132,24 +128,11 @@ stake({
 ### How server verification works
 
 1. Server issues 402 challenge with stake request fields.
-2. Client submits credential (hash or transaction type).
-3. Server processes credential:
-   - **Hash credential:** Fetches tx receipt by hash, verifies escrow creation events.
-   - **Transaction credential:** Deserializes signed tx, optionally applies fee-payer cosigning, broadcasts, verifies receipt.
-4. Server checks on-chain escrow state via `isEscrowActive(stakeKey, payer)` and then validates the full escrow record with `getEscrow(stakeKey)`.
+2. Client submits a `scope-active` credential.
+3. Server recovers the beneficiary from the signature.
+4. Server checks on-chain escrow state via `isEscrowActive(scope, beneficiary)` and then validates the full active escrow record with `getActiveEscrow(scope, beneficiary)`.
 5. Verification is **stateless** — no local escrow tracking, always queries chain.
-
-### Fee-payer configuration
-
-```ts
-// Option A: Local account cosigns
-stake({ ..., feePayer: viemAccount })
-
-// Option B: External fee-payer RPC
-stake({ ..., feePayer: "https://fee-payer.example.com" })
-```
-
-Fee-payer is auto-disabled on non-Tempo chains. When enabled, the server cosigns the client's batch transaction to cover gas.
+6. Production servers must add challenge-id replay protection on top of this reference verifier.
 
 ---
 
@@ -160,24 +143,23 @@ Challenge requests contain:
 ```ts
 {
   amount: "5000000",          // Base-unit integer string
-  beneficiary?: "0x...",      // Optional — defaults to payer
+  beneficiary?: "0x...",      // Optional expected beneficiary
   contract: "0x...",
   counterparty: "0x...",
   policy?: "demo-document-v1",
   resource?: "documents/slug",
-  stakeKey: "0xabcd...",      // 32-byte hex — binds challenge to escrow
+  scope: "0xabcd...",         // 32-byte hex — stable protected-surface id
   token: "0x...",
   description?: "...",
   methodDetails: {
     chainId: 42431,
-    feePayer?: true,
   }
 }
 ```
 
-**Immutable fields** (must match exactly): `amount`, `counterparty`, `contract`, `stakeKey`, `token`, `chainId`, `feePayer`.
+**Immutable fields** (must match exactly): `amount`, `beneficiary` if present, `counterparty`, `contract`, `scope`, `token`, `chainId`.
 
-**Mutable fields** (can differ): `beneficiary`, `policy`, `resource`, `description`.
+**Mutable fields** (can differ): `policy`, `resource`, `description`.
 
 ---
 
@@ -206,5 +188,5 @@ const preset = getNetworkPreset("tempoModerato");
 - `chainId` is required on the server — there is no default. Always include it.
 - All amounts are base-unit integer strings. Never pass decimal strings.
 - When adding the stake method to an existing mppx setup, register it alongside (not replacing) other methods.
-- DID source format for payer extraction: `did:pkh:eip155:${chainId}:${address}`.
+- DID source format for beneficiary extraction: `did:pkh:eip155:${chainId}:${address}`.
 - If the contract interface changes, regenerate ABI before updating SDK code.

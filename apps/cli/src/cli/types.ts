@@ -3,19 +3,14 @@ export type BaseCommandOptions = {
   rpcUrl?: string
 }
 
-export type WriteCommandOptions = BaseCommandOptions & {
-  noWait?: boolean
+export type SigningOptions = {
+  account?: string
+  keystore?: string
+  passwordFile?: string
   privateKey?: string
 }
 
-export type RepoConfig = {
-  chainId: number
-  escrow: {
-    contract?: `0x${string}` | undefined
-    token: `0x${string}`
-    tokenWhitelist: `0x${string}`[]
+export type WriteCommandOptions = BaseCommandOptions &
+  SigningOptions & {
+    noWait?: boolean
   }
-  methodName: string
-  network: string
-  rpcUrl?: string | undefined
-}

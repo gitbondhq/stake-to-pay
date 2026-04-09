@@ -2,9 +2,17 @@
   "name": "stake-mpp",
   "private": true,
   "scripts": {
+    "bootstrap": "npm install && npm run build",
     "build": "npm run build:mppx-stake && turbo run build",
+    "build:apps": "npm run build:cli && npm run build:server",
+    "build:cli": "npm run build --workspace=@stake-mpp/cli",
+    "build:contracts": "forge build",
     "build:mppx-stake": "npm run generate:abi:mppx-stake && tsc -p packages/mppx-stake/tsconfig.json",
+    "build:server": "npm run build --workspace=@stake-mpp/mpp-server",
+    "dev:server": "npm run dev --workspace=@stake-mpp/mpp-server",
     "generate:abi:mppx-stake": "forge build && node scripts/generate-mppx-stake-abi.mjs",
+    "stake-mpp": "node --env-file-if-exists=.env apps/cli/dist/index.js",
+    "start:server": "npm run start --workspace=@stake-mpp/mpp-server",
     "dev": "turbo run dev",
     "lint": "eslint . && turbo run check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
@@ -23,9 +31,9 @@
     "typescript": "5.9.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24.0.0"
   },
-  "packageManager": "npm@11.6.2",
+  "packageManager": "npm@11.10.0",
   "workspaces": [
     "apps/*",
     "packages/*"

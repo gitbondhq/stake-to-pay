@@ -1,24 +1,37 @@
+import { createHash } from 'node:crypto'
 import process from 'node:process'
 
-import { stake } from '@gitbondhq/mppx-stake/server'
+import { serverStake } from '@gitbondhq/mppx-stake/server'
 import express from 'express'
 import { Mppx } from 'mppx/server'
 
-import { loadConfig, toPublicConfig } from './config.js'
-import { createFakeDocument } from './document.js'
-import { resolveStakeRouteOptions } from './stakeRoute.js'
+import { loadConfig } from './config.js'
+import { loadDocument } from './content.js'
 import { getOrigin, sendWebResponse, toWebRequest } from './web.js'
 
+function deriveScope(parameters: {
+  policy?: string
+  resource: string
+}) {
+  return `0x${createHash('sha256')
+    .update(`${parameters.policy ?? ''}:${parameters.resource}`)
+    .digest('hex')}` as `0x${string}`
+}
+
 const config = loadConfig()
-const fakeDocument = createFakeDocument(config.documentTitle)
-const configuredStakeMethod = stake({
-  ...(config.stakeBeneficiary ? { beneficiary: config.stakeBeneficiary } : {}),
-  chainId: config.stakeChainId,
-  contract: config.stakeContract,
-  counterparty: config.stakeCounterparty,
-  token: config.stakeToken,
-  description: config.stakeDescription,
-  name: config.methodName,
+const document = loadDocument()
+const { chainId, escrow, methodName } = config.repoConfig
+const documentScope = deriveScope({
+  policy: escrow.policy,
+  resource: document.resource,
+})
+const configuredStakeMethod = serverStake({
+  chainId,
+  contract: escrow.contract,
+  counterparty: escrow.counterparty,
+  token: escrow.token,
+  description: escrow.description,
+  name: methodName,
 })
 const stakeIntent = `${configuredStakeMethod.name}/${configuredStakeMethod.intent}`
 
@@ -35,31 +48,47 @@ app.get('/healthz', (_req, res) => {
 })
 
 app.get('/', (req, res) => {
-  const origin = getOrigin(req, config)
+  const origin = getOrigin(req, { host: config.host, port: config.port })
 
   res.json({
     service: 'stake-mpp-demo-server',
     paywall: {
       intent: stakeIntent,
-      ...toPublicConfig(config),
+      documentPath: document.path,
+      documentPreviewPath: document.previewPath,
+      documentSlug: document.slug,
+      documentTitle: document.title,
+      host: config.host,
+      methodName,
+      port: config.port,
+      stakeAmount: escrow.amount,
+      stakeChainId: chainId,
+      stakeContract: escrow.contract,
+      stakeCounterparty: escrow.counterparty,
+      stakeDescription: escrow.description,
+      stakePolicy: escrow.policy,
+      stakeResource: document.resource,
+      stakeScope: documentScope,
+      stakeToken: escrow.token,
+      stakeTokenWhitelist: escrow.tokenWhitelist,
     },
     example: {
-      preview: `curl ${origin}${config.documentPreviewPath}`,
-      protected: `npx mppx ${origin}${config.documentPath}`,
+      preview: `curl ${origin}${document.previewPath}`,
+      protected: `npx mppx ${origin}${document.path}`,
     },
   })
 })
 
-app.get(config.documentPreviewPath, (_req, res) => {
+app.get(document.previewPath, (_req, res) => {
   res.json({
     locked: true,
-    preview: fakeDocument.excerpt,
-    title: config.documentTitle,
-    unlockPath: config.documentPath,
+    preview: document.preview,
+    title: document.title,
+    unlockPath: document.path,
   })
 })
 
-app.get(config.documentPath, async (req, res) => {
+app.get(document.path, async (req, res) => {
   try {
     const stakeMethod = mppx.stake
     if (!stakeMethod) {
@@ -67,8 +96,8 @@ app.get(config.documentPath, async (req, res) => {
     }
 
     const result = await stakeMethod(
-      resolveStakeRouteOptions(req, config, configuredStakeMethod.name),
-    )(toWebRequest(req, config))
+      createStakeRouteRequest(),
+    )(toWebRequest(req, { host: config.host, port: config.port }))
 
     if (result.status === 402) {
       await sendWebResponse(res, result.challenge)
@@ -78,9 +107,9 @@ app.get(config.documentPath, async (req, res) => {
     const response = result.withReceipt(
       Response.json(
         {
-          body: fakeDocument.fullText,
-          slug: config.documentSlug,
-          title: config.documentTitle,
+          body: document.fullText,
+          slug: document.slug,
+          title: document.title,
           unlockedAt: new Date().toISOString(),
         },
         {
@@ -93,26 +122,35 @@ app.get(config.documentPath, async (req, res) => {
 
     await sendWebResponse(res, response)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    console.error('[mpp-server] request failed', error)
+    // Keep client-facing errors generic in the demo. Production servers should
+    // map verification failures onto stable public error codes/messages.
     res.status(500).json({
-      error: message,
+      error: 'Internal server error',
     })
   }
 })
 
-app.listen(config.port, config.host, () => {
+const server = app.listen(config.port, config.host, () => {
   const displayHost = config.host === '0.0.0.0' ? '127.0.0.1' : config.host
   const origin = `http://${displayHost}:${config.port}`
 
   console.log(`[mpp-server] listening on ${origin}`)
   console.log(
-    `[mpp-server] preview route: ${origin}${config.documentPreviewPath}`,
+    `[mpp-server] preview route: ${origin}${document.previewPath}`,
   )
-  console.log(`[mpp-server] protected route: ${origin}${config.documentPath}`)
+  console.log(`[mpp-server] protected route: ${origin}${document.path}`)
   console.log(
-    `[mpp-server] network=${config.network} stake amount=${config.stakeAmount} chainId=${config.stakeChainId} contract=${config.stakeContract}`,
+    `[mpp-server] stake amount=${escrow.amount} chainId=${chainId} contract=${escrow.contract}`,
   )
 })
+
+const shutdown = () => {
+  server.close()
+}
+
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
 
 process.on('uncaughtException', error => {
   console.error('[mpp-server] uncaught exception', error)
@@ -123,3 +161,13 @@ process.on('unhandledRejection', error => {
   console.error('[mpp-server] unhandled rejection', error)
   process.exitCode = 1
 })
+
+const createStakeRouteRequest = () => {
+  return {
+    amount: escrow.amount,
+    externalId: `document:${document.slug}`,
+    policy: escrow.policy,
+    resource: document.resource,
+    scope: documentScope,
+  }
+}

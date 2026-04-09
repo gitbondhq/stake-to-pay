@@ -1,12 +1,9 @@
 {
   "methodName": "tempo",
-  "network": "tempoModerato",
   "chainId": 42431,
-  "rpcUrl": "https://rpc.moderato.tempo.xyz",
   "escrow": {
-    "contract": "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
-    "counterparty": null,
-    "beneficiary": null,
+    "contract": "0x3E7f584954f64530068ab95de96A9c182D72A447",
+    "counterparty": "0x589B441c390D49426C3bB30Bea109d68659bcB56",
     "token": "0x20c0000000000000000000000000000000000000",
     "tokenWhitelist": [
       "0x20c0000000000000000000000000000000000000"

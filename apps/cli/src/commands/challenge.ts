@@ -1,28 +1,24 @@
 import { writeFile } from 'node:fs/promises'
 
-import {
-  type StakeCredentialPayload,
-  withStakeFeePayer,
-} from '@gitbondhq/mppx-stake'
-import { stake as createStakeMethod } from '@gitbondhq/mppx-stake/client'
+import { parseStakeChallenge } from '@gitbondhq/mppx-stake'
+import { clientStake } from '@gitbondhq/mppx-stake/client'
 import { Command } from 'commander'
 import { Credential } from 'mppx'
-import { privateKeyToAccount } from 'viem/accounts'
 
 import {
-  getStakeChallengeFromResponse,
+  defaultChallengesDirectory,
+  defaultCredentialFilePath,
   loadStakeChallengeFromFile,
+  resolveChallengeFilePath,
+  resolveChallengeOutputPath,
   resolveSerializedCredential,
   resolveStakeChallengeForRespond,
 } from '../cli/challenge.js'
-import { PRIVATE_KEY_ENV, repoConfig } from '../cli/context.js'
+import { repoConfig, resolveProtectedResourceUrl } from '../cli/context.js'
 import { printJson, writeJsonFile } from '../cli/format.js'
-import {
-  collectRepeatableOption,
-  fetchWithOptions,
-  serializeHttpResponse,
-} from '../cli/http.js'
-import { asHex32, requiredString } from '../cli/parsing.js'
+import { fetchWithOptions, serializeHttpResponse } from '../cli/http.js'
+import { resolveAccount, withSigningOptions } from '../cli/runtime.js'
+import type { SigningOptions } from '../cli/types.js'
 
 export function registerChallengeCommands(program: Command): void {
   const challenge = program
@@ -32,65 +28,57 @@ export function registerChallengeCommands(program: Command): void {
   challenge
     .command('fetch')
     .description(
-      'Fetch a protected resource and print the 402 payment challenge if present',
-    )
-    .requiredOption('--url <url>', 'Protected resource URL')
-    .option(
-      '--method <method>',
-      'HTTP method used to fetch the challenge',
-      'GET',
+      'Fetch the demo resource and print the 402 payment challenge if present',
     )
     .option(
-      '--header <name:value>',
-      'Additional HTTP header; repeat for multiple headers',
-      collectRepeatableOption,
-      [],
+      '--url <url>',
+      'Protected resource URL. Defaults to MPP_RESOURCE_URL or the local demo server route.',
     )
     .option(
       '--out <path>',
-      'Write the parsed challenge JSON to a file if a 402 challenge is returned',
+      `Write the parsed challenge JSON to a file. Defaults to a timestamped file in ${defaultChallengesDirectory}/`,
     )
-    .action(
-      async (options: {
-        header?: string[]
-        method?: string
-        out?: string
-        url?: string
-      }) => {
-        const response = await fetchWithOptions({
-          headers: options.header,
-          method: options.method,
-          url: requiredString(options.url, 'Missing --url.'),
-        })
+    .action(async (options: { out?: string; url?: string }) => {
+      const response = await fetchWithOptions({
+        url: resolveProtectedResourceUrl(options.url),
+      })
 
-        const challengeValue =
-          response.status === 402
-            ? getStakeChallengeFromResponse(response)
-            : null
+      const challengeValue =
+        response.status === 402
+          ? parseStakeChallenge(response, {
+              methodName: repoConfig.methodName,
+            })
+          : null
 
-        if (options.out && challengeValue) {
-          await writeJsonFile(options.out, challengeValue)
-        }
+      const outputPath = challengeValue
+        ? await resolveChallengeOutputPath(options.out)
+        : null
 
-        printJson({
-          ...(challengeValue ? { challenge: challengeValue } : {}),
-          ...(options.out && challengeValue ? { outputPath: options.out } : {}),
-          ...(await serializeHttpResponse(response)),
-        })
-      },
-    )
+      if (outputPath && challengeValue) {
+        await writeJsonFile(outputPath, challengeValue)
+      }
+
+      printJson({
+        ...(challengeValue ? { challenge: challengeValue } : {}),
+        ...(outputPath ? { outputPath } : {}),
+        ...(await serializeHttpResponse(response)),
+      })
+    })
 
   challenge
     .command('inspect')
     .description('Inspect a saved stake challenge JSON file')
-    .requiredOption('--file <path>', 'Path to a saved challenge JSON file')
+    .option(
+      '--file <path>',
+      `Path to a saved challenge JSON file. Defaults to the latest file in ${defaultChallengesDirectory}/`,
+    )
     .action(async (options: { file?: string }) => {
-      const challengeValue = await loadStakeChallengeFromFile(
-        requiredString(options.file, 'Missing --file.'),
-      )
+      const challengeFilePath = await resolveChallengeFilePath(options.file)
+      const challengeValue = await loadStakeChallengeFromFile(challengeFilePath)
 
       printJson({
         description: challengeValue.description ?? null,
+        file: challengeFilePath,
         id: challengeValue.id,
         intent: challengeValue.intent,
         method: challengeValue.method,
@@ -100,126 +88,92 @@ export function registerChallengeCommands(program: Command): void {
       })
     })
 
-  challenge
-    .command('respond')
-    .description(
-      'Create a serialized credential for a stake challenge using client-side broadcast and return a tx-hash payload.',
-    )
-    .option(
-      '--url <url>',
-      'Protected resource URL to fetch for a 402 challenge',
-    )
-    .option('--challenge-file <path>', 'Path to a saved challenge JSON file')
-    .option(
-      '--method <method>',
-      'HTTP method used when fetching the challenge',
-      'GET',
-    )
-    .option(
-      '--header <name:value>',
-      'Additional HTTP header when fetching the challenge; repeat for multiple headers',
-      collectRepeatableOption,
-      [],
-    )
-    .requiredOption(
-      '--private-key <hex>',
-      `Private key for signing. Can also be provided via ${PRIVATE_KEY_ENV}.`,
-    )
-    .option('--out <path>', 'Write the serialized credential to a file')
-    .action(
-      async (options: {
+  withSigningOptions(
+    challenge
+      .command('respond')
+      .description(
+        'Create a serialized credential for a stake challenge using the scope-active signature flow.',
+      )
+      .option(
+        '--url <url>',
+        'Protected resource URL to fetch a fresh 402 challenge from. Defaults to MPP_RESOURCE_URL or the local demo server route.',
+      )
+      .option(
+        '--challenge-file <path>',
+        `Path to a saved challenge JSON file. Defaults to the latest file in ${defaultChallengesDirectory}/ before fetching a fresh challenge.`,
+      )
+      .option(
+        '--out <path>',
+        'Write the serialized credential to a file',
+        defaultCredentialFilePath,
+      ),
+  ).action(
+    async (
+      options: SigningOptions & {
         challengeFile?: string
-        header?: string[]
-        method?: string
         out?: string
-        privateKey?: string
         url?: string
-      }) => {
-        const challengeValue = await resolveStakeChallengeForRespond(options)
-        const forcedChallenge = withStakeFeePayer(challengeValue, false)
-        const account = privateKeyToAccount(
-          asHex32(
-            options.privateKey ?? process.env[PRIVATE_KEY_ENV],
-            '--private-key',
-          ),
-        )
-        const method = createStakeMethod({
-          account,
-          name: repoConfig.methodName,
-        })
-        const serializedCredential = await method.createCredential({
-          challenge: forcedChallenge,
-          context: {},
-        })
-        const parsedCredential =
-          Credential.deserialize<StakeCredentialPayload>(serializedCredential)
-
-        if (parsedCredential.payload.type !== 'hash') {
-          throw new Error(
-            `challenge respond expected a tx-hash payload but received ${parsedCredential.payload.type}.`,
-          )
-        }
-
-        if (options.out) {
-          await writeFile(options.out, `${serializedCredential}\n`, 'utf8')
-        }
-
-        printJson({
-          challengeId: forcedChallenge.id,
-          credential: serializedCredential,
-          txHash: parsedCredential.payload.hash,
-          outputPath: options.out ?? null,
-          originalFeePayer:
-            challengeValue.request.methodDetails.feePayer ?? null,
-          payloadType: parsedCredential.payload.type,
-          source: parsedCredential.source,
-          feePayerOverrideApplied:
-            (challengeValue.request.methodDetails.feePayer ?? false) !== false,
-        })
       },
-    )
+    ) => {
+      const challengeValue = await resolveStakeChallengeForRespond(options)
+      const beneficiaryAccount = await resolveAccount(options)
+      const method = clientStake({
+        beneficiaryAccount,
+        name: repoConfig.methodName,
+      })
+      const serializedCredential = await method.createCredential({
+        challenge: challengeValue,
+      })
+      const parsedCredential = Credential.deserialize<{
+        signature: string
+        type: string
+      }>(serializedCredential)
+
+      if (options.out) {
+        await writeFile(options.out, `${serializedCredential}\n`, 'utf8')
+      }
+
+      printJson({
+        challengeId: challengeValue.id,
+        credential: serializedCredential,
+        outputPath: options.out ?? null,
+        payloadType: parsedCredential.payload.type,
+        signature: parsedCredential.payload.signature,
+        source: parsedCredential.source,
+      })
+    },
+  )
 
   challenge
     .command('submit')
     .description(
-      'Retry a protected resource request with a serialized MPP credential in Authorization',
+      'Retry the protected demo resource request with the saved credential',
     )
-    .requiredOption('--url <url>', 'Protected resource URL')
-    .option(
-      '--method <method>',
-      'HTTP method used when retrying the request',
-      'GET',
-    )
-    .option(
-      '--header <name:value>',
-      'Additional HTTP header; repeat for multiple headers',
-      collectRepeatableOption,
-      [],
-    )
-    .option('--credential <value>', 'Serialized credential string')
     .option(
       '--credential-file <path>',
       'Path to a file containing a serialized credential',
+      defaultCredentialFilePath,
+    )
+    .option(
+      '--url <url>',
+      'Protected resource URL. Defaults to MPP_RESOURCE_URL or the local demo server route.',
     )
     .action(
       async (options: {
-        credential?: string
         credentialFile?: string
-        header?: string[]
-        method?: string
         url?: string
       }) => {
         const credential = await resolveSerializedCredential(options)
         const response = await fetchWithOptions({
           authorization: credential,
-          headers: options.header,
-          method: options.method,
-          url: requiredString(options.url, 'Missing --url.'),
+          url: resolveProtectedResourceUrl(options.url),
         })
 
         const challengeValue =
           response.status === 402
-            ? getStakeChallengeFromResponse(response)
+            ? parseStakeChallenge(response, {
+                methodName: repoConfig.methodName,
+              })
             : null
 
         printJson({
