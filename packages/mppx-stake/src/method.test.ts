@@ -1,10 +1,7 @@
 import { PaymentRequest } from 'mppx'
 import { describe, expect, it } from 'vitest'
 
-import {
-  BENEFICIARY_BOUND_STAKE_MODE,
-  createStakeMethod,
-} from './method.js'
+import { BENEFICIARY_BOUND_STAKE_MODE, createStakeMethod } from './method.js'
 
 const request = {
   amount: '5000000',

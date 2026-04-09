@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   BENEFICIARY_BOUND_STAKE_MODE,
-  OWNER_AGNOSTIC_STAKE_MODE,
   createStakeMethod,
+  OWNER_AGNOSTIC_STAKE_MODE,
 } from '../method.js'
 import { signScopeActiveProof } from '../shared/scopeActiveProof.js'
 import { serverStake } from './index.js'
@@ -37,7 +37,7 @@ const rawInput = {
   contract,
   counterparty,
   externalId,
-  mode: BENEFICIARY_BOUND_STAKE_MODE,
+  mode: BENEFICIARY_BOUND_STAKE_MODE as typeof BENEFICIARY_BOUND_STAKE_MODE,
   policy,
   resource,
   scope,
@@ -49,6 +49,7 @@ const routeRequest = {
   contract: rawInput.contract,
   counterparty: rawInput.counterparty,
   externalId: rawInput.externalId,
+  mode: rawInput.mode,
   policy: rawInput.policy,
   resource: rawInput.resource,
   scope: rawInput.scope,
@@ -57,7 +58,6 @@ const routeRequest = {
 }
 const routeChallengeRequest = {
   ...routeRequest,
-  mode: BENEFICIARY_BOUND_STAKE_MODE,
 }
 
 const stakeMethod = createStakeMethod({ name: methodName })

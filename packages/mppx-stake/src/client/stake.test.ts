@@ -2,11 +2,12 @@ import { Challenge, Credential } from 'mppx'
 import { privateKeyToAccount } from 'viem/accounts'
 import { describe, expect, it } from 'vitest'
 
-import type { StakeCredentialPayload } from '../method.js'
 import {
   BENEFICIARY_BOUND_STAKE_MODE,
-  OWNER_AGNOSTIC_STAKE_MODE,
   createStakeMethod,
+  OWNER_AGNOSTIC_STAKE_MODE,
+  type StakeAuthorizationMode,
+  type StakeCredentialPayload,
 } from '../method.js'
 import { recoverScopeActiveProofSigner } from '../shared/scopeActiveProof.js'
 import { createStakeClient } from './stake.js'
@@ -22,15 +23,16 @@ const stakeMethod = createStakeMethod({ name: methodName })
 
 const baseRequest = {
   amount: '5000000',
-  contract: '0x1111111111111111111111111111111111111111',
-  counterparty: '0x2222222222222222222222222222222222222222',
-  mode: BENEFICIARY_BOUND_STAKE_MODE,
-  token: '0x20C0000000000000000000000000000000000000',
-  scope: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  contract: '0x1111111111111111111111111111111111111111' as const,
+  counterparty: '0x2222222222222222222222222222222222222222' as const,
+  mode: BENEFICIARY_BOUND_STAKE_MODE as StakeAuthorizationMode,
+  token: '0x20C0000000000000000000000000000000000000' as const,
+  scope:
+    '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const,
   methodDetails: {
     chainId: 42431,
   },
-} as const
+}
 
 const makeChallenge = (request: typeof baseRequest = baseRequest) =>
   Challenge.fromMethod(stakeMethod, {

@@ -44,9 +44,8 @@ export const getStakeAuthorizationMode = (parameters: {
     ? OWNER_AGNOSTIC_STAKE_MODE
     : BENEFICIARY_BOUND_STAKE_MODE
 
-export const modeRequiresBeneficiaryProof = (
-  mode: StakeAuthorizationMode,
-) => mode === BENEFICIARY_BOUND_STAKE_MODE
+export const modeRequiresBeneficiaryProof = (mode: StakeAuthorizationMode) =>
+  mode === BENEFICIARY_BOUND_STAKE_MODE
 
 export type StakeChallengeRequest = {
   amount: string
