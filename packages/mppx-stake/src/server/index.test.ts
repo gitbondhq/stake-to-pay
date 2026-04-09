@@ -613,7 +613,7 @@ describe('server stake', () => {
 
       expect(result).toEqual({
         method: methodName,
-        reference: `${contract}:${scope}:any-beneficiary`,
+        reference: `${contract}:${scope}`,
         status: 'success',
         timestamp: expect.any(String),
       })

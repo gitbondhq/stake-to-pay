@@ -119,7 +119,9 @@ export const createStakeServer = (method: StakeMethod) => {
 
         return {
           method: method.name,
-          reference: `${challengeRequest.contract}:${challengeRequest.scope}:${beneficiary ?? 'any-beneficiary'}`,
+          reference: beneficiary
+            ? `${challengeRequest.contract}:${challengeRequest.scope}:${beneficiary}`
+            : `${challengeRequest.contract}:${challengeRequest.scope}`,
           status: 'success',
           timestamp: new Date().toISOString(),
         } as const
