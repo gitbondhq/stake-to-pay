@@ -9,7 +9,10 @@ import {
   type StakeMethod,
 } from '../method.js'
 import { createEvmClient } from '../shared/evmClient.js'
-import { recoverScopeActiveProofSigner } from '../shared/scopeActiveProof.js'
+import {
+  recoverScopeActiveProofSigner,
+  shouldVerifyBeneficiaryStake,
+} from '../shared/scopeActiveProof.js'
 import {
   assertSourceDidMatches,
   resolveBeneficiary,
@@ -264,7 +267,3 @@ const assertOptionalAddress = (
   if (!expected || !received || !isAddressEqual(expected, received))
     throw new Error(`Challenge ${label} does not match this route.`)
 }
-
-export const shouldVerifyBeneficiaryStake = (parameters: {
-  verifyBeneficiaryStake?: boolean
-}) => parameters.verifyBeneficiaryStake !== false

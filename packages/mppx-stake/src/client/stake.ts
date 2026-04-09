@@ -4,8 +4,10 @@ import { isAddressEqual } from 'viem'
 
 import { getChain } from '../chains.js'
 import { brandStakeRequest, type StakeMethod } from '../method.js'
-import { signScopeActiveProof } from '../shared/scopeActiveProof.js'
-import { shouldVerifyBeneficiaryStake } from '../shared/verificationMode.js'
+import {
+  shouldVerifyBeneficiaryStake,
+  signScopeActiveProof,
+} from '../shared/scopeActiveProof.js'
 
 export type StakeClientParameters =
   | {
