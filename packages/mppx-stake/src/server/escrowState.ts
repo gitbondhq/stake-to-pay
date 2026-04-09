@@ -15,7 +15,7 @@ export type EscrowRecord = ReadContractReturnType<
 >
 
 export type EscrowVerificationParams = {
-  beneficiary?: Address | undefined
+  beneficiary?: Address
   counterparty: Address
   scope: Hex
   token: Address

@@ -14,11 +14,11 @@ export type StakeClientParameters =
   | (StakeVerificationModeParameters & {
       /** The beneficiary's signing account. Produces the scope-active EIP-712 proof. */
       beneficiaryAccount: Account
-      mode?: true | undefined
+      mode?: true
     })
   | (StakeVerificationModeParameters & {
       /** Not required when `mode: false` skips signature creation. */
-      beneficiaryAccount?: Account | undefined
+      beneficiaryAccount?: Account
       mode: false
     })
 

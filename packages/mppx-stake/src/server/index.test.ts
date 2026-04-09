@@ -79,7 +79,7 @@ const makeCredential = async (parameters?: {
   challengeRequest?: typeof challengeRequest
   includeSignature?: boolean
   proofOverrides?: ProofOverrides
-  source?: string | undefined
+  source?: string
 }) => {
   const request = parameters?.challengeRequest ?? challengeRequest
   const proof = parameters?.proofOverrides
