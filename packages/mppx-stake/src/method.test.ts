@@ -57,6 +57,16 @@ describe('stake method schema', () => {
     })
   })
 
+  it('accepts a scope-active payload without a signature', () => {
+    expect(
+      stakeMethod.schema.credential.payload.parse({
+        type: 'scope-active',
+      }),
+    ).toEqual({
+      type: 'scope-active',
+    })
+  })
+
   it('rejects unknown credential payload variants', () => {
     expect(() =>
       stakeMethod.schema.credential.payload.parse({

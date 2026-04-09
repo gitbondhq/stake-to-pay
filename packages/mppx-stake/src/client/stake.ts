@@ -5,11 +5,22 @@ import { isAddressEqual } from 'viem'
 import { getChain } from '../chains.js'
 import { brandStakeRequest, type StakeMethod } from '../method.js'
 import { signScopeActiveProof } from '../shared/scopeActiveProof.js'
+import {
+  shouldVerifyScopeActiveProof,
+  type StakeVerificationModeParameters,
+} from '../shared/verificationMode.js'
 
-export type StakeClientParameters = {
-  /** The beneficiary's signing account. Produces the scope-active EIP-712 proof. */
-  beneficiaryAccount: Account
-}
+export type StakeClientParameters =
+  | (StakeVerificationModeParameters & {
+      /** The beneficiary's signing account. Produces the scope-active EIP-712 proof. */
+      beneficiaryAccount: Account
+      mode?: true | undefined
+    })
+  | (StakeVerificationModeParameters & {
+      /** Not required when `mode: false` skips signature creation. */
+      beneficiaryAccount?: Account | undefined
+      mode: false
+    })
 
 /**
  * Turns the shared stake schema into a client method that signs a typed-data
@@ -19,14 +30,27 @@ export type StakeClientParameters = {
  * responsible for having created the escrow before the credential is signed.
  */
 export const createStakeClient = (method: StakeMethod) => {
-  return ({ beneficiaryAccount }: StakeClientParameters) => {
+  return (parameters: StakeClientParameters) => {
     return Method.toClient(method, {
       async createCredential({ challenge }) {
         const request = brandStakeRequest(challenge.request)
         const chainId = request.methodDetails.chainId
+        const verifyProof = shouldVerifyScopeActiveProof(parameters)
+        const beneficiaryAccount = parameters.beneficiaryAccount
 
         // Surface unsupported chains here rather than waiting for the server.
         getChain(chainId)
+
+        if (!verifyProof)
+          return Credential.serialize({
+            challenge,
+            payload: { type: 'scope-active' },
+          })
+
+        if (!beneficiaryAccount)
+          throw new Error(
+            'beneficiaryAccount is required unless mode is false.',
+          )
 
         if (
           request.beneficiary &&

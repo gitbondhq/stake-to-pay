@@ -96,4 +96,21 @@ describe('assertEscrowState', () => {
       assertEscrowState({ ...baseEscrow, principal: value - 1n }, baseParams),
     ).toThrow(/escrow\.principal/)
   })
+
+  it('accepts a beneficiary mismatch when beneficiary checks are disabled', () => {
+    expect(() =>
+      assertEscrowState(
+        {
+          ...baseEscrow,
+          beneficiary: '0x9999999999999999999999999999999999999999' as Address,
+        },
+        {
+          counterparty,
+          scope,
+          token,
+          value,
+        },
+      ),
+    ).not.toThrow()
+  })
 })

@@ -94,6 +94,10 @@ URL, with the credential in `Authorization`) runs verification: HMAC-binds
 the challenge, recovers the typed-data signer, validates the source DID,
 reads chain state, and returns the receipt.
 
+Set `mode: false` only for owner-agnostic deployments that intentionally skip
+beneficiary signature creation and recovery. The default path remains the
+spec-aligned EIP-712 proof flow described in `specs/`.
+
 ### Server parameters
 
 | Parameter          | Type                    | Required | Notes                                                     |
@@ -104,6 +108,7 @@ reads chain state, and returns the receipt.
 | `contract`         | `Address`               | no       | Default escrow contract for this route.                   |
 | `counterparty`     | `Address`               | no       | Default counterparty.                                     |
 | `token`            | `Address`               | no       | Default ERC-20 token.                                     |
+| `mode`             | `boolean`               | no       | Defaults to `true`; set `false` to skip signature recovery. |
 | `description`      | `string`                | no       | Shown to the client in the challenge UI.                  |
 | `consumeChallenge` | `(id) => Promise<void>` | no       | Replay-protection hook — see below. Stateless by default. |
 
@@ -174,6 +179,10 @@ const res = await mppx.fetch('https://api.example.com/resource', {
 })
 ```
 
+Client-side `mode` follows the same rule as the server: it defaults to
+signature creation, and `mode: false` emits a bare `scope-active` payload with
+no `signature` or `source`.
+
 ## Schema
 
 The challenge request shape both sides agree on:
@@ -198,7 +207,7 @@ The credential payload:
 
 ```ts
 type StakeCredentialPayload = {
-  signature: Hex                       // EIP-712 ScopeActiveStake signature
+  signature?: Hex                      // present unless `mode: false`
   type: 'scope-active'
 }
 ```

@@ -55,6 +55,7 @@ describe('client stake', () => {
     expect(credential.source).toBe(
       `did:pkh:eip155:${baseRequest.methodDetails.chainId}:${beneficiaryAccount.address}`,
     )
+    expect(credential.payload.signature).toBeDefined()
 
     const recovered = await recoverScopeActiveProofSigner({
       amount: baseRequest.amount,
@@ -65,7 +66,7 @@ describe('client stake', () => {
       counterparty: baseRequest.counterparty,
       expires: challenge.expires,
       scope: baseRequest.scope,
-      signature: credential.payload.signature,
+      signature: credential.payload.signature!,
       token: baseRequest.token,
     })
 
@@ -95,5 +96,19 @@ describe('client stake', () => {
     await expect(method.createCredential({ challenge })).rejects.toThrow(
       /Unsupported chainId/,
     )
+  })
+
+  it('omits the signature and source when mode is false', async () => {
+    const method = createStakeClient(stakeMethod)({
+      mode: false,
+    })
+    const challenge = makeChallenge() as CredentialChallenge
+
+    const serialized = await method.createCredential({ challenge })
+    const credential =
+      Credential.deserialize<StakeCredentialPayload>(serialized)
+
+    expect(credential.payload).toEqual({ type: 'scope-active' })
+    expect(credential.source).toBeUndefined()
   })
 })

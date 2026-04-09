@@ -14,9 +14,13 @@ import {
   assertSourceDidMatches,
   resolveBeneficiary,
 } from '../shared/sourceDid.js'
+import {
+  shouldVerifyScopeActiveProof,
+  type StakeVerificationModeParameters,
+} from '../shared/verificationMode.js'
 import { type AssertEscrowActive, assertEscrowOnChain } from './escrowState.js'
 
-export type StakeServerParameters = {
+export type StakeServerParameters = StakeVerificationModeParameters & {
   chainId: number
   /**
    * Override the RPC endpoint used for on-chain reads. Defaults to viem's
@@ -59,6 +63,7 @@ export const createStakeServer = (method: StakeMethod) => {
     const { chainId, consumeChallenge, rpcUrl } = parameters
     const assertEscrowActive =
       parameters.assertEscrowActive ?? assertEscrowOnChain
+    const verifyProof = shouldVerifyScopeActiveProof(parameters)
 
     return Method.toServer(method, {
       defaults: {
@@ -89,33 +94,14 @@ export const createStakeServer = (method: StakeMethod) => {
         assertRequestMatches(currentRequest, challengeRequest)
 
         const challengeChainId = challengeRequest.methodDetails.chainId
-        const hintedBeneficiary =
-          challengeRequest.beneficiary ??
-          resolveBeneficiary(challengeChainId, credential.source)
-
         const payload = credential.payload as StakeCredentialPayload
-        const recovered = await recoverScopeActiveProofSigner({
-          amount: challengeRequest.amount,
-          beneficiary: hintedBeneficiary,
-          chainId: challengeChainId,
-          challengeId: credential.challenge.id,
-          contract: challengeRequest.contract,
-          counterparty: challengeRequest.counterparty,
-          expires: credential.challenge.expires,
-          scope: challengeRequest.scope,
-          signature: payload.signature,
-          token: challengeRequest.token,
+        const beneficiary = await resolveVerifiedBeneficiary({
+          challengeChainId,
+          challengeRequest,
+          credential,
+          payload,
+          verifyProof,
         })
-
-        if (
-          challengeRequest.beneficiary &&
-          !isAddressEqual(challengeRequest.beneficiary, recovered)
-        )
-          throw new Error(
-            'Recovered beneficiary does not match the challenged beneficiary.',
-          )
-
-        assertSourceDidMatches(challengeChainId, credential.source, recovered)
 
         // Replay protection runs after we've decided the credential is
         // genuine (HMAC + signature pass) but before the RPC read, so a
@@ -124,7 +110,7 @@ export const createStakeServer = (method: StakeMethod) => {
 
         const client = createEvmClient(challengeChainId, rpcUrl)
         await assertEscrowActive(client, challengeRequest.contract, {
-          beneficiary: recovered,
+          beneficiary,
           counterparty: challengeRequest.counterparty,
           scope: challengeRequest.scope,
           token: challengeRequest.token,
@@ -133,13 +119,65 @@ export const createStakeServer = (method: StakeMethod) => {
 
         return {
           method: method.name,
-          reference: `${challengeRequest.contract}:${challengeRequest.scope}:${recovered}`,
+          reference: `${challengeRequest.contract}:${challengeRequest.scope}:${beneficiary ?? 'any-beneficiary'}`,
           status: 'success',
           timestamp: new Date().toISOString(),
         } as const
       },
     })
   }
+}
+
+const resolveVerifiedBeneficiary = async ({
+  challengeChainId,
+  challengeRequest,
+  credential,
+  payload,
+  verifyProof,
+}: {
+  challengeChainId: number
+  challengeRequest: StakeChallengeRequest
+  credential: Credential.Credential
+  payload: StakeCredentialPayload
+  verifyProof: boolean
+}): Promise<Address | undefined> => {
+  if (!verifyProof) {
+    if (challengeRequest.beneficiary) return challengeRequest.beneficiary
+    return credential.source
+      ? resolveBeneficiary(challengeChainId, credential.source)
+      : undefined
+  }
+
+  if (!payload.signature)
+    throw new Error('Stake credential is missing the scope-active signature.')
+
+  const hintedBeneficiary =
+    challengeRequest.beneficiary ??
+    resolveBeneficiary(challengeChainId, credential.source)
+
+  const recovered = await recoverScopeActiveProofSigner({
+    amount: challengeRequest.amount,
+    beneficiary: hintedBeneficiary,
+    chainId: challengeChainId,
+    challengeId: credential.challenge.id,
+    contract: challengeRequest.contract,
+    counterparty: challengeRequest.counterparty,
+    expires: credential.challenge.expires,
+    scope: challengeRequest.scope,
+    signature: payload.signature,
+    token: challengeRequest.token,
+  })
+
+  if (
+    challengeRequest.beneficiary &&
+    !isAddressEqual(challengeRequest.beneficiary, recovered)
+  )
+    throw new Error(
+      'Recovered beneficiary does not match the challenged beneficiary.',
+    )
+
+  assertSourceDidMatches(challengeChainId, credential.source, recovered)
+  return recovered
 }
 
 /**

@@ -65,12 +65,12 @@ const stakeRequestSchema = z.object({
 // ── Stake credential payload ─────────────────────────────────────────────
 
 export type StakeCredentialPayload = {
-  signature: Hex
+  signature?: Hex | undefined
   type: 'scope-active'
 }
 
 const stakeCredentialPayloadSchema = z.object({
-  signature: ecdsaSignature(),
+  signature: z.optional(ecdsaSignature()),
   type: z.literal('scope-active'),
 })
 

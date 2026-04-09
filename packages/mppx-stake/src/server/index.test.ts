@@ -77,23 +77,27 @@ type ProofOverrides = {
 
 const makeCredential = async (parameters?: {
   challengeRequest?: typeof challengeRequest
+  includeSignature?: boolean
   proofOverrides?: ProofOverrides
   source?: string | undefined
 }) => {
   const request = parameters?.challengeRequest ?? challengeRequest
   const proof = parameters?.proofOverrides
-  const signature = await signScopeActiveProof(beneficiaryAccount, {
-    amount: proof?.amount ?? request.amount,
-    beneficiary,
-    chainId,
-    challengeId: 'test-challenge-id',
-    contract,
-    counterparty:
-      proof?.counterparty ?? (request.counterparty as `0x${string}`),
-    expires,
-    scope: proof?.scope ?? (request.scope as `0x${string}`),
-    token: proof?.token ?? (request.token as `0x${string}`),
-  })
+  const signature =
+    parameters?.includeSignature === false
+      ? undefined
+      : await signScopeActiveProof(beneficiaryAccount, {
+          amount: proof?.amount ?? request.amount,
+          beneficiary,
+          chainId,
+          challengeId: 'test-challenge-id',
+          contract,
+          counterparty:
+            proof?.counterparty ?? (request.counterparty as `0x${string}`),
+          expires,
+          scope: proof?.scope ?? (request.scope as `0x${string}`),
+          token: proof?.token ?? (request.token as `0x${string}`),
+        })
 
   // Discriminate "explicitly passed undefined" from "not passed at all" so the
   // requires-source-DID test can produce a credential with no source.
@@ -111,10 +115,14 @@ const makeCredential = async (parameters?: {
       realm,
       request,
     },
-    payload: {
-      signature,
-      type: 'scope-active' as const,
-    },
+    payload: signature
+      ? {
+          signature,
+          type: 'scope-active' as const,
+        }
+      : {
+          type: 'scope-active' as const,
+        },
     source,
   }
 }
@@ -539,6 +547,87 @@ describe('server stake', () => {
       await expect(
         method.verify({ credential, request: routeRequest }),
       ).rejects.toThrow(/recovered beneficiary/i)
+    })
+
+    it('skips signature verification when mode is false and uses the challenged beneficiary', async () => {
+      const method = serverStake({
+        chainId,
+        contract,
+        token,
+        name: methodName,
+        mode: false,
+      })
+      const requestWithBeneficiary = PaymentRequest.fromMethod(stakeMethod, {
+        ...rawInput,
+        beneficiary,
+      })
+      const credential = await makeCredential({
+        challengeRequest: requestWithBeneficiary,
+        includeSignature: false,
+        source: undefined,
+      })
+
+      const result = await method.verify({
+        credential,
+        request: {
+          ...routeRequest,
+          beneficiary,
+        },
+      })
+
+      expect(result).toEqual({
+        method: methodName,
+        reference: `${contract}:${scope}:${beneficiary}`,
+        status: 'success',
+        timestamp: expect.any(String),
+      })
+      expect(mocks.assertEscrowOnChain).toHaveBeenCalledWith(
+        {},
+        contract,
+        expect.objectContaining({
+          beneficiary,
+          counterparty,
+          scope,
+          token,
+          value: 5_000_000n,
+        }),
+      )
+    })
+
+    it('lets custom escrow verification ignore beneficiary when mode is false', async () => {
+      const customAssert = vi.fn().mockResolvedValue(undefined)
+      const method = serverStake({
+        assertEscrowActive: customAssert,
+        chainId,
+        contract,
+        token,
+        name: methodName,
+        mode: false,
+      })
+      const credential = await makeCredential({
+        includeSignature: false,
+        source: undefined,
+      })
+
+      const result = await method.verify({ credential, request: routeRequest })
+
+      expect(result).toEqual({
+        method: methodName,
+        reference: `${contract}:${scope}:any-beneficiary`,
+        status: 'success',
+        timestamp: expect.any(String),
+      })
+      expect(customAssert).toHaveBeenCalledWith(
+        {},
+        contract,
+        expect.objectContaining({
+          beneficiary: undefined,
+          counterparty,
+          scope,
+          token,
+          value: 5_000_000n,
+        }),
+      )
     })
   })
 })
