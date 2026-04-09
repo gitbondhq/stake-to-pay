@@ -96,7 +96,14 @@ reads chain state, and returns the receipt.
 
 Set `verifyBeneficiaryStake: false` only for owner-agnostic deployments that
 intentionally skip beneficiary signature creation and recovery. The default
-path remains the spec-aligned EIP-712 proof flow described in `specs/`.
+path remains the beneficiary-bound EIP-712 proof flow described in `specs/`.
+In the draft spec terminology, `verifyBeneficiaryStake: true` corresponds to
+the stricter `scope-beneficiary-active` mode and
+`verifyBeneficiaryStake: false` corresponds to the softer `scope-active` mode.
+The server now derives the challenge request `mode` field from that setting.
+Because the bundled verifier is keyed by
+`(scope, beneficiary)`, setting `verifyBeneficiaryStake: false` also requires a
+custom `assertEscrowActive` implementation.
 
 ### Server parameters
 
@@ -108,7 +115,7 @@ path remains the spec-aligned EIP-712 proof flow described in `specs/`.
 | `contract`         | `Address`               | no       | Default escrow contract for this route.                   |
 | `counterparty`     | `Address`               | no       | Default counterparty.                                     |
 | `token`            | `Address`               | no       | Default ERC-20 token.                                     |
-| `verifyBeneficiaryStake` | `boolean`         | no       | Defaults to `true`; set `false` to skip signature recovery. |
+| `verifyBeneficiaryStake` | `boolean`         | no       | Defaults to `true`; set `false` to skip signature recovery and provide a custom `assertEscrowActive`. |
 | `description`      | `string`                | no       | Shown to the client in the challenge UI.                  |
 | `consumeChallenge` | `(id) => Promise<void>` | no       | Replay-protection hook — see below. Stateless by default. |
 
@@ -179,9 +186,11 @@ const res = await mppx.fetch('https://api.example.com/resource', {
 })
 ```
 
-Client-side `verifyBeneficiaryStake` follows the same rule as the server: it
-defaults to signature creation, and `verifyBeneficiaryStake: false` emits a
-bare `scope-active` payload with no `signature` or `source`.
+The server-issued challenge `mode` is authoritative for client behavior:
+`scope-beneficiary-active` requires a beneficiary signature, while
+`scope-active` emits a bare `scope-active` payload with no `signature` or
+`source`. Client-side `verifyBeneficiaryStake: false` is still useful to
+configure owner-agnostic callers that never need a beneficiary signer.
 
 ## Schema
 
@@ -195,6 +204,7 @@ type StakeChallengeRequest = {
   counterparty: Address                // the other party
   description?: string
   externalId?: string                  // application-side identifier
+  mode: 'scope-beneficiary-active' | 'scope-active'
   policy?: string                      // application-side policy tag
   resource?: string                    // application-side resource tag
   scope: Hex                           // bytes32, the per-resource identifier
@@ -262,9 +272,9 @@ or `simulateContract` against `createEscrow`).
 The EIP-712 domain (`MPP Scope Active Stake / 1`), primary type
 (`ScopeActiveStake { challengeId, expires, scope, beneficiary, counterparty,
 token, amount }`), and DID source format (`did:pkh:eip155:{chainId}:{address}`)
-match [`mpp-stake-demo/packages/mppx-stake`](https://github.com/gitbondhq/mpp-stake-demo)
-byte-for-byte. Credentials produced against either package verify on
-either side.
+still match [`mpp-stake-demo/packages/mppx-stake`](https://github.com/gitbondhq/mpp-stake-demo)
+byte-for-byte. Challenge requests in this package now also carry `mode`, so
+full wire compatibility depends on the peer understanding that request field.
 
 ## Subpath exports
 

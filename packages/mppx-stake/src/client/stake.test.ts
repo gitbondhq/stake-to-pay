@@ -3,7 +3,11 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { describe, expect, it } from 'vitest'
 
 import type { StakeCredentialPayload } from '../method.js'
-import { createStakeMethod } from '../method.js'
+import {
+  BENEFICIARY_BOUND_STAKE_MODE,
+  OWNER_AGNOSTIC_STAKE_MODE,
+  createStakeMethod,
+} from '../method.js'
 import { recoverScopeActiveProofSigner } from '../shared/scopeActiveProof.js'
 import { createStakeClient } from './stake.js'
 
@@ -20,6 +24,7 @@ const baseRequest = {
   amount: '5000000',
   contract: '0x1111111111111111111111111111111111111111',
   counterparty: '0x2222222222222222222222222222222222222222',
+  mode: BENEFICIARY_BOUND_STAKE_MODE,
   token: '0x20C0000000000000000000000000000000000000',
   scope: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   methodDetails: {
@@ -102,7 +107,10 @@ describe('client stake', () => {
     const method = createStakeClient(stakeMethod)({
       verifyBeneficiaryStake: false,
     })
-    const challenge = makeChallenge() as CredentialChallenge
+    const challenge = makeChallenge({
+      ...baseRequest,
+      mode: OWNER_AGNOSTIC_STAKE_MODE,
+    }) as CredentialChallenge
 
     const serialized = await method.createCredential({ challenge })
     const credential =
@@ -110,5 +118,31 @@ describe('client stake', () => {
 
     expect(credential.payload).toEqual({ type: 'scope-active' })
     expect(credential.source).toBeUndefined()
+  })
+
+  it('omits the signature for scope-active challenges even with a beneficiary account', async () => {
+    const method = createStakeClient(stakeMethod)({ beneficiaryAccount })
+    const challenge = makeChallenge({
+      ...baseRequest,
+      mode: OWNER_AGNOSTIC_STAKE_MODE,
+    }) as CredentialChallenge
+
+    const serialized = await method.createCredential({ challenge })
+    const credential =
+      Credential.deserialize<StakeCredentialPayload>(serialized)
+
+    expect(credential.payload).toEqual({ type: 'scope-active' })
+    expect(credential.source).toBeUndefined()
+  })
+
+  it('rejects verifyBeneficiaryStake false for scope-beneficiary-active challenges', async () => {
+    const method = createStakeClient(stakeMethod)({
+      verifyBeneficiaryStake: false,
+    })
+    const challenge = makeChallenge() as CredentialChallenge
+
+    await expect(method.createCredential({ challenge })).rejects.toThrow(
+      /requires beneficiary proof creation/i,
+    )
   })
 })

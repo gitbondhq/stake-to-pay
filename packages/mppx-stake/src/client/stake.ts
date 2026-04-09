@@ -3,11 +3,12 @@ import type { Account } from 'viem'
 import { isAddressEqual } from 'viem'
 
 import { getChain } from '../chains.js'
-import { brandStakeRequest, type StakeMethod } from '../method.js'
 import {
-  shouldVerifyBeneficiaryStake,
-  signScopeActiveProof,
-} from '../shared/scopeActiveProof.js'
+  brandStakeRequest,
+  modeRequiresBeneficiaryProof,
+  type StakeMethod,
+} from '../method.js'
+import { signScopeActiveProof } from '../shared/scopeActiveProof.js'
 
 export type StakeClientParameters =
   | {
@@ -34,11 +35,16 @@ export const createStakeClient = (method: StakeMethod) => {
       async createCredential({ challenge }) {
         const request = brandStakeRequest(challenge.request)
         const chainId = request.methodDetails.chainId
-        const verifyProof = shouldVerifyBeneficiaryStake(parameters)
+        const verifyProof = modeRequiresBeneficiaryProof(request.mode)
         const beneficiaryAccount = parameters.beneficiaryAccount
 
         // Surface unsupported chains here rather than waiting for the server.
         getChain(chainId)
+
+        if (parameters.verifyBeneficiaryStake === false && verifyProof)
+          throw new Error(
+            `Challenge mode ${request.mode} requires beneficiary proof creation.`,
+          )
 
         if (!verifyProof)
           return Credential.serialize({
@@ -48,7 +54,7 @@ export const createStakeClient = (method: StakeMethod) => {
 
         if (!beneficiaryAccount)
           throw new Error(
-            'beneficiaryAccount is required unless verifyBeneficiaryStake is false.',
+            `beneficiaryAccount is required for ${request.mode} challenges.`,
           )
 
         if (

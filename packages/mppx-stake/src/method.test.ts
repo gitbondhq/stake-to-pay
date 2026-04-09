@@ -1,7 +1,10 @@
 import { PaymentRequest } from 'mppx'
 import { describe, expect, it } from 'vitest'
 
-import { createStakeMethod } from './method.js'
+import {
+  BENEFICIARY_BOUND_STAKE_MODE,
+  createStakeMethod,
+} from './method.js'
 
 const request = {
   amount: '5000000',
@@ -11,6 +14,7 @@ const request = {
   token: '0x20C0000000000000000000000000000000000000',
   description: 'Stake required',
   externalId: 'github:owner/repo:pr:1',
+  mode: BENEFICIARY_BOUND_STAKE_MODE,
   policy: 'repo-pr-v1',
   resource: 'owner/repo#1',
   scope: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',

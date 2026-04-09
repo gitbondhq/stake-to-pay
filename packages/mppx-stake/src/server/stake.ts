@@ -4,15 +4,14 @@ import { isAddressEqual } from 'viem'
 
 import {
   brandStakeRequest,
+  getStakeAuthorizationMode,
+  modeRequiresBeneficiaryProof,
   type StakeChallengeRequest,
   type StakeCredentialPayload,
   type StakeMethod,
 } from '../method.js'
 import { createEvmClient } from '../shared/evmClient.js'
-import {
-  recoverScopeActiveProofSigner,
-  shouldVerifyBeneficiaryStake,
-} from '../shared/scopeActiveProof.js'
+import { recoverScopeActiveProofSigner } from '../shared/scopeActiveProof.js'
 import {
   assertSourceDidMatches,
   resolveBeneficiary,
@@ -20,6 +19,10 @@ import {
 import { type AssertEscrowActive, assertEscrowOnChain } from './escrowState.js'
 
 export type StakeServerParameters = {
+  /**
+   * Defaults to beneficiary-bound proof verification. Set to `false` only when
+   * you provide a custom `assertEscrowActive` for owner-agnostic scope checks.
+   */
   verifyBeneficiaryStake?: boolean
   chainId: number
   /**
@@ -61,9 +64,15 @@ export type StakeServerParameters = {
 export const createStakeServer = (method: StakeMethod) => {
   return (parameters: StakeServerParameters) => {
     const { chainId, consumeChallenge, rpcUrl } = parameters
+    const mode = getStakeAuthorizationMode(parameters)
+
+    if (!modeRequiresBeneficiaryProof(mode) && !parameters.assertEscrowActive)
+      throw new Error(
+        'verifyBeneficiaryStake: false requires a custom assertEscrowActive because the default verifier is beneficiary-bound.',
+      )
+
     const assertEscrowActive =
       parameters.assertEscrowActive ?? assertEscrowOnChain
-    const verifyProof = shouldVerifyBeneficiaryStake(parameters)
 
     return Method.toServer(method, {
       defaults: {
@@ -71,6 +80,7 @@ export const createStakeServer = (method: StakeMethod) => {
         counterparty: parameters.counterparty,
         token: parameters.token,
         description: parameters.description,
+        mode,
         methodDetails: { chainId },
       },
 
@@ -79,6 +89,7 @@ export const createStakeServer = (method: StakeMethod) => {
         return {
           ...request,
           ...echoed,
+          mode,
           methodDetails: { chainId },
         }
       },
@@ -88,10 +99,12 @@ export const createStakeServer = (method: StakeMethod) => {
         const currentRequest = brandStakeRequest(
           PaymentRequest.fromMethod(method, {
             ...request,
+            mode,
             methodDetails: { chainId },
           }),
         )
         assertRequestMatches(currentRequest, challengeRequest)
+        const verifyProof = modeRequiresBeneficiaryProof(challengeRequest.mode)
 
         const challengeChainId = challengeRequest.methodDetails.chainId
         const payload = credential.payload as StakeCredentialPayload
@@ -143,12 +156,7 @@ const resolveVerifiedBeneficiary = async ({
   payload: StakeCredentialPayload
   verifyProof: boolean
 }): Promise<Address | undefined> => {
-  if (!verifyProof) {
-    if (challengeRequest.beneficiary) return challengeRequest.beneficiary
-    return credential.source
-      ? resolveBeneficiary(challengeChainId, credential.source)
-      : undefined
-  }
+  if (!verifyProof) return challengeRequest.beneficiary ?? undefined
 
   if (!payload.signature)
     throw new Error('Stake credential is missing the scope-active signature.')
@@ -238,6 +246,7 @@ const assertRequestMatches = (
   const pairs = [
     ['amount', currentRequest.amount, challengeRequest.amount],
     ['externalId', currentRequest.externalId, challengeRequest.externalId],
+    ['mode', currentRequest.mode, challengeRequest.mode],
     ['policy', currentRequest.policy, challengeRequest.policy],
     ['resource', currentRequest.resource, challengeRequest.resource],
     ['scope', currentRequest.scope, challengeRequest.scope],
