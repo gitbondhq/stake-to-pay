@@ -95,11 +95,11 @@ The server entry point is `apps/mpp-server/src/index.ts`. Key files:
 The server uses `mppx` server SDK to issue 402 challenges and verify credentials. The stake method is configured once and applied per-route:
 
 ```ts
-import { serverStake } from '@gitbondhq/mppx-stake'
+import { serverStake } from '@gitbondhq/mppx-stake/server'
 import { Mppx } from 'mppx/server'
 
 const mppx = Mppx.create({
-  methods: [serverStake({ contract, counterparty, token, name, preset })],
+  methods: [serverStake({ contract, counterparty, token, name, chainId })],
   secretKey: process.env.MPP_SECRET_KEY!,
 })
 ```
@@ -111,16 +111,12 @@ Edit `config.json` at the repo root:
 ```json
 {
   "methodName": "tempo",
-  "networkPreset": {
-    "id": "tempoModerato",
-    "family": "evm",
-    "rpcUrl": "https://rpc.moderato.tempo.xyz",
-    "chain": { "id": 42431, "name": "Tempo Testnet (Moderato)", ... }
-  },
+  "chainId": 42431,
   "escrow": {
     "contract": "0x3E7f...",
     "counterparty": "0x589B...",
     "token": "0x20c0...",
+    "tokenWhitelist": ["0x20c0..."],
     "amount": "5000000",
     "description": "Stake required to unlock the full incident report",
     "policy": "demo-document-v1"
@@ -141,11 +137,11 @@ Key fields:
 **Client side** — sign a `scope-active` proof after ensuring an escrow exists:
 
 ```ts
-import { Mppx, tempo } from 'mppx/client'
-import { stake } from '@gitbondhq/mppx-stake/client'
+import { Mppx } from 'mppx/client'
+import { clientStake } from '@gitbondhq/mppx-stake/client'
 
 const mppx = Mppx.create({
-  methods: [[...tempo({ account }), stake({ account })]],
+  methods: [clientStake({ name, beneficiaryAccount })],
 })
 ```
 
@@ -153,10 +149,10 @@ const mppx = Mppx.create({
 
 ```ts
 import { Mppx } from 'mppx/server'
-import { serverStake } from '@gitbondhq/mppx-stake'
+import { serverStake } from '@gitbondhq/mppx-stake/server'
 
 const mppx = Mppx.create({
-  methods: [serverStake({ contract, counterparty, token, name, preset })],
+  methods: [serverStake({ contract, counterparty, token, name, chainId })],
   secretKey: process.env.MPP_SECRET_KEY!,
 })
 ```

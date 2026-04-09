@@ -1,19 +1,6 @@
 {
   "methodName": "tempo",
-  "networkPreset": {
-    "id": "tempoModerato",
-    "family": "evm",
-    "rpcUrl": "https://rpc.moderato.tempo.xyz",
-    "chain": {
-      "id": 42431,
-      "name": "Tempo Testnet (Moderato)",
-      "nativeCurrency": {
-        "name": "USD",
-        "symbol": "USD",
-        "decimals": 6
-      }
-    }
-  },
+  "chainId": 42431,
   "escrow": {
     "contract": "0x3E7f584954f64530068ab95de96A9c182D72A447",
     "counterparty": "0x589B441c390D49426C3bB30Bea109d68659bcB56",

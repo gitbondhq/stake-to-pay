@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import process from 'node:process'
 
-import { serverStake } from '@gitbondhq/mppx-stake'
+import { serverStake } from '@gitbondhq/mppx-stake/server'
 import express from 'express'
 import { Mppx } from 'mppx/server'
 
@@ -20,18 +20,18 @@ function deriveScope(parameters: {
 
 const config = loadConfig()
 const document = loadDocument()
-const { escrow, methodName, networkPreset } = config.repoConfig
+const { chainId, escrow, methodName } = config.repoConfig
 const documentScope = deriveScope({
   policy: escrow.policy,
   resource: document.resource,
 })
 const configuredStakeMethod = serverStake({
+  chainId,
   contract: escrow.contract,
   counterparty: escrow.counterparty,
   token: escrow.token,
   description: escrow.description,
   name: methodName,
-  preset: networkPreset,
 })
 const stakeIntent = `${configuredStakeMethod.name}/${configuredStakeMethod.intent}`
 
@@ -60,10 +60,9 @@ app.get('/', (req, res) => {
       documentTitle: document.title,
       host: config.host,
       methodName,
-      network: networkPreset.id,
       port: config.port,
       stakeAmount: escrow.amount,
-      stakeChainId: networkPreset.chain.id,
+      stakeChainId: chainId,
       stakeContract: escrow.contract,
       stakeCounterparty: escrow.counterparty,
       stakeDescription: escrow.description,
@@ -142,7 +141,7 @@ const server = app.listen(config.port, config.host, () => {
   )
   console.log(`[mpp-server] protected route: ${origin}${document.path}`)
   console.log(
-    `[mpp-server] network=${networkPreset.id} stake amount=${escrow.amount} chainId=${networkPreset.chain.id} contract=${escrow.contract}`,
+    `[mpp-server] stake amount=${escrow.amount} chainId=${chainId} contract=${escrow.contract}`,
   )
 })
 

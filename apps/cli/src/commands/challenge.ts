@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 
-import { clientStake, parseStakeChallenge } from '@gitbondhq/mppx-stake'
+import { parseStakeChallenge } from '@gitbondhq/mppx-stake'
+import { clientStake } from '@gitbondhq/mppx-stake/client'
 import { Command } from 'commander'
 import { Credential } from 'mppx'
 
@@ -115,11 +116,10 @@ export function registerChallengeCommands(program: Command): void {
       },
     ) => {
       const challengeValue = await resolveStakeChallengeForRespond(options)
-      const account = await resolveAccount(options)
+      const beneficiaryAccount = await resolveAccount(options)
       const method = clientStake({
-        account,
+        beneficiaryAccount,
         name: repoConfig.methodName,
-        preset: repoConfig.networkPreset,
       })
       const serializedCredential = await method.createCredential({
         challenge: challengeValue,
