@@ -50,7 +50,7 @@ type CredentialChallenge = Parameters<
 >[0]['challenge']
 
 describe('client stake', () => {
-  it('signs a scope-active credential whose signature recovers to the signer', async () => {
+  it('signs a scope-beneficiary-active credential whose signature recovers to the signer', async () => {
     const method = createStakeClient(stakeMethod)({ beneficiaryAccount })
     const challenge = makeChallenge() as CredentialChallenge
 
@@ -58,7 +58,12 @@ describe('client stake', () => {
     const credential =
       Credential.deserialize<StakeCredentialPayload>(serialized)
 
-    expect(credential.payload.type).toBe('scope-active')
+    expect(credential.payload.type).toBe(BENEFICIARY_BOUND_STAKE_MODE)
+    if (credential.payload.type !== BENEFICIARY_BOUND_STAKE_MODE)
+      throw new Error(
+        'Expected a scope-beneficiary-active payload in this test.',
+      )
+
     expect(credential.source).toBe(
       `did:pkh:eip155:${baseRequest.methodDetails.chainId}:${beneficiaryAccount.address}`,
     )
@@ -73,7 +78,7 @@ describe('client stake', () => {
       counterparty: baseRequest.counterparty,
       expires: challenge.expires,
       scope: baseRequest.scope,
-      signature: credential.payload.signature!,
+      signature: credential.payload.signature,
       token: baseRequest.token,
     })
 

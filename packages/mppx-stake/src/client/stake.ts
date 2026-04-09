@@ -4,8 +4,9 @@ import { isAddressEqual } from 'viem'
 
 import { getChain } from '../chains.js'
 import {
+  BENEFICIARY_BOUND_STAKE_MODE,
   brandStakeRequest,
-  modeRequiresBeneficiaryProof,
+  OWNER_AGNOSTIC_STAKE_MODE,
   type StakeMethod,
 } from '../method.js'
 import { signScopeActiveProof } from '../shared/scopeActiveProof.js'
@@ -35,22 +36,21 @@ export const createStakeClient = (method: StakeMethod) => {
       async createCredential({ challenge }) {
         const request = brandStakeRequest(challenge.request)
         const chainId = request.methodDetails.chainId
-        const verifyProof = modeRequiresBeneficiaryProof(request.mode)
         const beneficiaryAccount = parameters.beneficiaryAccount
 
         // Surface unsupported chains here rather than waiting for the server.
         getChain(chainId)
 
-        if (parameters.verifyBeneficiaryStake === false && verifyProof)
+        if (request.mode === OWNER_AGNOSTIC_STAKE_MODE)
+          return Credential.serialize({
+            challenge,
+            payload: { type: request.mode },
+          })
+
+        if (parameters.verifyBeneficiaryStake === false)
           throw new Error(
             `Challenge mode ${request.mode} requires beneficiary proof creation.`,
           )
-
-        if (!verifyProof)
-          return Credential.serialize({
-            challenge,
-            payload: { type: 'scope-active' },
-          })
 
         if (!beneficiaryAccount)
           throw new Error(
@@ -81,7 +81,10 @@ export const createStakeClient = (method: StakeMethod) => {
 
         return Credential.serialize({
           challenge,
-          payload: { signature, type: 'scope-active' },
+          payload: {
+            signature,
+            type: BENEFICIARY_BOUND_STAKE_MODE,
+          },
           source: `did:pkh:eip155:${chainId}:${beneficiaryAccount.address}`,
         })
       },

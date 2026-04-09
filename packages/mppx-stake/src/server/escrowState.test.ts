@@ -97,7 +97,7 @@ describe('assertEscrowState', () => {
     ).toThrow(/escrow\.principal/)
   })
 
-  it('accepts a beneficiary mismatch when beneficiary checks are disabled', () => {
+  it('passes without beneficiary check when beneficiary is omitted', () => {
     expect(() =>
       assertEscrowState(
         {

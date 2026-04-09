@@ -1,7 +1,11 @@
 import { PaymentRequest } from 'mppx'
 import { describe, expect, it } from 'vitest'
 
-import { BENEFICIARY_BOUND_STAKE_MODE, createStakeMethod } from './method.js'
+import {
+  BENEFICIARY_BOUND_STAKE_MODE,
+  createStakeMethod,
+  OWNER_AGNOSTIC_STAKE_MODE,
+} from './method.js'
 
 const request = {
   amount: '5000000',
@@ -44,28 +48,38 @@ describe('stake method schema', () => {
     ).toThrow(/hash/i)
   })
 
-  it('accepts a scope-active credential payload', () => {
+  it('accepts a scope-beneficiary-active credential payload', () => {
     expect(
       stakeMethod.schema.credential.payload.parse({
         signature:
           '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1b',
-        type: 'scope-active',
+        type: BENEFICIARY_BOUND_STAKE_MODE,
       }),
     ).toEqual({
       signature:
         '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1b',
-      type: 'scope-active',
+      type: BENEFICIARY_BOUND_STAKE_MODE,
     })
   })
 
   it('accepts a scope-active payload without a signature', () => {
     expect(
       stakeMethod.schema.credential.payload.parse({
-        type: 'scope-active',
+        type: OWNER_AGNOSTIC_STAKE_MODE,
       }),
     ).toEqual({
-      type: 'scope-active',
+      type: OWNER_AGNOSTIC_STAKE_MODE,
     })
+  })
+
+  it('rejects a scope-active payload that includes a signature', () => {
+    expect(() =>
+      stakeMethod.schema.credential.payload.parse({
+        signature:
+          '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1b',
+        type: OWNER_AGNOSTIC_STAKE_MODE,
+      }),
+    ).toThrow()
   })
 
   it('rejects unknown credential payload variants', () => {

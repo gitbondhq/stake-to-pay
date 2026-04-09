@@ -86,15 +86,24 @@ const stakeRequestSchema = z.object({
 
 // ── Stake credential payload ─────────────────────────────────────────────
 
-export type StakeCredentialPayload = {
-  signature?: Hex
-  type: 'scope-active'
-}
+export type StakeCredentialPayload =
+  | {
+      signature: Hex
+      type: typeof BENEFICIARY_BOUND_STAKE_MODE
+    }
+  | {
+      type: typeof OWNER_AGNOSTIC_STAKE_MODE
+    }
 
-const stakeCredentialPayloadSchema = z.object({
-  signature: z.optional(ecdsaSignature()),
-  type: z.literal('scope-active'),
-})
+const stakeCredentialPayloadSchema = z.discriminatedUnion('type', [
+  z.object({
+    signature: ecdsaSignature(),
+    type: z.literal(BENEFICIARY_BOUND_STAKE_MODE),
+  }),
+  z.strictObject({
+    type: z.literal(OWNER_AGNOSTIC_STAKE_MODE),
+  }),
+])
 
 // ── Method factory ───────────────────────────────────────────────────────
 

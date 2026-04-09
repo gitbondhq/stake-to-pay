@@ -108,6 +108,11 @@ export const createStakeServer = (method: StakeMethod) => {
 
         const challengeChainId = challengeRequest.methodDetails.chainId
         const payload = credential.payload as StakeCredentialPayload
+        if (payload.type !== challengeRequest.mode)
+          throw new Error(
+            'Stake credential payload type does not match the challenged mode.',
+          )
+
         const beneficiary = await resolveVerifiedBeneficiary({
           challengeChainId,
           challengeRequest,
@@ -158,8 +163,12 @@ const resolveVerifiedBeneficiary = async ({
 }): Promise<Address | undefined> => {
   if (!verifyProof) return challengeRequest.beneficiary ?? undefined
 
-  if (!payload.signature)
-    throw new Error('Stake credential is missing the scope-active signature.')
+  if (!('signature' in payload) || !payload.signature)
+    throw new Error(
+      'Stake credential is missing the scope-beneficiary-active signature.',
+    )
+
+  const signature = payload.signature
 
   const hintedBeneficiary =
     challengeRequest.beneficiary ??
@@ -174,7 +183,7 @@ const resolveVerifiedBeneficiary = async ({
     counterparty: challengeRequest.counterparty,
     expires: credential.challenge.expires,
     scope: challengeRequest.scope,
-    signature: payload.signature,
+    signature,
     token: challengeRequest.token,
   })
 

@@ -1,6 +1,6 @@
 import { Challenge, Credential, PaymentRequest } from 'mppx'
 import { Mppx, tempo as upstreamTempo } from 'mppx/server'
-import type { Address } from 'viem'
+import type { Address, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -8,6 +8,7 @@ import {
   BENEFICIARY_BOUND_STAKE_MODE,
   createStakeMethod,
   OWNER_AGNOSTIC_STAKE_MODE,
+  type StakeCredentialPayload,
 } from '../method.js'
 import { signScopeActiveProof } from '../shared/scopeActiveProof.js'
 import { serverStake } from './index.js'
@@ -88,6 +89,25 @@ type ProofOverrides = {
   token?: `0x${string}`
 }
 
+const createCredentialPayload = (parameters: {
+  mode: typeof challengeRequest.mode
+  signature?: Hex
+}): StakeCredentialPayload => {
+  if (parameters.mode === BENEFICIARY_BOUND_STAKE_MODE) {
+    if (!parameters.signature)
+      throw new Error(
+        'Test setup error: scope-beneficiary-active payload requires a signature.',
+      )
+
+    return {
+      signature: parameters.signature,
+      type: BENEFICIARY_BOUND_STAKE_MODE,
+    }
+  }
+
+  return { type: OWNER_AGNOSTIC_STAKE_MODE }
+}
+
 const makeCredential = async (parameters?: {
   challengeRequest?: typeof challengeRequest
   includeSignature?: boolean
@@ -128,14 +148,10 @@ const makeCredential = async (parameters?: {
       realm,
       request,
     },
-    payload: signature
-      ? {
-          signature,
-          type: 'scope-active' as const,
-        }
-      : {
-          type: 'scope-active' as const,
-        },
+    payload: createCredentialPayload({
+      mode: request.mode,
+      signature,
+    }),
     source,
   }
 }
@@ -164,10 +180,10 @@ const makeIssuedCredential = async (parameters?: {
 
   return {
     challenge,
-    payload: {
+    payload: createCredentialPayload({
+      mode: request.mode,
       signature,
-      type: 'scope-active' as const,
-    },
+    }),
     source: `did:pkh:eip155:${chainId}:${beneficiary}`,
   }
 }
@@ -444,7 +460,10 @@ describe('server stake', () => {
           ...issuedCredential.challenge,
           request: tamperedRequest,
         },
-        payload: { signature, type: 'scope-active' as const },
+        payload: createCredentialPayload({
+          mode: tamperedRequest.mode,
+          signature,
+        }),
       }
 
       const stakeHandler = mppx.stake
@@ -491,6 +510,21 @@ describe('server stake', () => {
       await expect(
         method.verify({ credential, request: routeRequest }),
       ).rejects.toThrow(/does not match/i)
+    })
+
+    it('rejects when the payload type does not match the challenged mode', async () => {
+      const method = serverStake({ chainId, contract, token, name: methodName })
+      const credential = await makeCredential()
+
+      await expect(
+        method.verify({
+          credential: {
+            ...credential,
+            payload: { type: OWNER_AGNOSTIC_STAKE_MODE },
+          },
+          request: routeRequest,
+        }),
+      ).rejects.toThrow(/payload type does not match the challenged mode/i)
     })
 
     it('allows an echoed beneficiary when the current route does not pin one', async () => {
