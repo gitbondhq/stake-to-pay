@@ -70,6 +70,11 @@ beneficiary. It does not create escrows, submit transactions, or orchestrate
 sponsorship flows. Any escrow creation or reuse checks should happen in the
 calling app or wallet UX before invoking the MPP client.
 
+When the challenged request omits `beneficiary`, this helper still emits a
+`source` DID for the beneficiary signer. The server needs that DID as a hint so
+it can reconstruct the EIP-712 message before recovering the beneficiary from
+the signature.
+
 ## Server usage
 
 ```ts
@@ -109,6 +114,10 @@ The server:
 
 If `assertEscrowActive` is omitted, the default verifier checks on-chain active
 stake by `(scope, beneficiary)` and validates the active escrow terms.
+
+Verification is intentionally stateless. Production servers still need to store
+and reject reused challenge IDs so the same credential cannot be replayed until
+expiry.
 
 No tx-hash receipt exchange is part of the public protocol anymore.
 

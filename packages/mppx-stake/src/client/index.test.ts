@@ -106,14 +106,84 @@ describe('client stake exports', () => {
 
     await expect(
       recoverScopeActiveProofSigner({
+        amount: request.amount,
         beneficiary: beneficiaryAccount.address,
         chainId: preset.chain.id,
         challengeId: challenge.id,
         contract: request.contract,
+        counterparty: request.counterparty,
         expires: challenge.expires,
         scope: request.scope,
         signature: credential.payload.signature,
+        token: request.token,
       }),
     ).resolves.toBe(beneficiaryAccount.address)
+  })
+
+  it('binds counterparty, token, and amount in the scope-active proof', async () => {
+    const method = stake({
+      account: payerAccount,
+      beneficiaryAccount,
+      name: methodName,
+      preset,
+    })
+    const challenge = Challenge.fromMethod(createStakeMethod({ name: methodName }), {
+      expires: '2026-01-01T00:00:00.000Z',
+      id: 'challenge-2',
+      realm: 'api.example.com',
+      request,
+    })
+    const serialized = await method.createCredential({
+      challenge: challenge as Parameters<
+        typeof method.createCredential
+      >[0]['challenge'],
+    })
+    const credential =
+      Credential.deserialize<StakeCredentialPayload>(serialized)
+
+    await expect(
+      recoverScopeActiveProofSigner({
+        amount: '5000001',
+        beneficiary: beneficiaryAccount.address,
+        chainId: preset.chain.id,
+        challengeId: challenge.id,
+        contract: request.contract,
+        counterparty: request.counterparty,
+        expires: challenge.expires,
+        scope: request.scope,
+        signature: credential.payload.signature,
+        token: request.token,
+      }),
+    ).resolves.not.toBe(beneficiaryAccount.address)
+
+    await expect(
+      recoverScopeActiveProofSigner({
+        amount: request.amount,
+        beneficiary: beneficiaryAccount.address,
+        chainId: preset.chain.id,
+        challengeId: challenge.id,
+        contract: request.contract,
+        counterparty: '0x3333333333333333333333333333333333333333',
+        expires: challenge.expires,
+        scope: request.scope,
+        signature: credential.payload.signature,
+        token: request.token,
+      }),
+    ).resolves.not.toBe(beneficiaryAccount.address)
+
+    await expect(
+      recoverScopeActiveProofSigner({
+        amount: request.amount,
+        beneficiary: beneficiaryAccount.address,
+        chainId: preset.chain.id,
+        challengeId: challenge.id,
+        contract: request.contract,
+        counterparty: request.counterparty,
+        expires: challenge.expires,
+        scope: request.scope,
+        signature: credential.payload.signature,
+        token: '0x3333333333333333333333333333333333333333',
+      }),
+    ).resolves.not.toBe(beneficiaryAccount.address)
   })
 })

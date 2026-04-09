@@ -49,6 +49,10 @@ Production apps should keep any escrow-creation, sponsorship, or relaying
 logic outside the protected resource server and review scope versioning when
 stake terms may change over time.
 
+This demo verifier is also stateless: it does not persist consumed challenge
+IDs. Production forks must add replay protection so the same credential cannot
+be reused until expiry.
+
 Examples:
 
 - if you change the required amount, token, or counterparty, you may want a new

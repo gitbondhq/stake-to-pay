@@ -45,12 +45,15 @@ export const createClientStake = (method: StakeMethod) => {
         const beneficiary = request.beneficiary ?? beneficiaryAccount.address
 
         const signature = await signScopeActiveProof(beneficiaryAccount, {
+          amount: request.amount,
           beneficiary,
           chainId,
           challengeId: challenge.id,
           contract: request.contract,
+          counterparty: request.counterparty,
           expires: challenge.expires,
           scope: request.scope,
+          token: request.token,
         })
 
         return Credential.serialize({

@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Methods from '../Methods.js'
 import type { NetworkPreset } from '../networkConfig.js'
 import { signScopeActiveProof } from '../internal/scopeActiveProof.js'
+import type { StakeChallengeRequest } from '../stakeSchema.js'
 import { stake } from './index.js'
 
 const account = privateKeyToAccount(
@@ -67,7 +68,10 @@ const routeRequest = {
 }
 
 const stakeMethod = Methods.stake({ name: methodName })
-const challengeRequest = PaymentRequest.fromMethod(stakeMethod, rawInput)
+const challengeRequest = PaymentRequest.fromMethod(
+  stakeMethod,
+  rawInput,
+) as StakeChallengeRequest
 
 const mocks = vi.hoisted(() => ({
   assertEscrowOnChain: vi.fn().mockResolvedValue(undefined),
@@ -85,17 +89,31 @@ vi.mock('../internal/tx.js', async importOriginal => ({
 
 const makeCredential = async (parameters?: {
   challengeRequest?: typeof challengeRequest
-  source?: string
+  proofRequest?: Partial<
+    Pick<
+      typeof challengeRequest,
+      'amount' | 'beneficiary' | 'counterparty' | 'scope' | 'token'
+    >
+  >
+  source?: string | undefined
 }) => {
   const request = parameters?.challengeRequest ?? challengeRequest
+  const proofRequest = parameters?.proofRequest
   const signature = await signScopeActiveProof(beneficiaryAccount, {
-    beneficiary,
+    amount: proofRequest?.amount ?? request.amount,
+    beneficiary: proofRequest?.beneficiary ?? beneficiary,
     chainId,
     challengeId: 'test-challenge-id',
-    contract,
+    contract: request.contract,
+    counterparty: proofRequest?.counterparty ?? request.counterparty,
     expires,
-    scope: request.scope as `0x${string}`,
+    scope: (proofRequest?.scope ?? request.scope) as `0x${string}`,
+    token: proofRequest?.token ?? request.token,
   })
+  const source =
+    parameters && 'source' in parameters
+      ? parameters.source
+      : `did:pkh:eip155:${chainId}:${beneficiaryAccount.address}`
 
   return {
     challenge: {
@@ -110,14 +128,19 @@ const makeCredential = async (parameters?: {
       signature,
       type: 'scope-active' as const,
     },
-    source:
-      parameters?.source ?? `did:pkh:eip155:${chainId}:${beneficiaryAccount.address}`,
+    ...(source ? { source } : {}),
   }
 }
 
 const makeIssuedCredential = async (parameters?: {
   challengeRequest?: typeof challengeRequest
-  source?: string
+  proofRequest?: Partial<
+    Pick<
+      typeof challengeRequest,
+      'amount' | 'beneficiary' | 'counterparty' | 'scope' | 'token'
+    >
+  >
+  source?: string | undefined
 }) => {
   const request = parameters?.challengeRequest ?? challengeRequest
   const challenge = Challenge.fromMethod(stakeMethod, {
@@ -126,14 +149,22 @@ const makeIssuedCredential = async (parameters?: {
     request,
     secretKey,
   })
+  const proofRequest = parameters?.proofRequest
   const signature = await signScopeActiveProof(beneficiaryAccount, {
-    beneficiary,
+    amount: proofRequest?.amount ?? request.amount,
+    beneficiary: proofRequest?.beneficiary ?? beneficiary,
     chainId,
     challengeId: challenge.id,
-    contract,
+    contract: request.contract,
+    counterparty: proofRequest?.counterparty ?? request.counterparty,
     expires: challenge.expires,
-    scope: request.scope as `0x${string}`,
+    scope: (proofRequest?.scope ?? request.scope) as `0x${string}`,
+    token: proofRequest?.token ?? request.token,
   })
+  const source =
+    parameters && 'source' in parameters
+      ? parameters.source
+      : `did:pkh:eip155:${chainId}:${beneficiaryAccount.address}`
 
   return {
     challenge,
@@ -141,8 +172,7 @@ const makeIssuedCredential = async (parameters?: {
       signature,
       type: 'scope-active' as const,
     },
-    source:
-      parameters?.source ?? `did:pkh:eip155:${chainId}:${beneficiaryAccount.address}`,
+    ...(source ? { source } : {}),
   }
 }
 
@@ -295,14 +325,17 @@ describe('server stake verification', () => {
       const tamperedChallengeRequest = PaymentRequest.fromMethod(stakeMethod, {
         ...issuedCredential.challenge.request,
         externalId: 'document:test:tampered-before-sign',
-      })
+      }) as StakeChallengeRequest
       const signature = await signScopeActiveProof(beneficiaryAccount, {
+        amount: tamperedChallengeRequest.amount,
         beneficiary,
         chainId,
         challengeId: issuedCredential.challenge.id,
-        contract,
+        contract: tamperedChallengeRequest.contract,
+        counterparty: tamperedChallengeRequest.counterparty,
         expires: issuedCredential.challenge.expires,
         scope: tamperedChallengeRequest.scope as `0x${string}`,
+        token: tamperedChallengeRequest.token,
       })
       const credential = {
         ...issuedCredential,
@@ -407,7 +440,7 @@ describe('server stake verification', () => {
       const mismatchedRequest = PaymentRequest.fromMethod(stakeMethod, {
         ...rawInput,
         amount: '9999999',
-      })
+      }) as StakeChallengeRequest
       const credential = await makeCredential({
         challengeRequest: mismatchedRequest,
       })
@@ -427,7 +460,7 @@ describe('server stake verification', () => {
       const mismatchedRequest = PaymentRequest.fromMethod(stakeMethod, {
         ...rawInput,
         resource: 'documents/other',
-      })
+      }) as StakeChallengeRequest
       const credential = await makeCredential({
         challengeRequest: mismatchedRequest,
       })
@@ -435,6 +468,24 @@ describe('server stake verification', () => {
       await expect(
         method.verify({ credential, request: routeRequest }),
       ).rejects.toThrow(/resource/i)
+    })
+
+    it('rejects when the signature was created for different stake terms', async () => {
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const credential = await makeCredential({
+        proofRequest: {
+          amount: '5000001',
+        },
+      })
+
+      await expect(
+        method.verify({ credential, request: routeRequest }),
+      ).rejects.toThrow(/recovered beneficiary/i)
     })
 
     it('rejects when source DID chainId does not match', async () => {
@@ -451,6 +502,22 @@ describe('server stake verification', () => {
       await expect(
         method.verify({ credential, request: routeRequest }),
       ).rejects.toThrow(/chainId/i)
+    })
+
+    it('requires source DID when the challenge omits beneficiary', async () => {
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const credential = await makeCredential({
+        source: undefined,
+      })
+
+      await expect(
+        method.verify({ credential, request: routeRequest }),
+      ).rejects.toThrow(/when the challenge omits beneficiary/i)
     })
 
     it('rejects when source DID address does not match the recovered beneficiary', async () => {

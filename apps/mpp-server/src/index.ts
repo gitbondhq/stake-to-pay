@@ -123,9 +123,11 @@ app.get(document.path, async (req, res) => {
 
     await sendWebResponse(res, response)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    console.error('[mpp-server] request failed', error)
+    // Keep client-facing errors generic in the demo. Production servers should
+    // map verification failures onto stable public error codes/messages.
     res.status(500).json({
-      error: message,
+      error: 'Internal server error',
     })
   }
 })

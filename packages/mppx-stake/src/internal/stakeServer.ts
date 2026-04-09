@@ -79,13 +79,16 @@ export const createServerStake = (method: StakeMethod) => {
           challengeRequest.beneficiary ??
           resolveBeneficiary(chainId, credential.source)
         const beneficiary = await recoverScopeActiveProofSigner({
+          amount: challengeRequest.amount,
           beneficiary: hintedBeneficiary,
           chainId,
           challengeId: credential.challenge.id,
           contract: challengeRequest.contract,
+          counterparty: challengeRequest.counterparty,
           expires: credential.challenge.expires,
           scope: challengeRequest.scope,
           signature: (credential.payload as StakeCredentialPayload).signature,
+          token: challengeRequest.token,
         })
 
         if (
@@ -99,6 +102,8 @@ export const createServerStake = (method: StakeMethod) => {
 
         assertSourceDidMatches(chainId, credential.source, beneficiary)
 
+        // This reference verifier is stateless. Production servers still need
+        // to reject replayed credentials for the same challenge id.
         const client = createClient(preset)
         await assertEscrowActive(client, challengeRequest.contract, {
           beneficiary,
@@ -125,24 +130,25 @@ const assertRequestMatches = (
   currentRequest: StakeChallengeRequest,
   challengeRequest: StakeChallengeRequest,
 ) => {
+  assertOptionalAddress(
+    'beneficiary',
+    currentRequest.beneficiary,
+    challengeRequest.beneficiary,
+  )
+  assertAddress(
+    'counterparty',
+    currentRequest.counterparty,
+    challengeRequest.counterparty,
+  )
+  assertAddress('contract', currentRequest.contract, challengeRequest.contract)
+  assertAddress('token', currentRequest.token, challengeRequest.token)
+
   const pairs = [
     ['amount', currentRequest.amount, challengeRequest.amount],
-    [
-      'beneficiary',
-      currentRequest.beneficiary ?? '',
-      challengeRequest.beneficiary ?? '',
-    ],
-    [
-      'counterparty',
-      currentRequest.counterparty,
-      challengeRequest.counterparty,
-    ],
-    ['contract', currentRequest.contract, challengeRequest.contract],
     ['externalId', currentRequest.externalId, challengeRequest.externalId],
     ['policy', currentRequest.policy, challengeRequest.policy],
     ['resource', currentRequest.resource, challengeRequest.resource],
     ['scope', currentRequest.scope, challengeRequest.scope],
-    ['token', currentRequest.token, challengeRequest.token],
     [
       'chainId',
       currentRequest.methodDetails.chainId,
@@ -153,6 +159,25 @@ const assertRequestMatches = (
   for (const [label, expected, received] of pairs)
     if (String(expected) !== String(received))
       throw new Error(`Challenge ${label} does not match this route.`)
+}
+
+const assertAddress = (
+  label: string,
+  expected: Address,
+  received: Address,
+) => {
+  if (!isAddressEqual(expected, received))
+    throw new Error(`Challenge ${label} does not match this route.`)
+}
+
+const assertOptionalAddress = (
+  label: string,
+  expected: Address | undefined,
+  received: Address | undefined,
+) => {
+  if (!expected && !received) return
+  if (!expected || !received || !isAddressEqual(expected, received))
+    throw new Error(`Challenge ${label} does not match this route.`)
 }
 
 const getEchoedChallengeRequest = (

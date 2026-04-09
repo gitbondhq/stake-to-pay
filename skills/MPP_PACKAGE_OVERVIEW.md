@@ -73,6 +73,7 @@ stake({
 - `scope` must be stable for the protected resource or policy.
 - `beneficiary` is the access subject; `account` is only the default signer used by the client helper.
 - If the challenge specifies `beneficiary`, the beneficiary signing account must match it.
+- If the challenge omits `beneficiary`, the client credential still needs a `source` DID so the server can reconstruct the signed EIP-712 message before recovering the beneficiary.
 
 ---
 
@@ -131,6 +132,7 @@ stake({
 3. Server recovers the beneficiary from the signature.
 4. Server checks on-chain escrow state via `isEscrowActive(scope, beneficiary)` and then validates the full active escrow record with `getActiveEscrow(scope, beneficiary)`.
 5. Verification is **stateless** — no local escrow tracking, always queries chain.
+6. Production servers must add challenge-id replay protection on top of this reference verifier.
 
 ---
 

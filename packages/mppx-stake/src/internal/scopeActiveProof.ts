@@ -10,16 +10,22 @@ const scopeActiveTypes = {
     { name: 'expires', type: 'string' },
     { name: 'scope', type: 'bytes32' },
     { name: 'beneficiary', type: 'address' },
+    { name: 'counterparty', type: 'address' },
+    { name: 'token', type: 'address' },
+    { name: 'amount', type: 'uint256' },
   ],
 } as const
 
 type ScopeActiveProofParameters = {
+  amount: string
   beneficiary: Address
   chainId: number
   challengeId: string
   contract: Address
+  counterparty: Address
   expires?: string
   scope: Hex
+  token: Address
 }
 
 const getScopeActiveTypedData = (parameters: ScopeActiveProofParameters) => ({
@@ -30,10 +36,13 @@ const getScopeActiveTypedData = (parameters: ScopeActiveProofParameters) => ({
     version: DOMAIN_VERSION,
   } as const,
   message: {
+    amount: BigInt(parameters.amount),
     beneficiary: parameters.beneficiary,
     challengeId: parameters.challengeId,
+    counterparty: parameters.counterparty,
     expires: parameters.expires ?? '',
     scope: parameters.scope,
+    token: parameters.token,
   },
   primaryType: 'ScopeActiveStake' as const,
   types: scopeActiveTypes,
