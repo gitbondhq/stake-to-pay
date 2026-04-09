@@ -5,7 +5,7 @@
  * intentionally skips beneficiary ownership proof creation and verification.
  */
 export type StakeVerificationModeParameters = {
-  mode?: boolean | undefined
+  mode?: boolean
 }
 
 export const shouldVerifyScopeActiveProof = (
