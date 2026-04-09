@@ -6,4 +6,3 @@ export {
   type StakeCredentialPayload,
   type StakeMethodParameters,
 } from './method.js'
-export type { StakeVerificationModeParameters } from './shared/verificationMode.js'

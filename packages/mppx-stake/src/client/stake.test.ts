@@ -98,9 +98,9 @@ describe('client stake', () => {
     )
   })
 
-  it('omits the signature and source when mode is false', async () => {
+  it('omits the signature and source when verifyBeneficiaryStake is false', async () => {
     const method = createStakeClient(stakeMethod)({
-      mode: false,
+      verifyBeneficiaryStake: false,
     })
     const challenge = makeChallenge() as CredentialChallenge
 

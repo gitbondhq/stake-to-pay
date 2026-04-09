@@ -3,7 +3,6 @@
 import { createStakeMethod, type StakeMethodParameters } from '../method.js'
 import { createStakeClient, type StakeClientParameters } from './stake.js'
 
-export type { StakeVerificationModeParameters } from '../shared/verificationMode.js'
 export type { StakeClientParameters } from './stake.js'
 
 type CreateClientStakeParameters = StakeClientParameters & StakeMethodParameters

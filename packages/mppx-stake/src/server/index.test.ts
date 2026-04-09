@@ -549,13 +549,13 @@ describe('server stake', () => {
       ).rejects.toThrow(/recovered beneficiary/i)
     })
 
-    it('skips signature verification when mode is false and uses the challenged beneficiary', async () => {
+    it('skips signature verification when verifyBeneficiaryStake is false and uses the challenged beneficiary', async () => {
       const method = serverStake({
         chainId,
         contract,
         token,
         name: methodName,
-        mode: false,
+        verifyBeneficiaryStake: false,
       })
       const requestWithBeneficiary = PaymentRequest.fromMethod(stakeMethod, {
         ...rawInput,
@@ -594,7 +594,7 @@ describe('server stake', () => {
       )
     })
 
-    it('lets custom escrow verification ignore beneficiary when mode is false', async () => {
+    it('lets custom escrow verification ignore beneficiary when verifyBeneficiaryStake is false', async () => {
       const customAssert = vi.fn().mockResolvedValue(undefined)
       const method = serverStake({
         assertEscrowActive: customAssert,
@@ -602,7 +602,7 @@ describe('server stake', () => {
         contract,
         token,
         name: methodName,
-        mode: false,
+        verifyBeneficiaryStake: false,
       })
       const credential = await makeCredential({
         includeSignature: false,

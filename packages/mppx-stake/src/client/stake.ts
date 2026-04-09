@@ -5,22 +5,19 @@ import { isAddressEqual } from 'viem'
 import { getChain } from '../chains.js'
 import { brandStakeRequest, type StakeMethod } from '../method.js'
 import { signScopeActiveProof } from '../shared/scopeActiveProof.js'
-import {
-  shouldVerifyScopeActiveProof,
-  type StakeVerificationModeParameters,
-} from '../shared/verificationMode.js'
+import { shouldVerifyBeneficiaryStake } from '../shared/verificationMode.js'
 
 export type StakeClientParameters =
-  | (StakeVerificationModeParameters & {
+  | {
       /** The beneficiary's signing account. Produces the scope-active EIP-712 proof. */
       beneficiaryAccount: Account
-      mode?: true
-    })
-  | (StakeVerificationModeParameters & {
-      /** Not required when `mode: false` skips signature creation. */
+      verifyBeneficiaryStake?: true
+    }
+  | {
+      /** Not required when `verifyBeneficiaryStake: false` skips signature creation. */
       beneficiaryAccount?: Account
-      mode: false
-    })
+      verifyBeneficiaryStake: false
+    }
 
 /**
  * Turns the shared stake schema into a client method that signs a typed-data
@@ -35,7 +32,7 @@ export const createStakeClient = (method: StakeMethod) => {
       async createCredential({ challenge }) {
         const request = brandStakeRequest(challenge.request)
         const chainId = request.methodDetails.chainId
-        const verifyProof = shouldVerifyScopeActiveProof(parameters)
+        const verifyProof = shouldVerifyBeneficiaryStake(parameters)
         const beneficiaryAccount = parameters.beneficiaryAccount
 
         // Surface unsupported chains here rather than waiting for the server.
@@ -49,7 +46,7 @@ export const createStakeClient = (method: StakeMethod) => {
 
         if (!beneficiaryAccount)
           throw new Error(
-            'beneficiaryAccount is required unless mode is false.',
+            'beneficiaryAccount is required unless verifyBeneficiaryStake is false.',
           )
 
         if (

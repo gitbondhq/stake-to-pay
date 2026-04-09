@@ -14,13 +14,11 @@ import {
   assertSourceDidMatches,
   resolveBeneficiary,
 } from '../shared/sourceDid.js'
-import {
-  shouldVerifyScopeActiveProof,
-  type StakeVerificationModeParameters,
-} from '../shared/verificationMode.js'
+import { shouldVerifyBeneficiaryStake } from '../shared/verificationMode.js'
 import { type AssertEscrowActive, assertEscrowOnChain } from './escrowState.js'
 
-export type StakeServerParameters = StakeVerificationModeParameters & {
+export type StakeServerParameters = {
+  verifyBeneficiaryStake?: boolean
   chainId: number
   /**
    * Override the RPC endpoint used for on-chain reads. Defaults to viem's
@@ -63,7 +61,7 @@ export const createStakeServer = (method: StakeMethod) => {
     const { chainId, consumeChallenge, rpcUrl } = parameters
     const assertEscrowActive =
       parameters.assertEscrowActive ?? assertEscrowOnChain
-    const verifyProof = shouldVerifyScopeActiveProof(parameters)
+    const verifyProof = shouldVerifyBeneficiaryStake(parameters)
 
     return Method.toServer(method, {
       defaults: {
