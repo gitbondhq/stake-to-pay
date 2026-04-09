@@ -98,9 +98,7 @@ const requiredAddressArray = (value: unknown, label: string): Address[] => {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`config.json ${label} must be a non-empty address array.`)
   }
-  return value.map((item, index) =>
-    requiredAddress(item, `${label}[${index}]`),
-  )
+  return value.map((item, index) => requiredAddress(item, `${label}[${index}]`))
 }
 
 const requiredBaseUnitAmount = (value: unknown, label: string): string => {

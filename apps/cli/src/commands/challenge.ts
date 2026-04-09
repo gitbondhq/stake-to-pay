@@ -158,28 +158,23 @@ export function registerChallengeCommands(program: Command): void {
       '--url <url>',
       'Protected resource URL. Defaults to MPP_RESOURCE_URL or the local demo server route.',
     )
-    .action(
-      async (options: {
-        credentialFile?: string
-        url?: string
-      }) => {
-        const credential = await resolveSerializedCredential(options)
-        const response = await fetchWithOptions({
-          authorization: credential,
-          url: resolveProtectedResourceUrl(options.url),
-        })
+    .action(async (options: { credentialFile?: string; url?: string }) => {
+      const credential = await resolveSerializedCredential(options)
+      const response = await fetchWithOptions({
+        authorization: credential,
+        url: resolveProtectedResourceUrl(options.url),
+      })
 
-        const challengeValue =
-          response.status === 402
-            ? parseStakeChallenge(response, {
-                methodName: repoConfig.methodName,
-              })
-            : null
+      const challengeValue =
+        response.status === 402
+          ? parseStakeChallenge(response, {
+              methodName: repoConfig.methodName,
+            })
+          : null
 
-        printJson({
-          ...(challengeValue ? { challenge: challengeValue } : {}),
-          ...(await serializeHttpResponse(response)),
-        })
-      },
-    )
+      printJson({
+        ...(challengeValue ? { challenge: challengeValue } : {}),
+        ...(await serializeHttpResponse(response)),
+      })
+    })
 }

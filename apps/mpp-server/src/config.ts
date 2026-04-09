@@ -61,12 +61,18 @@ const getRequiredString = (name: string): string => {
 }
 
 const loadRepoConfig = (): ServerRepoConfig => {
-  const repoConfig = parseRepoConfig(JSON.parse(readFileSync(repoConfigPath, 'utf8')))
+  const repoConfig = parseRepoConfig(
+    JSON.parse(readFileSync(repoConfigPath, 'utf8')),
+  )
   if (!repoConfig.escrow.contract) {
-    throw new Error('config.json escrow.contract is required for apps/mpp-server.')
+    throw new Error(
+      'config.json escrow.contract is required for apps/mpp-server.',
+    )
   }
   if (!repoConfig.escrow.counterparty) {
-    throw new Error('config.json escrow.counterparty is required for apps/mpp-server.')
+    throw new Error(
+      'config.json escrow.counterparty is required for apps/mpp-server.',
+    )
   }
   return repoConfig as ServerRepoConfig
 }
@@ -149,9 +155,7 @@ const requiredAddressArray = (value: unknown, label: string): Address[] => {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`config.json ${label} must be a non-empty address array.`)
   }
-  return value.map((item, index) =>
-    requiredAddress(item, `${label}[${index}]`),
-  )
+  return value.map((item, index) => requiredAddress(item, `${label}[${index}]`))
 }
 
 const requiredBaseUnitAmount = (value: unknown, label: string): string => {

@@ -24,7 +24,10 @@ export function registerEscrowCommands(program: Command): void {
     escrow
       .command('create-escrow')
       .description('Call MPPEscrow.createEscrow')
-      .requiredOption('--scope <bytes32>', 'Escrow scope as a 32-byte hex value')
+      .requiredOption(
+        '--scope <bytes32>',
+        'Escrow scope as a 32-byte hex value',
+      )
       .requiredOption('--counterparty <address>', 'Counterparty address')
       .option(
         '--beneficiary <address>',
@@ -133,7 +136,10 @@ export function registerEscrowCommands(program: Command): void {
     escrow
       .command('get-active-escrow-id')
       .description('Call MPPEscrow.getActiveEscrowId')
-      .requiredOption('--scope <bytes32>', 'Escrow scope as a 32-byte hex value')
+      .requiredOption(
+        '--scope <bytes32>',
+        'Escrow scope as a 32-byte hex value',
+      )
       .requiredOption('--beneficiary <address>', 'Beneficiary address'),
   ).action(
     async (
@@ -163,7 +169,10 @@ export function registerEscrowCommands(program: Command): void {
     escrow
       .command('get-active-escrow')
       .description('Call MPPEscrow.getActiveEscrow')
-      .requiredOption('--scope <bytes32>', 'Escrow scope as a 32-byte hex value')
+      .requiredOption(
+        '--scope <bytes32>',
+        'Escrow scope as a 32-byte hex value',
+      )
       .requiredOption('--beneficiary <address>', 'Beneficiary address'),
   ).action(
     async (
