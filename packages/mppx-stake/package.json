@@ -1,18 +1,23 @@
 {
   "name": "@gitbondhq/mppx-stake",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "README.md",
     "dist",
-    "src"
+    "src",
+    "!dist/.tsbuildinfo"
   ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./abi": {
+      "types": "./dist/abi/index.d.ts",
+      "default": "./dist/abi/index.js"
     },
     "./client": {
       "types": "./dist/client/index.d.ts",
@@ -21,18 +26,16 @@
     "./server": {
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
-    },
-    "./abi": {
-      "types": "./dist/abi/index.d.ts",
-      "default": "./dist/abi/index.js"
     }
   },
   "engines": {
     "node": ">=24.0.0"
   },
+  "packageManager": "npm@11.10.0",
   "scripts": {
-    "build": "tsc -p tsconfig.json --incremental false",
+    "preinstall": "npx -y only-allow npm",
     "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.json",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint . && tsc -p tsconfig.json --noEmit",
     "fix": "eslint . --fix && tsc -p tsconfig.json --noEmit",
@@ -40,7 +43,7 @@
   },
   "dependencies": {
     "mppx": "^0.5.9",
-    "viem": "^2.47.6",
+    "viem": "^2.47.11",
     "zod": "^4.3.6"
   },
   "devDependencies": {

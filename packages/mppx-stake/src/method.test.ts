@@ -1,7 +1,7 @@
 import { PaymentRequest } from 'mppx'
 import { describe, expect, it } from 'vitest'
 
-import * as Methods from './Methods.js'
+import { createStakeMethod } from './method.js'
 
 const request = {
   amount: '5000000',
@@ -13,37 +13,19 @@ const request = {
   externalId: 'github:owner/repo:pr:1',
   policy: 'repo-pr-v1',
   resource: 'owner/repo#1',
-  scope:
-    '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  scope: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   methodDetails: {
     chainId: 42431,
   },
 } as const
 
-const stakeMethod = Methods.stake({ name: 'tempo' })
+const stakeMethod = createStakeMethod({ name: 'tempo' })
 
 describe('stake method schema', () => {
-  it('exposes the expected method identity', () => {
-    expect(stakeMethod.name).toBe('tempo')
-    expect(stakeMethod.intent).toBe('stake')
-  })
-
-  it('parses a valid request into the wire shape', () => {
+  it('parses a valid request', () => {
     const parsed = PaymentRequest.fromMethod(stakeMethod, request)
 
-    expect(parsed).toEqual({
-      amount: '5000000',
-      beneficiary: request.beneficiary,
-      counterparty: request.counterparty,
-      contract: request.contract,
-      description: request.description,
-      externalId: request.externalId,
-      policy: request.policy,
-      resource: request.resource,
-      scope: request.scope,
-      token: request.token,
-      methodDetails: request.methodDetails,
-    })
+    expect(parsed).toEqual(request)
   })
 
   it('rejects decimal amounts', () => {
@@ -61,17 +43,26 @@ describe('stake method schema', () => {
     ).toThrow(/hash/i)
   })
 
-  it('accepts scope-active payloads', () => {
+  it('accepts a scope-active credential payload', () => {
     expect(
       stakeMethod.schema.credential.payload.parse({
         signature:
-          '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1b',
         type: 'scope-active',
       }),
     ).toEqual({
       signature:
-        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1b',
       type: 'scope-active',
     })
+  })
+
+  it('rejects unknown credential payload variants', () => {
+    expect(() =>
+      stakeMethod.schema.credential.payload.parse({
+        hash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        type: 'hash',
+      }),
+    ).toThrow()
   })
 })

@@ -1,23 +1,15 @@
-import type { Account } from 'viem'
+// Public client entry — only this file is referenced by `package.json` exports.
+// Sibling files in this directory are package-private.
+import { createStakeMethod, type StakeMethodParameters } from '../method.js'
+import { createStakeClient, type StakeClientParameters } from './stake.js'
 
-import { createClientStake } from '../internal/stakeClient.js'
-import {
-  stake as createStakeMethod,
-  type StakeMethodParameters,
-} from '../Methods.js'
-import type { NetworkPreset } from '../networkConfig.js'
+export type { StakeClientParameters } from './stake.js'
 
-export type ClientStakeParameters = {
-  account: Account
-  beneficiaryAccount?: Account
-  preset: NetworkPreset
-}
-
-type StakeClientReturn = ReturnType<ReturnType<typeof createClientStake>>
+type CreateClientStakeParameters = StakeClientParameters & StakeMethodParameters
+type ClientStakeFactory = (
+  parameters: CreateClientStakeParameters,
+) => ReturnType<ReturnType<typeof createStakeClient>>
 
 /** Client-side `stake` method implementation used to create credentials. */
-export const stake = ({
-  name,
-  ...parameters
-}: ClientStakeParameters & StakeMethodParameters): StakeClientReturn =>
-  createClientStake(createStakeMethod({ name }))(parameters)
+export const clientStake: ClientStakeFactory = ({ name, ...parameters }) =>
+  createStakeClient(createStakeMethod({ name }))(parameters)

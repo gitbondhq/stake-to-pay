@@ -1,4 +1,4 @@
-import { MPPEscrowAbi } from '@gitbondhq/mppx-stake'
+import { escrowAbi } from '@gitbondhq/mppx-stake/abi'
 import { Command } from 'commander'
 
 import {
@@ -43,7 +43,7 @@ export function registerEscrowCommands(program: Command): void {
         options,
         async ({ account, address, publicClient, walletClient }) => {
           const simulation = await publicClient.simulateContract({
-            abi: MPPEscrowAbi,
+            abi: escrowAbi,
             account,
             address,
             functionName: 'createEscrow',
@@ -80,7 +80,7 @@ export function registerEscrowCommands(program: Command): void {
         options,
         async ({ account, address, publicClient, walletClient }) => {
           const simulation = await publicClient.simulateContract({
-            abi: MPPEscrowAbi,
+            abi: escrowAbi,
             account,
             address,
             functionName: 'refundEscrow',
@@ -111,7 +111,7 @@ export function registerEscrowCommands(program: Command): void {
         options,
         async ({ account, address, publicClient, walletClient }) => {
           const simulation = await publicClient.simulateContract({
-            abi: MPPEscrowAbi,
+            abi: escrowAbi,
             account,
             address,
             functionName: 'slashEscrow',
@@ -143,7 +143,7 @@ export function registerEscrowCommands(program: Command): void {
         const scope = asBytes32(options.scope, '--scope')
         const beneficiary = asAddress(options.beneficiary, '--beneficiary')
         const escrowId = await publicClient.readContract({
-          abi: MPPEscrowAbi,
+          abi: escrowAbi,
           address,
           functionName: 'getActiveEscrowId',
           args: [scope, beneficiary] as const,
@@ -173,7 +173,7 @@ export function registerEscrowCommands(program: Command): void {
         const scope = asBytes32(options.scope, '--scope')
         const beneficiary = asAddress(options.beneficiary, '--beneficiary')
         const escrowState = await publicClient.readContract({
-          abi: MPPEscrowAbi,
+          abi: escrowAbi,
           address,
           functionName: 'getActiveEscrow',
           args: [scope, beneficiary] as const,
@@ -200,7 +200,7 @@ export function registerEscrowCommands(program: Command): void {
     ) => {
       await executeRead(options, async ({ address, publicClient }) => {
         const escrowState = await publicClient.readContract({
-          abi: MPPEscrowAbi,
+          abi: escrowAbi,
           address,
           functionName: 'getEscrow',
           args: [asUint256(options.escrowId, '--escrow-id')] as const,

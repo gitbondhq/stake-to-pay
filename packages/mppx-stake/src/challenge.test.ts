@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { StakeChallenge } from './challenge.js'
 import { parseStakeChallenge } from './challenge.js'
-import { stake as createStakeMethod } from './Methods.js'
+import { createStakeMethod } from './method.js'
 
 const methodName = 'tempo'
 const stakeMethod = createStakeMethod({ name: methodName })
@@ -18,15 +18,14 @@ const request = {
   externalId: 'github:owner/repo:pr:1',
   policy: 'repo-pr-v1',
   resource: 'owner/repo#1',
-  scope:
-    '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  scope: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   methodDetails: {
     chainId: 42431,
   },
 } as const
 
 describe('stake challenge helpers', () => {
-  it('parses a stake challenge object into the shared typed request shape', () => {
+  it('parses a stake challenge object', () => {
     const original = Challenge.fromMethod(stakeMethod, {
       id: 'challenge-1',
       realm: 'api.example.com',
@@ -58,5 +57,20 @@ describe('stake challenge helpers', () => {
         methodName,
       }),
     ).toEqual(original)
+  })
+
+  it('rejects a challenge whose method does not match', () => {
+    const original = Challenge.fromMethod(
+      createStakeMethod({ name: 'other' }),
+      {
+        id: 'challenge-3',
+        realm: 'api.example.com',
+        request,
+      },
+    ) as StakeChallenge
+
+    expect(() => parseStakeChallenge(original, { methodName })).toThrow(
+      /Expected a tempo\/stake challenge/,
+    )
   })
 })

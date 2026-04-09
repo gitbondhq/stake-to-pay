@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+import { getChain } from '@gitbondhq/mppx-stake'
 import { Command } from 'commander'
 import { Keystore } from 'ox'
 import {
@@ -23,7 +24,7 @@ import {
   RPC_URL_ENV,
 } from './context.js'
 import { printJson } from './format.js'
-import { asAddress, asHex32, requiredString } from './parsing.js'
+import { asAddress, asHex32 } from './parsing.js'
 import type {
   BaseCommandOptions,
   SigningOptions,
@@ -73,7 +74,9 @@ export async function executeRead(
     publicClient: ReturnType<typeof createPublicClient>
   }) => Promise<unknown>,
 ): Promise<void> {
+  const chain = getChain(repoConfig.chainId)
   const publicClient = createPublicClient({
+    chain,
     transport: http(resolveRpcUrl(options)),
   })
   const address = resolveContractAddress(options)
@@ -91,14 +94,18 @@ export async function executeWrite(
     walletClient: ReturnType<typeof createWalletClient>
   }) => Promise<{ functionName: string; hash: Hex; payer?: Address }>,
 ): Promise<void> {
+  const chain = getChain(repoConfig.chainId)
+  const rpcUrl = resolveRpcUrl(options)
   const publicClient = createPublicClient({
-    transport: http(resolveRpcUrl(options)),
+    chain,
+    transport: http(rpcUrl),
   })
   const account = await resolveAccount(options)
   const address = resolveContractAddress(options)
   const walletClient = createWalletClient({
     account,
-    transport: http(resolveRpcUrl(options)),
+    chain,
+    transport: http(rpcUrl),
   })
 
   const result = await callback({
@@ -127,13 +134,9 @@ export async function executeWrite(
   })
 }
 
-function resolveRpcUrl(options: BaseCommandOptions): string {
-  return requiredString(
-    options.rpcUrl ??
-      process.env[RPC_URL_ENV] ??
-      repoConfig.networkPreset.rpcUrl,
-    `Missing RPC URL. Pass --rpc-url, set ${RPC_URL_ENV}, or configure rpcUrl for ${repoConfig.networkPreset.id}.`,
-  )
+function resolveRpcUrl(options: BaseCommandOptions): string | undefined {
+  const override = options.rpcUrl ?? process.env[RPC_URL_ENV]
+  return override?.trim() ? override.trim() : undefined
 }
 
 function resolveContractAddress(options: BaseCommandOptions): Address {

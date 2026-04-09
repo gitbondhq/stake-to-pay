@@ -1,7 +1,6 @@
 import { Challenge } from 'mppx'
 
-import { stake as createStakeMethod } from './Methods.js'
-import { type StakeChallengeRequest } from './stakeSchema.js'
+import { createStakeMethod, type StakeChallengeRequest } from './method.js'
 
 export type StakeChallenge = Challenge.Challenge<
   StakeChallengeRequest,

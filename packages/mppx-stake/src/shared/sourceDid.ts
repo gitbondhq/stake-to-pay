@@ -3,7 +3,13 @@ import { getAddress, isAddressEqual } from 'viem'
 
 const didPattern = /^did:pkh:eip155:(\d+):(0x[0-9a-fA-F]{40})$/
 
-/** Resolves a credential source DID into the EVM address and chain id. */
+/**
+ * Parses a credential source DID into the EVM beneficiary address and chain id.
+ *
+ * In the proof-of-existing-escrow model the credential signer is the
+ * beneficiary, so the address inside the DID is the **beneficiary** — not the
+ * payer that funded the escrow on chain.
+ */
 export const resolveDid = (value: string | undefined) => {
   if (!value) throw new Error('stake credentials must include a source DID.')
 
@@ -16,16 +22,15 @@ export const resolveDid = (value: string | undefined) => {
   }
 }
 
-/** Resolves an EVM address from the credential source DID for the expected chain. */
+/** Resolves the beneficiary address from the credential source for the expected chain. */
 export const resolveBeneficiary = (
   chainId: number,
   source: string | undefined,
-) => {
-  if (!source) {
+): Address => {
+  if (!source)
     throw new Error(
       'stake credentials must include a source DID when the challenge omits beneficiary.',
     )
-  }
 
   const did = resolveDid(source)
   if (did.chainId !== chainId)
@@ -34,7 +39,11 @@ export const resolveBeneficiary = (
   return did.address
 }
 
-/** Validates an optional source DID against the recovered beneficiary address. */
+/**
+ * Validates an optional source DID against the recovered beneficiary address.
+ * No-op when the credential carries no source — verification of the
+ * beneficiary itself happens via signature recovery.
+ */
 export const assertSourceDidMatches = (
   chainId: number,
   source: string | undefined,

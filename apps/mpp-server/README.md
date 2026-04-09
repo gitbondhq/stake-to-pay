@@ -73,4 +73,4 @@ Examples:
 | `PORT` | `4020` | Server port |
 | `HOST` | `127.0.0.1` | Bind address |
 
-Stake defaults are loaded directly from the repo-level `config.json`, including the explicit `networkPreset` object passed into the SDK. The paywalled content now lives in `apps/mpp-server/content/document.md`; the title comes from its H1 and the route slug comes from the filename.
+Stake defaults are loaded directly from the repo-level `config.json` (`methodName`, `chainId`, and the `escrow` block) and parsed locally in `src/config.ts`. RPC endpoints fall back to viem's built-in default for the chain — set one explicitly in `serverStake({ rpcUrl })` if you need to point at a private node. The paywalled content lives in `apps/mpp-server/content/document.md`; the title comes from its H1 and the route slug comes from the filename.
