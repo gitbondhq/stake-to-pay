@@ -14,7 +14,6 @@ import {
   assertSourceDidMatches,
   resolveBeneficiary,
 } from '../shared/sourceDid.js'
-import { shouldVerifyBeneficiaryStake } from '../shared/verificationMode.js'
 import { type AssertEscrowActive, assertEscrowOnChain } from './escrowState.js'
 
 export type StakeServerParameters = {
@@ -265,3 +264,7 @@ const assertOptionalAddress = (
   if (!expected || !received || !isAddressEqual(expected, received))
     throw new Error(`Challenge ${label} does not match this route.`)
 }
+
+export const shouldVerifyBeneficiaryStake = (parameters: {
+  verifyBeneficiaryStake?: boolean
+}) => parameters.verifyBeneficiaryStake !== false
