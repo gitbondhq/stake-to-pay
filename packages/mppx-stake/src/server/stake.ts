@@ -181,11 +181,12 @@ const assertRequestMatches = (
   currentRequest: StakeChallengeRequest,
   challengeRequest: StakeChallengeRequest,
 ) => {
-  assertOptionalAddress(
-    'beneficiary',
-    currentRequest.beneficiary,
-    challengeRequest.beneficiary,
-  )
+  if (currentRequest.beneficiary)
+    assertOptionalAddress(
+      'beneficiary',
+      currentRequest.beneficiary,
+      challengeRequest.beneficiary,
+    )
   assertAddress('contract', currentRequest.contract, challengeRequest.contract)
   assertAddress(
     'counterparty',
