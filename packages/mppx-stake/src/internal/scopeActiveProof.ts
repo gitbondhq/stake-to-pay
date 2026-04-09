@@ -18,7 +18,7 @@ type ScopeActiveProofParameters = {
   chainId: number
   challengeId: string
   contract: Address
-  expires?: string | undefined
+  expires?: string
   scope: Hex
 }
 

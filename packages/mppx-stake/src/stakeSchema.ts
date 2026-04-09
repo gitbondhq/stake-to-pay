@@ -2,15 +2,15 @@ import type { Address, Hex } from 'viem'
 
 export type StakeChallengeRequest = {
   amount: string
-  beneficiary?: Address | undefined
+  beneficiary?: Address
   contract: Address
   counterparty: Address
-  policy?: string | undefined
-  resource?: string | undefined
+  policy?: string
+  resource?: string
   scope: Hex
   token: Address
-  description?: string | undefined
-  externalId?: string | undefined
+  description?: string
+  externalId?: string
   methodDetails: {
     chainId: number
   }

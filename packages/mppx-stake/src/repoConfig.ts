@@ -5,8 +5,8 @@ import { type NetworkPreset, parseNetworkPreset } from './networkConfig.js'
 export type RepoConfig = {
   escrow: {
     amount: string
-    contract?: Address | undefined
-    counterparty?: Address | undefined
+    contract?: Address
+    counterparty?: Address
     description: string
     policy: string
     token: Address

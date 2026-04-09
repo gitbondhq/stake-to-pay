@@ -87,6 +87,9 @@ const preset = {
 const mppx = Mppx.create({
   methods: [
     serverStake({
+      assertEscrowActive: async (client, contract, escrow) => {
+        // Replace the default beneficiary-bound on-chain verification.
+      },
       name: "tempo",
       preset,
       contract: "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
@@ -101,8 +104,11 @@ The server:
 
 1. verifies the challenged `scope`
 2. recovers the beneficiary from the `scope-active` signature
-3. checks on-chain active stake by `(scope, beneficiary)`
+3. runs `assertEscrowActive` to enforce escrow policy
 4. validates the active escrow terms and principal
+
+If `assertEscrowActive` is omitted, the default verifier checks on-chain active
+stake by `(scope, beneficiary)` and validates the active escrow terms.
 
 No tx-hash receipt exchange is part of the public protocol anymore.
 

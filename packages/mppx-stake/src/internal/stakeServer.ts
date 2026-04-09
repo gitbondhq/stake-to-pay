@@ -11,25 +11,33 @@ import type {
 import { createClient } from './client.js'
 import { recoverScopeActiveProofSigner } from './scopeActiveProof.js'
 import { assertSourceDidMatches, resolveBeneficiary } from './source.js'
-import { assertEscrowOnChain, toReceipt } from './tx.js'
+import {
+  assertEscrowOnChain as defaultAssertEscrowOnChain,
+  toReceipt,
+} from './tx.js'
 
 /** The concrete stake method type produced by `Methods.stake`. */
 export type StakeMethod = ReturnType<typeof createStakeMethod>
 
 export type StakeDefaults = {
-  contract?: Address | undefined
-  counterparty?: Address | undefined
-  token?: Address | undefined
-  description?: string | undefined
+  contract?: Address
+  counterparty?: Address
+  token?: Address
+  description?: string
 }
 
+export type AssertEscrowActive = typeof defaultAssertEscrowOnChain
+
 export type StakeParameters = StakeDefaults & {
+  assertEscrowActive?: AssertEscrowActive
   preset: NetworkPreset
 }
 
 /** Issues stake challenges and verifies beneficiary-controlled scope-active proofs. */
 export const createServerStake = (method: StakeMethod) => {
   return (parameters: StakeParameters) => {
+    const assertEscrowActive =
+      parameters.assertEscrowActive ?? defaultAssertEscrowOnChain
     const preset = parameters.preset
 
     return Method.toServer(method, {
@@ -92,7 +100,7 @@ export const createServerStake = (method: StakeMethod) => {
         assertSourceDidMatches(chainId, credential.source, beneficiary)
 
         const client = createClient(preset)
-        await assertEscrowOnChain(client, challengeRequest.contract, {
+        await assertEscrowActive(client, challengeRequest.contract, {
           beneficiary,
           counterparty: challengeRequest.counterparty,
           scope: challengeRequest.scope,
@@ -119,7 +127,11 @@ const assertRequestMatches = (
 ) => {
   const pairs = [
     ['amount', currentRequest.amount, challengeRequest.amount],
-    ['beneficiary', currentRequest.beneficiary ?? '', challengeRequest.beneficiary ?? ''],
+    [
+      'beneficiary',
+      currentRequest.beneficiary ?? '',
+      challengeRequest.beneficiary ?? '',
+    ],
     [
       'counterparty',
       currentRequest.counterparty,
@@ -146,7 +158,9 @@ const assertRequestMatches = (
 const getEchoedChallengeRequest = (
   credential: Credential.Credential | null | undefined,
   method: StakeMethod,
-): Partial<Pick<StakeChallengeRequest, 'beneficiary' | 'externalId' | 'scope'>> => {
+): Partial<
+  Pick<StakeChallengeRequest, 'beneficiary' | 'externalId' | 'scope'>
+> => {
   if (!credential) return {}
   if (
     credential.challenge.method !== method.name ||
@@ -163,7 +177,9 @@ const getEchoedChallengeRequest = (
     ...(echoedRequest.beneficiary
       ? { beneficiary: echoedRequest.beneficiary }
       : {}),
-    ...(echoedRequest.externalId ? { externalId: echoedRequest.externalId } : {}),
+    ...(echoedRequest.externalId
+      ? { externalId: echoedRequest.externalId }
+      : {}),
     scope: echoedRequest.scope,
   }
 }

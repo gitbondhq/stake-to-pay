@@ -10,7 +10,7 @@ import { loadDocument } from './content.js'
 import { getOrigin, sendWebResponse, toWebRequest } from './web.js'
 
 function deriveScope(parameters: {
-  policy?: string | undefined
+  policy?: string
   resource: string
 }) {
   return `0x${createHash('sha256')

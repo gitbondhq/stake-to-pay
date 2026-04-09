@@ -9,7 +9,7 @@ import type { NetworkPreset } from '../networkConfig.js'
 
 export type ClientStakeParameters = {
   account: Account
-  beneficiaryAccount?: Account | undefined
+  beneficiaryAccount?: Account
   preset: NetworkPreset
 }
 

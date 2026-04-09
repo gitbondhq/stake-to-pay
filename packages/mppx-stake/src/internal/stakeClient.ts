@@ -12,7 +12,7 @@ export type StakeMethod = ReturnType<typeof createStakeMethod>
 
 type ClientStakeParameters = {
   account: Account
-  beneficiaryAccount?: Account | undefined
+  beneficiaryAccount?: Account
   preset: NetworkPreset
 }
 

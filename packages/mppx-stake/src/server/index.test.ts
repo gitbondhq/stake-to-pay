@@ -366,6 +366,37 @@ describe('server stake verification', () => {
       )
     })
 
+    it('uses a custom escrow verifier when provided', async () => {
+      const assertEscrowActive = vi.fn().mockResolvedValue(undefined)
+      const method = stake({
+        assertEscrowActive,
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const credential = await makeCredential()
+
+      await method.verify({
+        credential,
+        request: routeRequest,
+      })
+
+      expect(mocks.createClient).toHaveBeenCalledWith(preset)
+      expect(assertEscrowActive).toHaveBeenCalledWith(
+        {},
+        contract,
+        expect.objectContaining({
+          beneficiary,
+          counterparty,
+          scope,
+          token,
+          value: 5_000_000n,
+        }),
+      )
+      expect(mocks.assertEscrowOnChain).not.toHaveBeenCalled()
+    })
+
     it('rejects when challenge request does not match', async () => {
       const method = stake({
         contract,

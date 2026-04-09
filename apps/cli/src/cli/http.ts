@@ -1,5 +1,5 @@
 export async function fetchWithOptions(parameters: {
-  authorization?: string | undefined
+  authorization?: string
   url: string
 }): Promise<Response> {
   const headers = new Headers()
