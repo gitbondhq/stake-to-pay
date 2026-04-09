@@ -472,6 +472,27 @@ describe('server stake', () => {
       ).rejects.toThrow(/does not match/i)
     })
 
+    it('allows an echoed beneficiary when the current route does not pin one', async () => {
+      const method = serverStake({ chainId, contract, token, name: methodName })
+      const requestWithBeneficiary = PaymentRequest.fromMethod(stakeMethod, {
+        ...rawInput,
+        beneficiary,
+      })
+      const credential = await makeCredential({
+        challengeRequest: requestWithBeneficiary,
+      })
+
+      await expect(
+        method.verify({ credential, request: routeRequest }),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          method: methodName,
+          reference: `${contract}:${scope}:${beneficiary}`,
+          status: 'success',
+        }),
+      )
+    })
+
     it('rejects when the challenge resource does not match', async () => {
       const method = serverStake({ chainId, contract, token, name: methodName })
       const mismatchedRequest = PaymentRequest.fromMethod(stakeMethod, {
