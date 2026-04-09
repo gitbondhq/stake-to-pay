@@ -37,7 +37,7 @@ npx mppx http://127.0.0.1:4020/documents/document
 2. Server returns `402 Payment Required` with a stake challenge carrying a stable `scope`
 3. Client, sponsor, or another external actor creates or reuses an active escrow for that scope, then signs a `scope-active` credential
 4. Client retries with credential in request header
-5. Server verifies active escrow on-chain by `(scope, beneficiary)` (stateless — no local escrow tracking)
+5. Server verifies active escrow on-chain by `(scope, beneficiary)` and checks an in-memory replay store of consumed challenge IDs
 6. Server returns document + `Payment-Receipt` header
 
 ## Starter-kit note
@@ -49,9 +49,10 @@ Production apps should keep any escrow-creation, sponsorship, or relaying
 logic outside the protected resource server and review scope versioning when
 stake terms may change over time.
 
-This demo verifier is also stateless: it does not persist consumed challenge
-IDs. Production forks must add replay protection so the same credential cannot
-be reused until expiry.
+This demo uses the package's default in-memory replay store, so consumed
+`challenge.id` records are only remembered inside the current process.
+Production forks should replace that with a shared persistent store if replay
+protection needs to survive restarts and work across multiple server instances.
 
 Examples:
 

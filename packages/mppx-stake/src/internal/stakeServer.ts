@@ -1,4 +1,4 @@
-import { Method, PaymentRequest, type Credential } from 'mppx'
+import { Method, PaymentRequest, Store, type Credential } from 'mppx'
 import type { Address } from 'viem'
 import { isAddressEqual } from 'viem'
 
@@ -28,9 +28,14 @@ export type StakeDefaults = {
 
 export type AssertEscrowActive = typeof defaultAssertEscrowOnChain
 
+export type StakeReplayStoreItemMap = {
+  [key: `mppx:stake:challenge:${string}`]: number
+}
+
 export type StakeParameters = StakeDefaults & {
   assertEscrowActive?: AssertEscrowActive
   preset: NetworkPreset
+  store?: Store.Store<StakeReplayStoreItemMap>
 }
 
 /** Issues stake challenges and verifies beneficiary-controlled scope-active proofs. */
@@ -39,6 +44,8 @@ export const createServerStake = (method: StakeMethod) => {
     const assertEscrowActive =
       parameters.assertEscrowActive ?? defaultAssertEscrowOnChain
     const preset = parameters.preset
+    const store =
+      (parameters.store ?? Store.memory()) as Store.Store<StakeReplayStoreItemMap>
 
     return Method.toServer(method, {
       defaults: {
@@ -51,7 +58,13 @@ export const createServerStake = (method: StakeMethod) => {
         },
       },
 
-      async request({ credential, request }) {
+      async request({
+        credential,
+        request,
+      }: {
+        credential?: Parameters<Method.RequestFn<StakeMethod>>[0]['credential']
+        request: Parameters<Method.RequestFn<StakeMethod>>[0]['request']
+      }) {
         const echoedRequest = getEchoedChallengeRequest(credential, method)
 
         return {
@@ -63,7 +76,13 @@ export const createServerStake = (method: StakeMethod) => {
         }
       },
 
-      async verify({ credential, request }) {
+      async verify({
+        credential,
+        request,
+      }: {
+        credential: Parameters<Method.VerifyFn<StakeMethod>>[0]['credential']
+        request: Parameters<Method.VerifyFn<StakeMethod>>[0]['request']
+      }) {
         const challengeRequest = credential.challenge
           .request as StakeChallengeRequest
         const currentRequest = PaymentRequest.fromMethod(method, {
@@ -102,16 +121,22 @@ export const createServerStake = (method: StakeMethod) => {
 
         assertSourceDidMatches(chainId, credential.source, beneficiary)
 
-        // This reference verifier is stateless. Production servers still need
-        // to reject replayed credentials for the same challenge id.
-        const client = createClient(preset)
-        await assertEscrowActive(client, challengeRequest.contract, {
-          beneficiary,
-          counterparty: challengeRequest.counterparty,
-          scope: challengeRequest.scope,
-          token: challengeRequest.token,
-          value: BigInt(challengeRequest.amount),
-        })
+        await assertChallengeUnused(store, credential.challenge.id)
+        await markChallengeUsed(store, credential.challenge.id)
+
+        try {
+          const client = createClient(preset)
+          await assertEscrowActive(client, challengeRequest.contract, {
+            beneficiary,
+            counterparty: challengeRequest.counterparty,
+            scope: challengeRequest.scope,
+            token: challengeRequest.token,
+            value: BigInt(challengeRequest.amount),
+          })
+        } catch (error) {
+          await clearChallengeUse(store, credential.challenge.id)
+          throw error
+        }
 
         return toReceipt(
           {
@@ -183,9 +208,7 @@ const assertOptionalAddress = (
 const getEchoedChallengeRequest = (
   credential: Credential.Credential | null | undefined,
   method: StakeMethod,
-): Partial<
-  Pick<StakeChallengeRequest, 'beneficiary' | 'externalId' | 'scope'>
-> => {
+): Partial<Pick<StakeChallengeRequest, 'beneficiary' | 'externalId' | 'scope'>> => {
   if (!credential) return {}
   if (
     credential.challenge.method !== method.name ||
@@ -208,3 +231,27 @@ const getEchoedChallengeRequest = (
     scope: echoedRequest.scope,
   }
 }
+
+const getChallengeStoreKey = (
+  challengeId: string,
+): `mppx:stake:challenge:${string}` => `mppx:stake:challenge:${challengeId}`
+
+const assertChallengeUnused = async (
+  store: Store.Store<StakeReplayStoreItemMap>,
+  challengeId: string,
+): Promise<void> => {
+  const seen = await store.get(getChallengeStoreKey(challengeId))
+  if (seen !== null) throw new Error('Challenge has already been used.')
+}
+
+const markChallengeUsed = async (
+  store: Store.Store<StakeReplayStoreItemMap>,
+  challengeId: string,
+): Promise<void> => {
+  await store.put(getChallengeStoreKey(challengeId), Date.now())
+}
+
+const clearChallengeUse = async (
+  store: Store.Store<StakeReplayStoreItemMap>,
+  challengeId: string,
+): Promise<void> => store.delete(getChallengeStoreKey(challengeId))

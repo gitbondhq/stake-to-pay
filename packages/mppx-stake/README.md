@@ -78,7 +78,7 @@ the signature.
 ## Server usage
 
 ```ts
-import { Mppx } from "mppx/server";
+import { Mppx, Store } from "mppx/server";
 import { serverStake } from "@gitbondhq/mppx-stake";
 import { tempoModerato } from "viem/chains";
 
@@ -95,6 +95,7 @@ const mppx = Mppx.create({
       assertEscrowActive: async (client, contract, escrow) => {
         // Replace the default beneficiary-bound on-chain verification.
       },
+      store: Store.memory(),
       name: "tempo",
       preset,
       contract: "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
@@ -115,9 +116,11 @@ The server:
 If `assertEscrowActive` is omitted, the default verifier checks on-chain active
 stake by `(scope, beneficiary)` and validates the active escrow terms.
 
-Verification is intentionally stateless. Production servers still need to store
-and reject reused challenge IDs so the same credential cannot be replayed until
-expiry.
+Replay protection defaults to `Store.memory()`, which tracks consumed
+`challenge.id` records and rejects reused credentials within the current server
+process. This starter cache resets on restart, so production or multi-instance
+deployments should pass a shared persistent `store` implementation if replay
+protection needs to survive restarts and be visible across all instances.
 
 No tx-hash receipt exchange is part of the public protocol anymore.
 

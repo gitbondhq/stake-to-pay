@@ -120,6 +120,7 @@ stake({
   counterparty,     // Address authorized to refund/slash
   token,            // ERC-20 token address
   beneficiary,      // Optional — if present, challenge expects this beneficiary
+  store,            // Optional replay-protection store (defaults to Store.memory())
   description,      // Optional — human-readable
   name,             // Optional — method name (default: inferred)
 })
@@ -131,8 +132,8 @@ stake({
 2. Client submits a `scope-active` credential.
 3. Server recovers the beneficiary from the signature.
 4. Server checks on-chain escrow state via `isEscrowActive(scope, beneficiary)` and then validates the full active escrow record with `getActiveEscrow(scope, beneficiary)`.
-5. Verification is **stateless** — no local escrow tracking, always queries chain.
-6. Production servers must add challenge-id replay protection on top of this reference verifier.
+5. Verification queries escrow state on-chain and uses a process-local in-memory store of consumed `challenge.id` records by default.
+6. Production or multi-instance servers should pass a shared persistent `store` if replay protection needs to survive restarts and be visible across all instances.
 
 ---
 

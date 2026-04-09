@@ -1,4 +1,4 @@
-import { Challenge, Credential, PaymentRequest } from 'mppx'
+import { Challenge, Credential, PaymentRequest, Store } from 'mppx'
 import { Mppx, tempo as upstreamTempo } from 'mppx/server'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Methods from '../Methods.js'
 import type { NetworkPreset } from '../networkConfig.js'
 import { signScopeActiveProof } from '../internal/scopeActiveProof.js'
+import type { StakeReplayStoreItemMap } from '../internal/stakeServer.js'
 import type { StakeChallengeRequest } from '../stakeSchema.js'
 import { stake } from './index.js'
 
@@ -29,7 +30,7 @@ const chainId = 42431
 const methodName = 'tempo'
 const externalId = 'document:test:challenge'
 const policy = 'slash'
-const expires = '2026-01-01T00:00:00.000Z'
+const expires = '2099-01-01T00:00:00.000Z'
 const realm = 'test.example.com'
 const secretKey = 'test-secret'
 const preset = {
@@ -399,6 +400,30 @@ describe('server stake verification', () => {
       )
     })
 
+    it('rejects replayed challenge ids after a successful verification', async () => {
+      const method = stake({
+        contract,
+        token,
+        name: methodName,
+        preset,
+      })
+      const credential = await makeCredential()
+
+      await method.verify({
+        credential,
+        request: routeRequest,
+      })
+
+      await expect(
+        method.verify({
+          credential,
+          request: routeRequest,
+        }),
+      ).rejects.toThrow(/already been used/i)
+
+      expect(mocks.assertEscrowOnChain).toHaveBeenCalledTimes(1)
+    })
+
     it('uses a custom escrow verifier when provided', async () => {
       const assertEscrowActive = vi.fn().mockResolvedValue(undefined)
       const method = stake({
@@ -428,6 +453,41 @@ describe('server stake verification', () => {
         }),
       )
       expect(mocks.assertEscrowOnChain).not.toHaveBeenCalled()
+    })
+
+    it('clears used challenge ids when verification fails', async () => {
+      const assertEscrowActive = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('stake inactive'))
+        .mockResolvedValueOnce(undefined)
+      const method = stake({
+        assertEscrowActive,
+        contract,
+        store: Store.memory() as Store.Store<StakeReplayStoreItemMap>,
+        token,
+        name: methodName,
+        preset,
+      })
+      const credential = await makeCredential()
+
+      await expect(
+        method.verify({
+          credential,
+          request: routeRequest,
+        }),
+      ).rejects.toThrow(/stake inactive/i)
+
+      await expect(
+        method.verify({
+          credential,
+          request: routeRequest,
+        }),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          reference: `${contract}:${scope}:${beneficiary}`,
+          status: 'success',
+        }),
+      )
     })
 
     it('rejects when challenge request does not match', async () => {
