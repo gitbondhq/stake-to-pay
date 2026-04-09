@@ -58,6 +58,10 @@ payment. Instead of transferring funds to a recipient, a payer locks tokens in
 an escrow contract on behalf of a beneficiary. The server authorizes access
 based on the beneficiary's active stake for a protected scope.
 
+A server MAY omit `beneficiary` from the challenged request. In that case, any
+requester who proves control of a beneficiary with a qualifying active stake
+for the challenged scope MAY satisfy the challenge.
+
 This specification defines the abstract challenge-response protocol for
 stake-backed access. It does not prescribe a specific escrow contract design
 beyond requiring that servers can verify active stake state and the challenged
@@ -240,7 +244,7 @@ without padding per {{I-D.httpauth-payment}}.
 
 | Field         | Type   | Description                                                                                                     |
 | ------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
-| `beneficiary` | string | Beneficiary the server expects to authorize. If omitted, the beneficiary is recovered from the ownership proof. |
+| `beneficiary` | string | Beneficiary the server expects to authorize. If omitted, the beneficiary is recovered from the ownership proof, allowing any requester controlling a beneficiary with a qualifying active stake for the scope to satisfy the challenge. |
 | `description` | string | Human-readable description of the stake requirement                                                             |
 | `externalId`  | string | Server reference identifier                                                                                     |
 | `policy`      | string | Identifier for the counterparty's policy                                                                        |
@@ -489,6 +493,10 @@ Message:
 If the challenge explicitly specifies `beneficiary`, the signed `beneficiary`
 MUST match it. If the challenge omits `beneficiary`, the recovered signer MUST
 be treated as the beneficiary for escrow verification.
+
+Omitting `beneficiary` does not make authorization owner-agnostic. The server
+still verifies a challenge-bound proof from the recovered beneficiary and still
+verifies that beneficiary's active escrow for the challenged scope and terms.
 
 An EVM-based stake method MUST define the exact typed-data schema, signature
 encoding, and signer-recovery procedure. For interoperability, EVM-based stake
