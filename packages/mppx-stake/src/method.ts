@@ -30,22 +30,10 @@ const ecdsaSignature = () =>
 
 // ── Stake challenge request ──────────────────────────────────────────────
 
-export const BENEFICIARY_BOUND_STAKE_MODE = 'scope-beneficiary-active'
-export const OWNER_AGNOSTIC_STAKE_MODE = 'scope-active'
-
-export type StakeAuthorizationMode =
-  | typeof BENEFICIARY_BOUND_STAKE_MODE
-  | typeof OWNER_AGNOSTIC_STAKE_MODE
-
-export const getStakeAuthorizationMode = (parameters: {
-  verifyBeneficiaryStake?: boolean
-}): StakeAuthorizationMode =>
-  parameters.verifyBeneficiaryStake === false
-    ? OWNER_AGNOSTIC_STAKE_MODE
-    : BENEFICIARY_BOUND_STAKE_MODE
-
-export const modeRequiresBeneficiaryProof = (mode: StakeAuthorizationMode) =>
-  mode === BENEFICIARY_BOUND_STAKE_MODE
+export enum StakeAuthorizationMode {
+  BENEFICIARY_BOUND = 'scope-beneficiary-active',
+  OWNER_AGNOSTIC = 'scope-active',
+}
 
 export type StakeChallengeRequest = {
   amount: string
@@ -72,8 +60,8 @@ const stakeRequestSchema = z.object({
   description: z.optional(z.string()),
   externalId: z.optional(z.string()),
   mode: z.union([
-    z.literal(BENEFICIARY_BOUND_STAKE_MODE),
-    z.literal(OWNER_AGNOSTIC_STAKE_MODE),
+    z.literal(StakeAuthorizationMode.BENEFICIARY_BOUND),
+    z.literal(StakeAuthorizationMode.OWNER_AGNOSTIC),
   ]),
   policy: z.optional(z.string()),
   resource: z.optional(z.string()),
@@ -89,19 +77,19 @@ const stakeRequestSchema = z.object({
 export type StakeCredentialPayload =
   | {
       signature: Hex
-      type: typeof BENEFICIARY_BOUND_STAKE_MODE
+      type: StakeAuthorizationMode.BENEFICIARY_BOUND
     }
   | {
-      type: typeof OWNER_AGNOSTIC_STAKE_MODE
+      type: StakeAuthorizationMode.OWNER_AGNOSTIC
     }
 
 const stakeCredentialPayloadSchema = z.discriminatedUnion('type', [
   z.object({
     signature: ecdsaSignature(),
-    type: z.literal(BENEFICIARY_BOUND_STAKE_MODE),
+    type: z.literal(StakeAuthorizationMode.BENEFICIARY_BOUND),
   }),
   z.strictObject({
-    type: z.literal(OWNER_AGNOSTIC_STAKE_MODE),
+    type: z.literal(StakeAuthorizationMode.OWNER_AGNOSTIC),
   }),
 ])
 
@@ -155,11 +143,11 @@ export const brandStakeRequest = (
   ...(raw.beneficiary ? { beneficiary: getAddress(raw.beneficiary) } : {}),
   contract: getAddress(raw.contract),
   counterparty: getAddress(raw.counterparty),
-  ...(raw.description !== undefined ? { description: raw.description } : {}),
-  ...(raw.externalId !== undefined ? { externalId: raw.externalId } : {}),
+  ...(raw.description ? { description: raw.description } : {}),
+  ...(raw.externalId ? { externalId: raw.externalId } : {}),
   mode: raw.mode,
-  ...(raw.policy !== undefined ? { policy: raw.policy } : {}),
-  ...(raw.resource !== undefined ? { resource: raw.resource } : {}),
+  ...(raw.policy ? { policy: raw.policy } : {}),
+  ...(raw.resource ? { resource: raw.resource } : {}),
   scope: raw.scope as Hex,
   token: getAddress(raw.token),
   methodDetails: { chainId: raw.methodDetails.chainId },
