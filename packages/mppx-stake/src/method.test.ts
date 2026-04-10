@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   BENEFICIARY_BOUND_STAKE_MODE,
+  brandStakeRequest,
   createStakeMethod,
   OWNER_AGNOSTIC_STAKE_MODE,
 } from './method.js'
@@ -80,6 +81,22 @@ describe('stake method schema', () => {
         type: OWNER_AGNOSTIC_STAKE_MODE,
       }),
     ).toThrow()
+  })
+
+  it('preserves empty-string optional request fields when branding', () => {
+    const parsed = PaymentRequest.fromMethod(stakeMethod, {
+      ...request,
+      description: '',
+      externalId: '',
+      policy: '',
+      resource: '',
+    })
+    const branded = brandStakeRequest(parsed)
+
+    expect(branded).toHaveProperty('description', '')
+    expect(branded).toHaveProperty('externalId', '')
+    expect(branded).toHaveProperty('policy', '')
+    expect(branded).toHaveProperty('resource', '')
   })
 
   it('rejects unknown credential payload variants', () => {
