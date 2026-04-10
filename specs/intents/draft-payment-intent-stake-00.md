@@ -45,8 +45,12 @@ This document defines the "stake" payment intent for use with the Payment
 HTTP Authentication Scheme {{I-D.httpauth-payment}}. The "stake" intent
 represents a collateral-based access pattern where tokens are locked in an
 escrow contract rather than transferred as payment. Access is granted upon
-proof that a beneficiary currently has an active stake for a protected scope,
-and the stake may later be refunded, slashed, or withdrawn according to the
+proof that a protected scope currently has a qualifying active stake. This
+specification defines two authorization modes: `scope-beneficiary-active`,
+which binds access to a specific beneficiary and requires challenge-bound
+beneficiary control proof, and `scope-active`, which only requires that at
+least one qualifying active stake exists for the protected scope. In either
+mode, the stake may later be refunded, slashed, or withdrawn according to the
 escrow contract's rules.
 
 --- middle
@@ -56,11 +60,23 @@ escrow contract's rules.
 The "stake" intent introduces a collateral-based alternative to direct
 payment. Instead of transferring funds to a recipient, a payer locks tokens in
 an escrow contract on behalf of a beneficiary. The server authorizes access
-based on the beneficiary's active stake for a protected scope.
+based on active stake for a protected scope.
 
-A server MAY omit `beneficiary` from the challenged request. In that case, any
-requester who proves control of a beneficiary with a qualifying active stake
-for the challenged scope MAY satisfy the challenge.
+This specification defines two authorization modes:
+
+- **`scope-beneficiary-active`**: the requester proves challenge-bound control
+  of a beneficiary, and the server verifies that beneficiary currently has a
+  qualifying active stake for the challenged scope
+- **`scope-active`**: the server verifies that the challenged scope currently
+  has at least one qualifying active stake, without requiring challenge-bound
+  proof that the requester controls the staking beneficiary
+
+In `scope-beneficiary-active`, a server MAY omit `beneficiary` from the
+challenged request. In that case, any requester who proves control of a
+beneficiary with a qualifying active stake for the challenged scope MAY
+satisfy the challenge. In `scope-active`, any qualifying active stake for the
+challenged scope MAY satisfy the challenge. Presence or omission of
+`beneficiary` does not change that owner-agnostic authorization semantic.
 
 This specification defines the abstract challenge-response protocol for
 stake-backed access. It does not prescribe a specific escrow contract design
@@ -122,7 +138,10 @@ depends on the escrow contract.
 
 Beneficiary
 : The authorization subject for stake-backed access. The server grants access
-when this beneficiary has an active stake for the challenged scope.
+when this beneficiary has an active stake for the challenged scope. A
+beneficiary is always relevant to escrow state, but only
+`scope-beneficiary-active` requires challenge-bound proof that the requester
+currently controls that beneficiary.
 
 Payer
 : The account that funds the escrow deposit. The payer MAY be the same as the
@@ -134,6 +153,12 @@ the active stake authorizes. It is not a per-challenge replay key and is not a
 contract storage key. Depending on the deployment profile, a scope MAY be an
 IPFS content identifier, a mutable application-level reference, a canonical
 resource path, or another stable identifier chosen by the server.
+
+Authorization Mode
+: The challenged authorization semantics for the protected scope.
+`scope-beneficiary-active` binds access to a beneficiary with proof of current
+beneficiary control. `scope-active` is owner-agnostic and only requires that
+the challenged scope have a qualifying active stake.
 
 Escrow ID
 : A contract-assigned identifier for one escrow instance. Escrow IDs are
@@ -149,11 +174,15 @@ smallest transferable unit defined by the token's decimal precision.
 ## Definition
 
 The "stake" intent represents a request for tokens to be locked in an escrow
-contract so that a beneficiary gains access to a protected scope. Access is
-granted upon proof that:
+contract so that access can be authorized for a protected scope. Access is
+granted upon proof that the challenged mode's conditions hold:
 
-1. the requester controls the beneficiary for the current challenge, and
-2. the beneficiary currently has an active stake for the required scope.
+1. for `scope-beneficiary-active`, the requester controls the beneficiary for
+   the current challenge and that beneficiary currently has an active stake for
+   the required scope; or
+2. for `scope-active`, the challenged scope currently has at least one active
+   stake that satisfies the challenged terms, regardless of which beneficiary
+   provided it.
 
 ## Properties
 
@@ -173,8 +202,10 @@ The stake intent has a three-phase lifecycle:
 
 1. Server issues a 402 response with `intent="stake"`
 2. Client ensures an active escrow exists for the challenged scope
-3. Client submits a `scope-active` credential proving beneficiary control for
-   the challenge
+3. Client submits a credential matching the challenged mode:
+   - `scope-beneficiary-active` proves beneficiary control for the challenge
+   - `scope-active` attests that the client is responding to a scope-only
+     active-stake challenge
 4. Server verifies active stake and grants access
 5. Server returns a `Payment-Receipt` header
 
@@ -187,15 +218,21 @@ execute.
 
 ### Phase 2: Active
 
-While the escrow is active, the beneficiary has ongoing access to the
-protected scope. An already-active stake MAY satisfy later challenges for the
-same scope without requiring a new escrow deposit, but later protected requests
-still use the normal challenge-response flow unless a higher-layer session
-mechanism defines otherwise. A server MAY establish such a mechanism by issuing
-an optional `stake-session` token as described in
+While the escrow is active, the challenged scope remains authorized according
+to the challenged mode. In `scope-beneficiary-active`, this means the verified
+beneficiary has ongoing access to the protected scope. In `scope-active`, this
+means the scope remains accessible so long as a qualifying active stake still
+exists. An already-active stake MAY satisfy later challenges for the same scope
+without requiring a new escrow deposit, but later protected requests still use
+the normal challenge-response flow unless a higher-layer session mechanism
+defines otherwise. A server MAY establish such a mechanism by issuing an
+optional `stake-session` token as described in
 {{optional-stake-session-tokens}}. When later protected requests continue to
 use the normal challenge-response flow, each later challenge requires its own
-fresh challenge-bound ownership proof.
+fresh credential. In `scope-beneficiary-active`, that fresh credential includes
+a new challenge-bound beneficiary-control proof. In `scope-active`, the server
+still issues a fresh challenge and re-verifies active stake, even though no
+beneficiary-control proof is required.
 
 ### Phase 3: Resolution {#resolution}
 
@@ -237,6 +274,7 @@ without padding per {{I-D.httpauth-payment}}.
 | `amount`       | string | Minimum stake amount in base units                    |
 | `contract`     | string | Escrow contract address in method-native format       |
 | `counterparty` | string | Address authorized to control the escrow              |
+| `mode`         | string | Authorization mode: `scope-beneficiary-active` or `scope-active` |
 | `scope`        | string | Stable identifier for the protected scope             |
 | `token`        | string | ERC-20 token contract address                         |
 
@@ -244,7 +282,7 @@ without padding per {{I-D.httpauth-payment}}.
 
 | Field         | Type   | Description                                                                                                     |
 | ------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
-| `beneficiary` | string | Beneficiary the server expects to authorize. If omitted, the beneficiary is recovered from the ownership proof, allowing any requester controlling a beneficiary with a qualifying active stake for the scope to satisfy the challenge. |
+| `beneficiary` | string | In `scope-beneficiary-active`, the beneficiary the server expects to authorize. If omitted, the beneficiary is recovered from the ownership proof. In `scope-active`, this field SHOULD be omitted. If present, it is non-authoritative metadata and MUST NOT change the mode's owner-agnostic authorization semantics. |
 | `description` | string | Human-readable description of the stake requirement                                                             |
 | `externalId`  | string | Server reference identifier                                                                                     |
 | `policy`      | string | Identifier for the counterparty's policy                                                                        |
@@ -299,25 +337,30 @@ Example method-specific fields include:
 The credential structure follows {{I-D.httpauth-payment}}, containing
 `challenge`, `payload`, and an optional `source` field.
 
-For a stake credential to be verifiable, the server MUST be able to determine
-the beneficiary identity from the credential. This identity MAY be conveyed in
-the challenged `beneficiary` field, MAY be recoverable directly from the
-signature scheme, or MAY be conveyed in `source` when the payment method
-defines how `source` maps to the beneficiary identity. At least one of these
-mechanisms MUST be available.
+For `scope-beneficiary-active`, the server MUST be able to determine the
+beneficiary identity from the credential. This identity MAY be conveyed in the
+challenged `beneficiary` field, MAY be recoverable directly from the signature
+scheme, or MAY be conveyed in `source` when the payment method defines how
+`source` maps to the beneficiary identity. At least one of these mechanisms
+MUST be available. For `scope-active`, the server MUST instead be able to
+evaluate whether qualifying active stake exists for the challenged scope and
+terms.
 
 The `payload` for a "stake" intent MUST use a single proof type:
 
-| Proof Type   | `type` Value     | Description                                                                |
-| ------------ | ---------------- | -------------------------------------------------------------------------- |
-| Scope Active | `"scope-active"` | Proof that the requester controls the beneficiary for the challenged scope |
+| Proof Type                 | `type` Value                  | Description                                                                 |
+| -------------------------- | ----------------------------- | --------------------------------------------------------------------------- |
+| Scope Beneficiary Active   | `"scope-beneficiary-active"`  | Proof that the requester controls the beneficiary for the challenged scope |
+| Scope Active               | `"scope-active"`              | Owner-agnostic proof that the challenged scope has a qualifying active stake |
 
-### Scope-Active Payload
+The `payload.type` MUST match the challenged `mode`.
+
+### Scope-Beneficiary-Active Payload
 
 ```json
 {
   "signature": "0x1234...abcd",
-  "type": "scope-active"
+  "type": "scope-beneficiary-active"
 }
 ```
 
@@ -332,14 +375,29 @@ If `source` is present, it MUST match the recovered beneficiary identity.
 `source` alone is not authoritative and MUST NOT override the beneficiary
 obtained from the method-defined proof verification procedure.
 
+### Scope-Active Payload
+
+```json
+{
+  "type": "scope-active"
+}
+```
+
+`scope-active` does not include a beneficiary-control signature. If `source` is
+present, it is informational only and MUST NOT be treated as proof that the
+requester controls the beneficiary. A server using `scope-active` MUST base its
+authorization decision on qualifying active stake state, not on unsigned
+identity claims.
+
 ## Challenge Freshness
 
 Stake credentials are single-use at the challenge level, not at the scope
 level. Servers MUST reject replayed credentials for the same challenge `id`.
 An already-active stake MAY satisfy later challenges for the same scope,
 subject to normal server replay protection. Reuse of the underlying stake does
-not eliminate the need for a new challenge and a new challenge-bound proof on
-later protected requests.
+not eliminate the need for a new challenge on later protected requests. In
+`scope-beneficiary-active`, it also does not eliminate the need for a new
+challenge-bound beneficiary proof.
 
 # Escrow Verification {#escrow-verification}
 
@@ -355,9 +413,12 @@ this specification. A server MAY choose to offer such functionality as an
 implementation-specific UX feature, but conforming servers are only required to
 issue challenges and verify active escrow state.
 
-Implementations SHOULD expose a canonical active lookup by `(scope, beneficiary)`.
-Escrow IDs are internal implementation details and SHOULD NOT appear in the
-public challenge or credential shape.
+Implementations SHOULD expose a canonical active lookup by `(scope,
+beneficiary)` when supporting `scope-beneficiary-active`. Implementations that
+support owner-agnostic `scope-active` SHOULD also define a canonical lookup or
+query procedure for determining whether any qualifying active stake exists for a
+scope and challenged term set. Escrow IDs are internal implementation details
+and SHOULD NOT appear in the public challenge or credential shape.
 
 # Verification
 
@@ -367,14 +428,20 @@ Servers verifying a "stake" credential MUST:
 
 1. Verify the challenge `id` matches an outstanding challenge
 2. Verify the challenge has not expired
-3. Determine the beneficiary from the challenged `beneficiary` field, from
-   method-defined signature recovery, or from a method-defined mapping of
-   `source`
-4. Verify the `scope-active` ownership proof and recover or validate that
+3. Verify that the challenged `mode` is supported
+4. For `scope-beneficiary-active`, determine the beneficiary from the
+   challenged `beneficiary` field, from method-defined signature recovery, or
+   from a method-defined mapping of `source`
+5. For `scope-beneficiary-active`, verify the
+   `scope-beneficiary-active` ownership proof and recover or validate that
    beneficiary
-5. Verify that an active escrow exists for `(scope, beneficiary)`
-6. Verify that the escrow parameters match the challenge
-7. Verify that the escrow principal meets or exceeds the requested amount
+6. Verify active escrow state according to the challenged mode:
+   - for `scope-beneficiary-active`, verify that an active escrow exists for
+     `(scope, beneficiary)`
+   - for `scope-active`, verify that at least one qualifying active escrow
+     satisfies the challenged scope and terms
+7. Verify that the escrow parameters match the challenge
+8. Verify that the escrow principal meets or exceeds the requested amount
 
 ## On-Chain Verification {#on-chain-verification}
 
@@ -387,8 +454,10 @@ their escrow contract and platform.
 When verifying escrow state, servers MUST confirm that the active escrow
 matches the challenge:
 
-- Beneficiary matches the recovered proof subject
-- Beneficiary matches the request if the request explicitly specifies one
+- In `scope-beneficiary-active`, beneficiary matches the recovered proof
+  subject
+- In `scope-beneficiary-active`, if the request explicitly specifies
+  `beneficiary`, escrow beneficiary matches that request field
 - Counterparty matches the request
 - Token matches the request
 - Scope matches the request
@@ -405,23 +474,25 @@ Servers MAY implement webhooks, event subscriptions, or polling to detect
 escrow state changes.
 
 Unless a higher-layer session mechanism is in use, later protected requests
-SHOULD issue a fresh challenge and require a fresh `scope-active` proof, while
-reusing the same active stake if it still satisfies the challenged scope and
-terms.
+SHOULD issue a fresh challenge and require a fresh credential matching the
+challenged mode, while reusing the same active stake if it still satisfies the
+challenged scope and terms. Later `scope-beneficiary-active` requests require a
+fresh challenge-bound proof. Later `scope-active` requests require a fresh
+challenge and active-stake verification, but not a new beneficiary proof.
 
 ## Optional Stake-Session Tokens {#optional-stake-session-tokens}
 
-After successfully verifying a `scope-active` credential, a server MAY
-establish a higher-layer session for the beneficiary and protected scope. This
-specification refers to such a server-issued session artifact as a
-`stake-session` token.
+After successfully verifying a `scope-beneficiary-active` or `scope-active`
+credential, a server MAY establish a higher-layer session for the protected
+scope and, when relevant, the beneficiary. This specification refers to such a
+server-issued session artifact as a `stake-session` token.
 
 A `stake-session` token is not part of the public Payment challenge or
 credential format. It is a higher-layer mechanism that allows later protected
-requests to omit a fresh `scope-active` proof while the session remains valid.
-A `stake-session` token attests only that the server previously verified
-challenge-bound beneficiary control and an active matching escrow. It does not
-itself prove current beneficiary control.
+requests to omit a fresh stake credential while the session remains valid. A
+`stake-session` token attests only that the server previously verified the
+challenged mode and an active matching escrow. It does not itself prove current
+beneficiary control.
 
 The encoding and transport of a `stake-session` token are out of scope for this
 specification. Implementations MAY use an opaque session identifier, a signed
@@ -432,7 +503,7 @@ unless another specification explicitly defines such use.
 If a server issues a `stake-session` token, the associated session state,
 whether self-contained or lookup-based, MUST be bound to at least:
 
-- beneficiary
+- mode
 - scope
 - contract
 - counterparty
@@ -446,12 +517,17 @@ whether self-contained or lookup-based, MUST be bound to at least:
 - unique session identifier
 - intended audience or origin, when applicable
 
+If the verified mode was `scope-beneficiary-active`, or if the challenge
+explicitly specified a beneficiary, the session state MUST also be bound to
+that beneficiary.
+
 Before granting access on the basis of a `stake-session` token, the server
 MUST:
 
 1. verify the token is valid and unexpired;
 2. verify the token corresponds to the protected scope being accessed;
-3. verify the escrow is still active for the bound beneficiary; and
+3. verify active escrow state still satisfies the bound mode and any bound
+   beneficiary requirements; and
 4. verify the escrow terms still satisfy the bound session parameters.
 
 Servers MUST revoke or reject a `stake-session` token when the corresponding
@@ -462,16 +538,18 @@ renewal.
 
 When a valid `stake-session` token is accepted, the server MAY skip issuing a
 fresh payment challenge and MAY authorize access without obtaining a new
-`scope-active` proof for that request. When no valid `stake-session` token is
+stake credential for that request. When no valid `stake-session` token is
 present, the normal challenge-response flow applies.
 
 ## Method-Specific Proof Rules
 
-This specification defines the semantics of `scope-active`, but each payment
-method MUST specify how the proof is represented.
+This specification defines the semantics of `scope-beneficiary-active` and
+`scope-active`, but each payment method MUST specify how the proof is
+represented.
 
-For EVM-based stake methods, the `scope-active` proof MUST be an EIP-712
-signature over typed structured data using the beneficiary's secp256k1 key.
+For EVM-based stake methods, the `scope-beneficiary-active` proof MUST be an
+EIP-712 signature over typed structured data using the beneficiary's
+secp256k1 key.
 
 The proof MUST bind all of the following values:
 
@@ -494,10 +572,6 @@ If the challenge explicitly specifies `beneficiary`, the signed `beneficiary`
 MUST match it. If the challenge omits `beneficiary`, the recovered signer MUST
 be treated as the beneficiary for escrow verification.
 
-Omitting `beneficiary` does not make authorization owner-agnostic. The server
-still verifies a challenge-bound proof from the recovered beneficiary and still
-verifies that beneficiary's active escrow for the challenged scope and terms.
-
 An EVM-based stake method MUST define the exact typed-data schema, signature
 encoding, and signer-recovery procedure. For interoperability, EVM-based stake
 methods SHOULD accept the canonical 65-byte ECDSA encoding (`r || s || v`) and
@@ -505,22 +579,36 @@ MAY additionally accept the 64-byte compact EIP-2098 form. Implementations
 SHOULD use a single canonical typed-data schema for interoperability rather
 than defining server-specific variants.
 
-For EVM-based stake methods, `source` is OPTIONAL and MUST NOT be used as a
-substitute for signer recovery. If present, it MUST be treated only as an
-additional claimed identifier and MUST match the recovered beneficiary
-identity.
+For EVM-based stake methods, `source` is OPTIONAL in
+`scope-beneficiary-active` and MUST NOT be used as a substitute for signer
+recovery. If present, it MUST be treated only as an additional claimed
+identifier and MUST match the recovered beneficiary identity.
+
+For EVM-based `scope-active`, no beneficiary-control signature is required.
+An EVM-based stake method that supports `scope-active` MUST define how the
+server determines whether a qualifying active escrow exists for the challenged
+scope and terms. This MAY be by using a scope-level query, consulting an
+indexer, aggregating qualifying active escrows, or another method-defined
+lookup. If a `beneficiary` field is present in a `scope-active` challenge, it
+MUST NOT be treated as changing the mode's owner-agnostic semantics or as
+proof of beneficiary control. Unsigned `source` or other unsigned identity
+hints MUST NOT be treated as proof of beneficiary control.
 
 Other payment methods MAY define equivalent ownership-proof envelopes so long as
-they provide the same semantics: challenge-bound beneficiary control for the
-challenged scope and stake terms.
+they provide the same semantics for `scope-beneficiary-active`: challenge-bound
+beneficiary control for the challenged scope and stake terms. Other payment
+methods MAY also define an owner-agnostic `scope-active` representation so long
+as it only proves the existence of qualifying active stake and does not claim
+beneficiary control without a method-defined proof primitive.
 
 # Examples
 
-### Stake Challenge
+### Scope-Beneficiary-Active Challenge
 
 ```json
 {
   "amount": "5000000",
+  "mode": "scope-beneficiary-active",
   "contract": "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
   "counterparty": "0x742d35Cc6634C0532925a3b844Bc9e7595f8fE00",
   "description": "Stake required to access premium content",
@@ -535,7 +623,7 @@ challenged scope and stake terms.
 }
 ```
 
-### Scope-Active Credential
+### Scope-Beneficiary-Active Credential
 
 ```json
 {
@@ -545,6 +633,7 @@ challenged scope and stake terms.
     "intent": "stake",
     "request": {
       "amount": "5000000",
+      "mode": "scope-beneficiary-active",
       "contract": "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
       "counterparty": "0x742d35Cc6634C0532925a3b844Bc9e7595f8fE00",
       "scope": "0x9a3f...7b2e",
@@ -556,9 +645,53 @@ challenged scope and stake terms.
   },
   "payload": {
     "signature": "0x1234...abcd",
-    "type": "scope-active"
+    "type": "scope-beneficiary-active"
   },
   "source": "did:pkh:eip155:42431:0x1234567890abcdef1234567890abcdef12345678"
+}
+```
+
+### Scope-Active Challenge
+
+```json
+{
+  "amount": "5000000",
+  "mode": "scope-active",
+  "contract": "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
+  "counterparty": "0x742d35Cc6634C0532925a3b844Bc9e7595f8fE00",
+  "description": "Any active bond unlocks the shared resource",
+  "resource": "/rooms/general",
+  "scope": "0x9a3f...7b2e",
+  "token": "0x20c0000000000000000000000000000000000000",
+  "methodDetails": {
+    "chainId": 42431
+  }
+}
+```
+
+### Scope-Active Credential
+
+```json
+{
+  "challenge": {
+    "id": "challenge-456",
+    "method": "tempo",
+    "intent": "stake",
+    "request": {
+      "amount": "5000000",
+      "mode": "scope-active",
+      "contract": "0x651B0DB0D25A49d0CBbF790a404cE10A3F401821",
+      "counterparty": "0x742d35Cc6634C0532925a3b844Bc9e7595f8fE00",
+      "scope": "0x9a3f...7b2e",
+      "token": "0x20c0000000000000000000000000000000000000",
+      "methodDetails": {
+        "chainId": 42431
+      }
+    }
+  },
+  "payload": {
+    "type": "scope-active"
+  }
 }
 ```
 
@@ -597,8 +730,21 @@ users when encountering an unknown contract. Verification methods include:
 
 Servers MUST implement replay protection for challenge credentials. The replay
 unit is the challenge `id`, not the scope. Reusing an active stake across later
-challenges is allowed only when each later challenge has its own valid proof
-exchange.
+challenges is allowed only when each later challenge has its own valid
+challenge-response exchange.
+
+## Mode Selection
+
+`scope-active` is weaker than `scope-beneficiary-active`. Servers MUST use
+`scope-beneficiary-active` when authorization depends on who controls the
+stake, when a protected action should be attributable to the staking
+beneficiary, or when the requester must prove current control of the active
+stake.
+
+Servers SHOULD use `scope-active` only for owner-agnostic resources where the
+authorization rule is intentionally "this scope has at least one qualifying
+active stake" rather than "this requester controls the beneficiary that
+staked."
 
 ## Scope Derivation
 
@@ -610,8 +756,10 @@ surfaces into one authorization domain.
 ## Beneficiary and Payer Separation
 
 Implementations MUST NOT assume that the payer and beneficiary are the same
-account. Access is granted based on the beneficiary's active stake, while
-funding and refund mechanics may involve a separate payer.
+account. In `scope-beneficiary-active`, access is granted based on the
+beneficiary's active stake and the requester's control of that beneficiary.
+In `scope-active`, funding and active-stake ownership may still involve a
+beneficiary even though authorization is owner-agnostic.
 
 ## Escrow Liveness
 
@@ -629,8 +777,8 @@ their token ecosystem supports them.
 ## Transport Security
 
 All Payment authentication flows MUST use TLS 1.2 or later per
-{{I-D.httpauth-payment}}. Stake credentials contain challenge-bound ownership
-proofs that could otherwise be replayed within the challenge validity window.
+{{I-D.httpauth-payment}}. Stake credentials are challenge-bound artifacts that
+could otherwise be replayed within the challenge validity window.
 
 ## Slash Abuse
 
