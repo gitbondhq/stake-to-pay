@@ -4,10 +4,11 @@ An [`mppx`](https://github.com/wevm/mppx) stake method that proves an
 [MPPEscrow](https://github.com/gitbondhq/mpp-stake-demo) is **already active**
 for a given scope and beneficiary.
 
-The credential is an off-chain EIP-712 signature, never a transaction. The
-server verifies it by recovering the signer and reading
-`isEscrowActive` / `getActiveEscrow` from chain. **No gas is spent during
-the credential round-trip.**
+In the default `BENEFICIARY_BOUND` mode, the credential is an off-chain
+EIP-712 signature. The server verifies it by recovering the signer and reading
+`isEscrowActive` / `getActiveEscrow` from chain. In `OWNER_AGNOSTIC` mode,
+no signature is produced — only on-chain state is checked. **No gas is spent
+during the credential round-trip.**
 
 ```
 client                                              server
@@ -94,30 +95,29 @@ URL, with the credential in `Authorization`) runs verification: HMAC-binds
 the challenge, recovers the typed-data signer, validates the source DID,
 reads chain state, and returns the receipt.
 
-Set `verifyBeneficiaryStake: false` only for owner-agnostic deployments that
-intentionally skip beneficiary signature creation and recovery. The default
-path remains the beneficiary-bound EIP-712 proof flow described in `specs/`.
-In the draft spec terminology, `verifyBeneficiaryStake: true` corresponds to
-the stricter `scope-beneficiary-active` mode and
-`verifyBeneficiaryStake: false` corresponds to the softer `scope-active` mode.
-The server now derives the challenge request `mode` field from that setting.
-Because the bundled verifier is keyed by
-`(scope, beneficiary)`, setting `verifyBeneficiaryStake: false` also requires a
-custom `assertEscrowActive` implementation.
+The server supports two authorization modes via the `mode` parameter
+(`StakeAuthorizationMode` enum):
+
+- **`BENEFICIARY_BOUND`** (default) — the client signs an EIP-712 proof and
+  the server recovers the signer to verify the beneficiary.
+- **`OWNER_AGNOSTIC`** — the client skips signature creation; only on-chain
+  escrow state is checked. Because the bundled verifier is keyed by
+  `(scope, beneficiary)`, this mode requires a custom `assertEscrowActive`
+  implementation.
 
 ### Server parameters
 
-| Parameter          | Type                    | Required | Notes                                                     |
-| ------------------ | ----------------------- | -------- | --------------------------------------------------------- |
-| `name`             | `string`                | yes      | Method name shared with the client (e.g. `'tempo'`).      |
-| `chainId`          | `number`                | yes      | Must be in [`supportedChains`](#chains).                  |
-| `rpcUrl`           | `string`                | no       | Override viem's default public RPC (use a paid endpoint). |
-| `contract`         | `Address`               | no       | Default escrow contract for this route.                   |
-| `counterparty`     | `Address`               | no       | Default counterparty.                                     |
-| `token`            | `Address`               | no       | Default ERC-20 token.                                     |
-| `verifyBeneficiaryStake` | `boolean`         | no       | Defaults to `true`; set `false` to skip signature recovery and provide a custom `assertEscrowActive`. |
-| `description`      | `string`                | no       | Shown to the client in the challenge UI.                  |
-| `consumeChallenge` | `(id) => Promise<void>` | no       | Replay-protection hook — see below. Stateless by default. |
+| Parameter          | Type                     | Required | Notes                                                                                        |
+| ------------------ | ------------------------ | -------- | -------------------------------------------------------------------------------------------- |
+| `name`             | `string`                 | yes      | Method name shared with the client (e.g. `'tempo'`).                                         |
+| `chainId`          | `number`                 | yes      | Must be in [`supportedChains`](#chains).                                                     |
+| `rpcUrl`           | `string`                 | no       | Override viem's default public RPC (use a paid endpoint).                                    |
+| `contract`         | `Address`                | no       | Default escrow contract for this route.                                                      |
+| `counterparty`     | `Address`                | no       | Default counterparty.                                                                        |
+| `token`            | `Address`                | no       | Default ERC-20 token.                                                                        |
+| `mode`             | `StakeAuthorizationMode` | no       | Defaults to `BENEFICIARY_BOUND`; set to `OWNER_AGNOSTIC` with a custom `assertEscrowActive`. |
+| `description`      | `string`                 | no       | Shown to the client in the challenge UI.                                                     |
+| `consumeChallenge` | `(id) => Promise<void>`  | no       | Replay-protection hook — see below. Stateless by default.                                    |
 
 `contract`, `counterparty`, and `token` are **defaults** — they can be
 overridden per-route. Anything you don't set in the configuration must be
@@ -161,7 +161,7 @@ reject; the verify call will surface your error to the client.
 
 ## Client
 
-The client method takes a viem `Account` (or anything with
+The client method optionally takes a viem `Account` (or anything with
 `signTypedData`) and signs the proof when the server returns a 402. The
 account's address is what gets bound into the typed-data proof and the
 `did:pkh:eip155:{chainId}:{address}` source — so pass the **beneficiary's**
@@ -187,10 +187,10 @@ const res = await mppx.fetch('https://api.example.com/resource', {
 ```
 
 The server-issued challenge `mode` is authoritative for client behavior:
-`scope-beneficiary-active` requires a beneficiary signature, while
-`scope-active` emits a bare `scope-active` payload with no `signature` or
-`source`. Client-side `verifyBeneficiaryStake: false` is still useful to
-configure owner-agnostic callers that never need a beneficiary signer.
+`BENEFICIARY_BOUND` requires a `beneficiaryAccount` to sign the proof, while
+`OWNER_AGNOSTIC` skips signature creation entirely (no `beneficiaryAccount`
+needed). The client will throw if a `BENEFICIARY_BOUND` challenge is received
+without a `beneficiaryAccount`.
 
 ## Schema
 
@@ -204,7 +204,7 @@ type StakeChallengeRequest = {
   counterparty: Address                // the other party
   description?: string
   externalId?: string                  // application-side identifier
-  mode: 'scope-beneficiary-active' | 'scope-active'
+  mode: StakeAuthorizationMode         // 'scope-beneficiary-active' | 'scope-active'
   policy?: string                      // application-side policy tag
   resource?: string                    // application-side resource tag
   scope: Hex                           // bytes32, the per-resource identifier
@@ -213,13 +213,12 @@ type StakeChallengeRequest = {
 }
 ```
 
-The credential payload:
+The credential payload is a discriminated union based on `mode`:
 
 ```ts
-type StakeCredentialPayload = {
-  signature?: Hex                      // present unless `verifyBeneficiaryStake: false`
-  type: 'scope-active'
-}
+type StakeCredentialPayload =
+  | { signature: Hex; type: 'scope-beneficiary-active' }  // BENEFICIARY_BOUND
+  | { type: 'scope-active' }                              // OWNER_AGNOSTIC
 ```
 
 The `scope` is whatever bytes32 your application uses to uniquely identify

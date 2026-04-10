@@ -4,8 +4,7 @@ import { isAddressEqual } from 'viem'
 
 import {
   brandStakeRequest,
-  getStakeAuthorizationMode,
-  modeRequiresBeneficiaryProof,
+  StakeAuthorizationMode,
   type StakeChallengeRequest,
   type StakeCredentialPayload,
   type StakeMethod,
@@ -20,10 +19,10 @@ import { type AssertEscrowActive, assertEscrowOnChain } from './escrowState.js'
 
 export type StakeServerParameters = {
   /**
-   * Defaults to beneficiary-bound proof verification. Set to `false` only when
-   * you provide a custom `assertEscrowActive` for owner-agnostic scope checks.
+   * The authorization mode for stake challenges. Defaults to
+   * {@link StakeAuthorizationMode.BENEFICIARY_BOUND}.
    */
-  verifyBeneficiaryStake?: boolean
+  mode?: StakeAuthorizationMode
   chainId: number
   /**
    * Override the RPC endpoint used for on-chain reads. Defaults to viem's
@@ -64,11 +63,14 @@ export type StakeServerParameters = {
 export const createStakeServer = (method: StakeMethod) => {
   return (parameters: StakeServerParameters) => {
     const { chainId, consumeChallenge, rpcUrl } = parameters
-    const mode = getStakeAuthorizationMode(parameters)
+    const mode = parameters.mode ?? StakeAuthorizationMode.BENEFICIARY_BOUND
 
-    if (!modeRequiresBeneficiaryProof(mode) && !parameters.assertEscrowActive)
+    if (
+      mode === StakeAuthorizationMode.OWNER_AGNOSTIC &&
+      !parameters.assertEscrowActive
+    )
       throw new Error(
-        'verifyBeneficiaryStake: false requires a custom assertEscrowActive because the default verifier is beneficiary-bound.',
+        'OWNER_AGNOSTIC mode requires a custom assertEscrowActive because the default verifier is beneficiary-bound.',
       )
 
     const assertEscrowActive =
@@ -104,7 +106,6 @@ export const createStakeServer = (method: StakeMethod) => {
           }),
         )
         assertRequestMatches(currentRequest, challengeRequest)
-        const verifyProof = modeRequiresBeneficiaryProof(challengeRequest.mode)
 
         const challengeChainId = challengeRequest.methodDetails.chainId
         const payload = credential.payload as StakeCredentialPayload
@@ -117,8 +118,8 @@ export const createStakeServer = (method: StakeMethod) => {
           challengeChainId,
           challengeRequest,
           credential,
+          mode,
           payload,
-          verifyProof,
         })
 
         // Replay protection runs after we've decided the credential is
@@ -152,23 +153,22 @@ const resolveVerifiedBeneficiary = async ({
   challengeChainId,
   challengeRequest,
   credential,
+  mode,
   payload,
-  verifyProof,
 }: {
   challengeChainId: number
   challengeRequest: StakeChallengeRequest
   credential: Credential.Credential
+  mode: StakeAuthorizationMode
   payload: StakeCredentialPayload
-  verifyProof: boolean
 }): Promise<Address | undefined> => {
-  if (!verifyProof) return challengeRequest.beneficiary ?? undefined
+  if (mode !== StakeAuthorizationMode.BENEFICIARY_BOUND)
+    return challengeRequest.beneficiary ?? undefined
 
   if (!('signature' in payload) || !payload.signature)
     throw new Error(
       'Stake credential is missing the scope-beneficiary-active signature.',
     )
-
-  const signature = payload.signature
 
   const hintedBeneficiary =
     challengeRequest.beneficiary ??
@@ -183,7 +183,7 @@ const resolveVerifiedBeneficiary = async ({
     counterparty: challengeRequest.counterparty,
     expires: credential.challenge.expires,
     scope: challengeRequest.scope,
-    signature,
+    signature: payload.signature,
     token: challengeRequest.token,
   })
 
@@ -239,7 +239,7 @@ const assertRequestMatches = (
   challengeRequest: StakeChallengeRequest,
 ) => {
   if (currentRequest.beneficiary)
-    assertOptionalAddress(
+    assertAddress(
       'beneficiary',
       currentRequest.beneficiary,
       challengeRequest.beneficiary,
@@ -271,17 +271,11 @@ const assertRequestMatches = (
       throw new Error(`Challenge ${label} does not match this route.`)
 }
 
-const assertAddress = (label: string, expected: Address, received: Address) => {
-  if (!isAddressEqual(expected, received))
-    throw new Error(`Challenge ${label} does not match this route.`)
-}
-
-const assertOptionalAddress = (
+const assertAddress = (
   label: string,
-  expected: Address | undefined,
+  expected: Address,
   received: Address | undefined,
 ) => {
-  if (!expected && !received) return
-  if (!expected || !received || !isAddressEqual(expected, received))
+  if (!received || !isAddressEqual(expected, received))
     throw new Error(`Challenge ${label} does not match this route.`)
 }

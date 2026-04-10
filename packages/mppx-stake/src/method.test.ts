@@ -2,10 +2,9 @@ import { PaymentRequest } from 'mppx'
 import { describe, expect, it } from 'vitest'
 
 import {
-  BENEFICIARY_BOUND_STAKE_MODE,
   brandStakeRequest,
   createStakeMethod,
-  OWNER_AGNOSTIC_STAKE_MODE,
+  StakeAuthorizationMode,
 } from './method.js'
 
 const request = {
@@ -16,7 +15,7 @@ const request = {
   token: '0x20C0000000000000000000000000000000000000',
   description: 'Stake required',
   externalId: 'github:owner/repo:pr:1',
-  mode: BENEFICIARY_BOUND_STAKE_MODE,
+  mode: StakeAuthorizationMode.BENEFICIARY_BOUND,
   policy: 'repo-pr-v1',
   resource: 'owner/repo#1',
   scope: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
@@ -54,22 +53,22 @@ describe('stake method schema', () => {
       stakeMethod.schema.credential.payload.parse({
         signature:
           '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1b',
-        type: BENEFICIARY_BOUND_STAKE_MODE,
+        type: StakeAuthorizationMode.BENEFICIARY_BOUND,
       }),
     ).toEqual({
       signature:
         '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1b',
-      type: BENEFICIARY_BOUND_STAKE_MODE,
+      type: StakeAuthorizationMode.BENEFICIARY_BOUND,
     })
   })
 
   it('accepts a scope-active payload without a signature', () => {
     expect(
       stakeMethod.schema.credential.payload.parse({
-        type: OWNER_AGNOSTIC_STAKE_MODE,
+        type: StakeAuthorizationMode.OWNER_AGNOSTIC,
       }),
     ).toEqual({
-      type: OWNER_AGNOSTIC_STAKE_MODE,
+      type: StakeAuthorizationMode.OWNER_AGNOSTIC,
     })
   })
 
@@ -78,7 +77,7 @@ describe('stake method schema', () => {
       stakeMethod.schema.credential.payload.parse({
         signature:
           '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1b',
-        type: OWNER_AGNOSTIC_STAKE_MODE,
+        type: StakeAuthorizationMode.OWNER_AGNOSTIC,
       }),
     ).toThrow()
   })
