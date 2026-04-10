@@ -5,9 +5,8 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  BENEFICIARY_BOUND_STAKE_MODE,
   createStakeMethod,
-  OWNER_AGNOSTIC_STAKE_MODE,
+  StakeAuthorizationMode,
   type StakeCredentialPayload,
 } from '../method.js'
 import { signScopeActiveProof } from '../shared/scopeActiveProof.js'
@@ -38,7 +37,7 @@ const rawInput = {
   contract,
   counterparty,
   externalId,
-  mode: BENEFICIARY_BOUND_STAKE_MODE as typeof BENEFICIARY_BOUND_STAKE_MODE,
+  mode: StakeAuthorizationMode.BENEFICIARY_BOUND,
   policy,
   resource,
   scope,
@@ -65,7 +64,7 @@ const stakeMethod = createStakeMethod({ name: methodName })
 const challengeRequest = PaymentRequest.fromMethod(stakeMethod, rawInput)
 const scopeActiveChallengeRequest = PaymentRequest.fromMethod(stakeMethod, {
   ...rawInput,
-  mode: OWNER_AGNOSTIC_STAKE_MODE,
+  mode: StakeAuthorizationMode.OWNER_AGNOSTIC,
 })
 
 const mocks = vi.hoisted(() => ({
@@ -93,7 +92,7 @@ const createCredentialPayload = (parameters: {
   mode: typeof challengeRequest.mode
   signature?: Hex
 }): StakeCredentialPayload => {
-  if (parameters.mode === BENEFICIARY_BOUND_STAKE_MODE) {
+  if (parameters.mode === StakeAuthorizationMode.BENEFICIARY_BOUND) {
     if (!parameters.signature)
       throw new Error(
         'Test setup error: scope-beneficiary-active payload requires a signature.',
@@ -101,11 +100,11 @@ const createCredentialPayload = (parameters: {
 
     return {
       signature: parameters.signature,
-      type: BENEFICIARY_BOUND_STAKE_MODE,
+      type: StakeAuthorizationMode.BENEFICIARY_BOUND,
     }
   }
 
-  return { type: OWNER_AGNOSTIC_STAKE_MODE }
+  return { type: StakeAuthorizationMode.OWNER_AGNOSTIC }
 }
 
 const makeCredential = async (parameters?: {
@@ -234,7 +233,7 @@ describe('server stake', () => {
       counterparty,
       token,
       description: 'Stake required',
-      mode: BENEFICIARY_BOUND_STAKE_MODE,
+      mode: StakeAuthorizationMode.BENEFICIARY_BOUND,
       methodDetails: { chainId },
     })
     expect(method.defaults).not.toHaveProperty('externalId')
@@ -520,7 +519,7 @@ describe('server stake', () => {
         method.verify({
           credential: {
             ...credential,
-            payload: { type: OWNER_AGNOSTIC_STAKE_MODE },
+            payload: { type: StakeAuthorizationMode.OWNER_AGNOSTIC },
           },
           request: routeRequest,
         }),
@@ -596,36 +595,36 @@ describe('server stake', () => {
       ).rejects.toThrow(/recovered beneficiary/i)
     })
 
-    it('rejects verifyBeneficiaryStake false without a custom escrow verifier', () => {
+    it('rejects owner-agnostic mode without a custom escrow verifier', () => {
       expect(() =>
         serverStake({
           chainId,
           contract,
           token,
           name: methodName,
-          verifyBeneficiaryStake: false,
+          mode: StakeAuthorizationMode.OWNER_AGNOSTIC,
         }),
       ).toThrow(/custom assertEscrowActive/i)
     })
 
-    it('derives scope-active mode from verifyBeneficiaryStake false', () => {
+    it('sets owner-agnostic mode in defaults', () => {
       const method = serverStake({
         assertEscrowActive: vi.fn().mockResolvedValue(undefined),
         chainId,
         contract,
         token,
         name: methodName,
-        verifyBeneficiaryStake: false,
+        mode: StakeAuthorizationMode.OWNER_AGNOSTIC,
       })
 
       expect(method.defaults).toEqual(
         expect.objectContaining({
-          mode: OWNER_AGNOSTIC_STAKE_MODE,
+          mode: StakeAuthorizationMode.OWNER_AGNOSTIC,
         }),
       )
     })
 
-    it('lets custom escrow verification ignore beneficiary when verifyBeneficiaryStake is false', async () => {
+    it('lets custom escrow verification ignore beneficiary in owner-agnostic mode', async () => {
       const customAssert = vi.fn().mockResolvedValue(undefined)
       const method = serverStake({
         assertEscrowActive: customAssert,
@@ -633,7 +632,7 @@ describe('server stake', () => {
         contract,
         token,
         name: methodName,
-        verifyBeneficiaryStake: false,
+        mode: StakeAuthorizationMode.OWNER_AGNOSTIC,
       })
       const credential = await makeCredential({
         challengeRequest: scopeActiveChallengeRequest,
@@ -662,7 +661,7 @@ describe('server stake', () => {
       )
     })
 
-    it('does not resolve beneficiary from source when verifyBeneficiaryStake is false', async () => {
+    it('does not resolve beneficiary from source in owner-agnostic mode', async () => {
       const customAssert = vi.fn().mockResolvedValue(undefined)
       const method = serverStake({
         assertEscrowActive: customAssert,
@@ -670,7 +669,7 @@ describe('server stake', () => {
         contract,
         token,
         name: methodName,
-        verifyBeneficiaryStake: false,
+        mode: StakeAuthorizationMode.OWNER_AGNOSTIC,
       })
       const spoofedBeneficiary =
         '0x4444444444444444444444444444444444444444' as Address
