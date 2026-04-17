@@ -269,24 +269,24 @@ without padding per {{I-D.httpauth-payment}}.
 
 ### Required Fields
 
-| Field          | Type   | Description                                           |
-| -------------- | ------ | ----------------------------------------------------- |
-| `amount`       | string | Minimum stake amount in base units                    |
-| `contract`     | string | Escrow contract address in method-native format       |
-| `counterparty` | string | Address authorized to control the escrow              |
+| Field          | Type   | Description                                                      |
+| -------------- | ------ | ---------------------------------------------------------------- |
+| `amount`       | string | Minimum stake amount in base units                               |
+| `contract`     | string | Escrow contract address in method-native format                  |
+| `counterparty` | string | Address authorized to control the escrow                         |
 | `mode`         | string | Authorization mode: `scope-beneficiary-active` or `scope-active` |
-| `scope`        | string | Stable identifier for the protected scope             |
-| `token`        | string | ERC-20 token contract address                         |
+| `scope`        | string | Stable identifier for the protected scope                        |
+| `token`        | string | ERC-20 token contract address                                    |
 
 ### Optional Fields
 
-| Field         | Type   | Description                                                                                                     |
-| ------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
+| Field         | Type   | Description                                                                                                                                                                                                                                                                                                             |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `beneficiary` | string | In `scope-beneficiary-active`, the beneficiary the server expects to authorize. If omitted, the beneficiary is recovered from the ownership proof. In `scope-active`, this field SHOULD be omitted. If present, it is non-authoritative metadata and MUST NOT change the mode's owner-agnostic authorization semantics. |
-| `description` | string | Human-readable description of the stake requirement                                                             |
-| `externalId`  | string | Server reference identifier                                                                                     |
-| `policy`      | string | Identifier for the counterparty's policy                                                                        |
-| `resource`    | string | Identifier for the resource being accessed                                                                      |
+| `description` | string | Human-readable description of the stake requirement                                                                                                                                                                                                                                                                     |
+| `externalId`  | string | Server reference identifier                                                                                                                                                                                                                                                                                             |
+| `policy`      | string | Identifier for the counterparty's policy                                                                                                                                                                                                                                                                                |
+| `resource`    | string | Identifier for the resource being accessed                                                                                                                                                                                                                                                                              |
 
 Challenge expiry is conveyed by the `expires` auth-param in
 `WWW-Authenticate` per {{I-D.httpauth-payment}}, using {{RFC3339}}
@@ -348,10 +348,10 @@ terms.
 
 The `payload` for a "stake" intent MUST use a single proof type:
 
-| Proof Type                 | `type` Value                  | Description                                                                 |
-| -------------------------- | ----------------------------- | --------------------------------------------------------------------------- |
-| Scope Beneficiary Active   | `"scope-beneficiary-active"`  | Proof that the requester controls the beneficiary for the challenged scope |
-| Scope Active               | `"scope-active"`              | Owner-agnostic proof that the challenged scope has a qualifying active stake |
+| Proof Type               | `type` Value                 | Description                                                                  |
+| ------------------------ | ---------------------------- | ---------------------------------------------------------------------------- |
+| Scope Beneficiary Active | `"scope-beneficiary-active"` | Proof that the requester controls the beneficiary for the challenged scope   |
+| Scope Active             | `"scope-active"`             | Owner-agnostic proof that the challenged scope has a qualifying active stake |
 
 The `payload.type` MUST match the challenged `mode`.
 

@@ -25,6 +25,7 @@ You should keep deployment secrets out of `.env` for execution.
 - `ETH_PASSWORD` — optional path to a file containing the keystore password for non-interactive runs.
 
 Important:
+
 - Never read `.env` contents during deployment.
 - Never store private keys, mnemonics, or plaintext secrets in `.env`.
 - Use cast keystore wallets only (`cast wallet import` + passphrase flow).
@@ -183,6 +184,7 @@ sed -n '1,220p' broadcast/DeployMPPEscrow.s.sol/$CHAIN_ID/run-latest.json
 ```
 
 Return both:
+
 - `transactions[0].hash` as the deployment transaction hash
 - `transactions[0].contractAddress` / `receipts[0].contractAddress` as the deployed escrow address
 

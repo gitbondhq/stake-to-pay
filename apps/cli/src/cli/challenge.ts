@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, readdir } from 'node:fs/promises'
+import { access, mkdir, readdir, readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
 import { parseStakeChallenge, type StakeChallenge } from '@gitbondhq/mppx-stake'
@@ -6,7 +6,6 @@ import { Credential } from 'mppx'
 
 import { resolveProtectedResourceUrl } from './context.js'
 import { fetchWithOptions } from './http.js'
-import { requiredString } from './parsing.js'
 
 export const defaultChallengesDirectory = 'challenges'
 export const defaultCredentialFilePath = 'credential.txt'
