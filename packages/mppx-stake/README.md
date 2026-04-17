@@ -106,16 +106,16 @@ The server supports two authorization modes via the `mode` parameter
 
 ### Server parameters
 
-| Parameter          | Type                     | Required | Notes                                                                                        |
-| ------------------ | ------------------------ | -------- | -------------------------------------------------------------------------------------------- |
-| `chainId`          | `number`                 | yes      | Must be in [`supportedChains`](#chains).                                                     |
-| `rpcUrl`           | `string`                 | no       | Override viem's default public RPC (use a paid endpoint).                                    |
-| `contract`         | `Address`                | no       | Default escrow contract for this route.                                                      |
-| `counterparty`     | `Address`                | no       | Default counterparty.                                                                        |
-| `token`            | `Address`                | no       | Default ERC-20 token.                                                                        |
-| `mode`             | `StakeAuthorizationMode` | no       | Defaults to `BENEFICIARY_BOUND`; set to `OWNER_AGNOSTIC` with a custom `assertEscrowActive`. |
-| `description`      | `string`                 | no       | Shown to the client in the challenge UI.                                                     |
-| `consumeChallenge` | `({id, expires}) => Promise<void>` | no | Replay-protection hook — see below. Stateless by default.                                    |
+| Parameter          | Type                               | Required | Notes                                                                                        |
+| ------------------ | ---------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `chainId`          | `number`                           | yes      | Must be in [`supportedChains`](#chains).                                                     |
+| `rpcUrl`           | `string`                           | no       | Override viem's default public RPC (use a paid endpoint).                                    |
+| `contract`         | `Address`                          | no       | Default escrow contract for this route.                                                      |
+| `counterparty`     | `Address`                          | no       | Default counterparty.                                                                        |
+| `token`            | `Address`                          | no       | Default ERC-20 token.                                                                        |
+| `mode`             | `StakeAuthorizationMode`           | no       | Defaults to `BENEFICIARY_BOUND`; set to `OWNER_AGNOSTIC` with a custom `assertEscrowActive`. |
+| `description`      | `string`                           | no       | Shown to the client in the challenge UI.                                                     |
+| `consumeChallenge` | `({id, expires}) => Promise<void>` | no       | Replay-protection hook — see below. Stateless by default.                                    |
 
 `contract`, `counterparty`, and `token` are **defaults** — they can be
 overridden per-route. Anything you don't set in the configuration must be
