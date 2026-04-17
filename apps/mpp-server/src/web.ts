@@ -25,11 +25,17 @@ export const getOrigin = (
   req: OriginRequest,
   server: ServerBinding,
 ): string => {
+  // The Host header is client-controlled and ends up in the challenge realm,
+  // so an attacker-supplied value would let them obtain a challenge whose
+  // realm points at an attacker-controlled domain. Only honor the header
+  // when it matches the configured binding; otherwise fall back to it.
+  const canonical = `${server.host}:${server.port}`
   const hostHeader = req.headers.host
   const host =
-    typeof hostHeader === 'string' && hostHeader.length > 0
+    typeof hostHeader === 'string' &&
+    hostHeader.toLowerCase() === canonical.toLowerCase()
       ? hostHeader
-      : `${server.host}:${server.port}`
+      : canonical
 
   return `${req.protocol}://${host}`
 }

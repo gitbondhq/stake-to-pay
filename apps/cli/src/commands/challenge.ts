@@ -116,6 +116,10 @@ export function registerChallengeCommands(program: Command): void {
       const method = clientStake({
         beneficiaryAccount,
       })
+      // `Challenge.fromMethod` widens `intent`/`method` to `string` in its
+      // return type, so the literal-typed `method.createCredential` parameter
+      // needs a cast here. Safe: `resolveStakeChallengeForRespond` always
+      // returns a stake challenge or throws.
       type CredentialChallenge = Parameters<
         typeof method.createCredential
       >[0]['challenge']
