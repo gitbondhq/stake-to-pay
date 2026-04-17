@@ -31,7 +31,7 @@ Environment variables:
   ${RESOURCE_URL_ENV}   Default protected demo resource URL for challenge commands
 
 Repo config:
-  config.json          Shared methodName, chainId, optional rpcUrl, and escrow defaults at the repo root
+  config.json          Shared chainId, optional rpcUrl, and escrow defaults at the repo root
 `,
   )
 

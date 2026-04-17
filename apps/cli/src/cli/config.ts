@@ -13,7 +13,6 @@ export type RepoConfig = {
     token: Address
     tokenWhitelist: Address[]
   }
-  methodName: string
 }
 
 export function loadRepoConfig(repoConfigPath: URL): RepoConfig {
@@ -28,7 +27,6 @@ const parseRepoConfig = (value: unknown): RepoConfig => {
   const raw = value as {
     chainId?: unknown
     escrow?: unknown
-    methodName?: unknown
   }
 
   if (
@@ -42,7 +40,6 @@ const parseRepoConfig = (value: unknown): RepoConfig => {
   return {
     chainId: raw.chainId,
     escrow: parseEscrow(raw.escrow),
-    methodName: requiredString(raw.methodName, 'methodName'),
   }
 }
 
@@ -98,9 +95,7 @@ const requiredAddressArray = (value: unknown, label: string): Address[] => {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`config.json ${label} must be a non-empty address array.`)
   }
-  return value.map((item, index) =>
-    requiredAddress(item, `${label}[${index}]`),
-  )
+  return value.map((item, index) => requiredAddress(item, `${label}[${index}]`))
 }
 
 const requiredBaseUnitAmount = (value: unknown, label: string): string => {
