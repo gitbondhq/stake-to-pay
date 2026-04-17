@@ -145,11 +145,10 @@ serverStake({
       Math.ceil((new Date(expires).getTime() - Date.now()) / 1000) + 30,
     )
     // Atomic claim — `SET NX` returns null if the key already exists.
-    const claimed = await redis.set(
-      `mppx:stake:challenge:${id}`,
-      '1',
-      { NX: true, EX: ttlSeconds },
-    )
+    const claimed = await redis.set(`mppx:stake:challenge:${id}`, '1', {
+      NX: true,
+      EX: ttlSeconds,
+    })
     if (!claimed) throw new Error('Challenge already consumed.')
   },
 })
