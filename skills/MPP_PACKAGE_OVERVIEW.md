@@ -21,12 +21,12 @@ Regenerate ABI only when the contract interface changes.
 
 ## Entry points
 
-| Import | Exports |
-|--------|---------|
-| `@gitbondhq/mppx-stake` | `Methods.stake`, `MPPEscrowAbi`, network preset helpers |
-| `@gitbondhq/mppx-stake/client` | `stake()` — client credential builder |
-| `@gitbondhq/mppx-stake/server` | `stake()` — server verification |
-| `@gitbondhq/mppx-stake/abi` | `MPPEscrowAbi` only |
+| Import                         | Exports                                                 |
+| ------------------------------ | ------------------------------------------------------- |
+| `@gitbondhq/mppx-stake`        | `Methods.stake`, `MPPEscrowAbi`, network preset helpers |
+| `@gitbondhq/mppx-stake/client` | `stake()` — client credential builder                   |
+| `@gitbondhq/mppx-stake/server` | `stake()` — server verification                         |
+| `@gitbondhq/mppx-stake/abi`    | `MPPEscrowAbi` only                                     |
 
 ---
 
@@ -35,28 +35,28 @@ Regenerate ABI only when the contract interface changes.
 ### Basic setup
 
 ```ts
-import { stake } from "@gitbondhq/mppx-stake/client";
+import { stake } from '@gitbondhq/mppx-stake/client'
 
-const method = stake({ account });
+const method = stake({ account })
 ```
 
 ### With other mppx methods
 
 ```ts
-import { Mppx, tempo } from "mppx/client";
-import { stake } from "@gitbondhq/mppx-stake/client";
+import { Mppx, tempo } from 'mppx/client'
+import { stake } from '@gitbondhq/mppx-stake/client'
 
 const mppx = Mppx.create({
   methods: [[...tempo({ account }), stake({ account })]],
-});
+})
 ```
 
 ### Client config
 
 ```ts
 stake({
-  account,              // Default account used to sign the beneficiary proof
-  beneficiaryAccount,   // Optional separate signer for the beneficiary proof
+  account, // Default account used to sign the beneficiary proof
+  beneficiaryAccount, // Optional separate signer for the beneficiary proof
 })
 ```
 
@@ -82,46 +82,46 @@ stake({
 ### Basic setup
 
 ```ts
-import { stake } from "@gitbondhq/mppx-stake/server";
+import { stake } from '@gitbondhq/mppx-stake/server'
 
 const method = stake({
   chainId: 42431,
-  contract: "0x651B...",
-  token: "0x20C0...0000",
-});
+  contract: '0x651B...',
+  token: '0x20C0...0000',
+})
 ```
 
 ### With mppx server
 
 ```ts
-import { Mppx } from "mppx/server";
-import { stake } from "@gitbondhq/mppx-stake/server";
+import { Mppx } from 'mppx/server'
+import { stake } from '@gitbondhq/mppx-stake/server'
 
 const mppx = Mppx.create({
   methods: [
     stake({
       chainId: 42431,
-      contract: "0x651B...",
-      counterparty: "0x...",
-      token: "0x20C0...0000",
-      description: "Stake to unlock report",
+      contract: '0x651B...',
+      counterparty: '0x...',
+      token: '0x20C0...0000',
+      description: 'Stake to unlock report',
     }),
   ],
   secretKey: process.env.MPP_SECRET_KEY!,
-});
+})
 ```
 
 ### Server config
 
 ```ts
 stake({
-  chainId,          // Required — no default
-  contract,         // MPPEscrow address
-  counterparty,     // Address authorized to refund/slash
-  token,            // ERC-20 token address
-  beneficiary,      // Optional — if present, challenge expects this beneficiary
-  description,      // Optional — human-readable
-  name,             // Optional — method name (default: inferred)
+  chainId, // Required — no default
+  contract, // MPPEscrow address
+  counterparty, // Address authorized to refund/slash
+  token, // ERC-20 token address
+  beneficiary, // Optional — if present, challenge expects this beneficiary
+  description, // Optional — human-readable
+  name, // Optional — method name (default: inferred)
 })
 ```
 
@@ -166,18 +166,21 @@ Challenge requests contain:
 ## Network presets
 
 ```ts
-import { getNetworkPreset, getNetworkPresetByChainId } from "@gitbondhq/mppx-stake";
+import {
+  getNetworkPreset,
+  getNetworkPresetByChainId,
+} from '@gitbondhq/mppx-stake'
 
-const preset = getNetworkPreset("tempoModerato");
+const preset = getNetworkPreset('tempoModerato')
 // preset.chain, preset.rpcUrl, etc.
 ```
 
-| Network | Chain ID | Batch calls | Fee-payer |
-|---------|----------|-------------|-----------|
-| `tempoModerato` | 42431 | Yes | Yes |
-| `tempo` | — | Yes | Yes |
-| `base` | 8453 | No | No |
-| `ethereum` | 1 | No | No |
+| Network         | Chain ID | Batch calls | Fee-payer |
+| --------------- | -------- | ----------- | --------- |
+| `tempoModerato` | 42431    | Yes         | Yes       |
+| `tempo`         | —        | Yes         | Yes       |
+| `base`          | 8453     | No          | No        |
+| `ethereum`      | 1        | No          | No        |
 
 ---
 

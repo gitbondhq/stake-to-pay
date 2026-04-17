@@ -14,7 +14,7 @@ import {
   resolveSerializedCredential,
   resolveStakeChallengeForRespond,
 } from '../cli/challenge.js'
-import { repoConfig, resolveProtectedResourceUrl } from '../cli/context.js'
+import { resolveProtectedResourceUrl } from '../cli/context.js'
 import { printJson, writeJsonFile } from '../cli/format.js'
 import { fetchWithOptions, serializeHttpResponse } from '../cli/http.js'
 import { resolveAccount, withSigningOptions } from '../cli/runtime.js'
@@ -44,11 +44,7 @@ export function registerChallengeCommands(program: Command): void {
       })
 
       const challengeValue =
-        response.status === 402
-          ? parseStakeChallenge(response, {
-              methodName: repoConfig.methodName,
-            })
-          : null
+        response.status === 402 ? parseStakeChallenge(response) : null
 
       const outputPath = challengeValue
         ? await resolveChallengeOutputPath(options.out)
@@ -119,10 +115,16 @@ export function registerChallengeCommands(program: Command): void {
       const beneficiaryAccount = await resolveAccount(options)
       const method = clientStake({
         beneficiaryAccount,
-        name: repoConfig.methodName,
       })
+      // `Challenge.fromMethod` widens `intent`/`method` to `string` in its
+      // return type, so the literal-typed `method.createCredential` parameter
+      // needs a cast here. Safe: `resolveStakeChallengeForRespond` always
+      // returns a stake challenge or throws.
+      type CredentialChallenge = Parameters<
+        typeof method.createCredential
+      >[0]['challenge']
       const serializedCredential = await method.createCredential({
-        challenge: challengeValue,
+        challenge: challengeValue as CredentialChallenge,
       })
       const parsedCredential = Credential.deserialize<{
         signature: string
@@ -158,28 +160,19 @@ export function registerChallengeCommands(program: Command): void {
       '--url <url>',
       'Protected resource URL. Defaults to MPP_RESOURCE_URL or the local demo server route.',
     )
-    .action(
-      async (options: {
-        credentialFile?: string
-        url?: string
-      }) => {
-        const credential = await resolveSerializedCredential(options)
-        const response = await fetchWithOptions({
-          authorization: credential,
-          url: resolveProtectedResourceUrl(options.url),
-        })
+    .action(async (options: { credentialFile?: string; url?: string }) => {
+      const credential = await resolveSerializedCredential(options)
+      const response = await fetchWithOptions({
+        authorization: credential,
+        url: resolveProtectedResourceUrl(options.url),
+      })
 
-        const challengeValue =
-          response.status === 402
-            ? parseStakeChallenge(response, {
-                methodName: repoConfig.methodName,
-              })
-            : null
+      const challengeValue =
+        response.status === 402 ? parseStakeChallenge(response) : null
 
-        printJson({
-          ...(challengeValue ? { challenge: challengeValue } : {}),
-          ...(await serializeHttpResponse(response)),
-        })
-      },
-    )
+      printJson({
+        ...(challengeValue ? { challenge: challengeValue } : {}),
+        ...(await serializeHttpResponse(response)),
+      })
+    })
 }

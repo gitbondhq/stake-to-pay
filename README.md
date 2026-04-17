@@ -99,7 +99,7 @@ import { serverStake } from '@gitbondhq/mppx-stake/server'
 import { Mppx } from 'mppx/server'
 
 const mppx = Mppx.create({
-  methods: [serverStake({ contract, counterparty, token, name, chainId })],
+  methods: [serverStake({ contract, counterparty, token, chainId })],
   secretKey: process.env.MPP_SECRET_KEY!,
 })
 ```
@@ -110,7 +110,6 @@ Edit `config.json` at the repo root:
 
 ```json
 {
-  "methodName": "tempo",
   "chainId": 42431,
   "escrow": {
     "contract": "0x3E7f...",
@@ -141,7 +140,7 @@ import { Mppx } from 'mppx/client'
 import { clientStake } from '@gitbondhq/mppx-stake/client'
 
 const mppx = Mppx.create({
-  methods: [clientStake({ name, beneficiaryAccount })],
+  methods: [clientStake({ beneficiaryAccount })],
 })
 ```
 
@@ -152,7 +151,7 @@ import { Mppx } from 'mppx/server'
 import { serverStake } from '@gitbondhq/mppx-stake/server'
 
 const mppx = Mppx.create({
-  methods: [serverStake({ contract, counterparty, token, name, chainId })],
+  methods: [serverStake({ contract, counterparty, token, chainId })],
   secretKey: process.env.MPP_SECRET_KEY!,
 })
 ```

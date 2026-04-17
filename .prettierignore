@@ -1,0 +1,4 @@
+**/dist/**
+**/node_modules/**
+lib/**
+packages/mppx-stake/src/abi/MPPEscrow.ts

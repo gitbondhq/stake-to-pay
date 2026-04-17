@@ -1,5 +1,4 @@
 {
-  "methodName": "tempo",
   "chainId": 42431,
   "escrow": {
     "contract": "0x3E7f584954f64530068ab95de96A9c182D72A447",

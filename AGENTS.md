@@ -13,7 +13,7 @@ This file gives agent operators quick routing for work in this repository.
 - `apps/`
 - `apps/demo/`: end-user UI demo
 - `apps/cli/`: command-line tooling
-- `apps/mpp-server/`: standalone Express demo server that gates a fake document behind a `tempo/stake` paywall
+- `apps/mpp-server/`: standalone Express demo server that gates a fake document behind an `evm/stake` paywall
 - `packages/`
 - `packages/mppx-stake/`: MPP stake TypeScript SDK + ABI/type exports
 - `packages/ui/`: shared UI components

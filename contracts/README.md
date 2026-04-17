@@ -35,13 +35,13 @@ the same `(scope, beneficiary)`.
 
 ### Core concepts
 
-| Concept | Description |
-| ------- | ----------- |
-| **Scope** | Stable `bytes32` identifier for the protected access surface |
-| **Beneficiary** | Authorization subject for active-stake access |
-| **Payer** | Funding account that supplies the escrowed tokens |
-| **Escrow ID** | Internal contract id used for storage, events, refund, and slash flows |
-| **Token whitelist** | Only reviewed ERC-20 tokens may be escrowed |
+| Concept             | Description                                                            |
+| ------------------- | ---------------------------------------------------------------------- |
+| **Scope**           | Stable `bytes32` identifier for the protected access surface           |
+| **Beneficiary**     | Authorization subject for active-stake access                          |
+| **Payer**           | Funding account that supplies the escrowed tokens                      |
+| **Escrow ID**       | Internal contract id used for storage, events, refund, and slash flows |
+| **Token whitelist** | Only reviewed ERC-20 tokens may be escrowed                            |
 
 ### Read surface
 

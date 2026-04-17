@@ -89,6 +89,7 @@ stake-mpp challenge respond \
 ```
 
 Default behavior:
+
 - writes `credential.txt`
 - uses the latest saved challenge in `challenges/` if one exists
 - otherwise fetches a fresh challenge from the default demo URL
@@ -145,21 +146,21 @@ All escrow commands share: `--rpc-url`, `--contract`. Write commands add signing
 
 ### Write operations
 
-| Command | Key flags | Purpose |
-|---------|-----------|---------|
-| `escrow create-escrow` | `--scope`, `--counterparty`, `--token`, `--amount`, `--beneficiary` (opt) | Lock tokens |
-| `escrow refund-escrow` | `--escrow-id` | Return stake (happy path) |
-| `escrow slash-escrow` | `--escrow-id` | Penalize payer |
+| Command                | Key flags                                                                 | Purpose                   |
+| ---------------------- | ------------------------------------------------------------------------- | ------------------------- |
+| `escrow create-escrow` | `--scope`, `--counterparty`, `--token`, `--amount`, `--beneficiary` (opt) | Lock tokens               |
+| `escrow refund-escrow` | `--escrow-id`                                                             | Return stake (happy path) |
+| `escrow slash-escrow`  | `--escrow-id`                                                             | Penalize payer            |
 
 All write commands return `functionName`, `hash`, and (unless `--no-wait`) `receipt` + `status`.
 
 ### Read operations
 
-| Command | Key flags | Returns |
-|---------|-----------|---------|
-| `escrow get-active-escrow-id` | `--scope`, `--beneficiary` | Active escrow id for `(scope, beneficiary)` |
-| `escrow get-active-escrow` | `--scope`, `--beneficiary` | Active escrow struct for `(scope, beneficiary)` |
-| `escrow get-escrow` | `--escrow-id` | Full escrow struct |
+| Command                       | Key flags                  | Returns                                         |
+| ----------------------------- | -------------------------- | ----------------------------------------------- |
+| `escrow get-active-escrow-id` | `--scope`, `--beneficiary` | Active escrow id for `(scope, beneficiary)`     |
+| `escrow get-active-escrow`    | `--scope`, `--beneficiary` | Active escrow struct for `(scope, beneficiary)` |
+| `escrow get-escrow`           | `--escrow-id`              | Full escrow struct                              |
 
 Use `get-active-escrow-id` as the lookup step before `refund-escrow`,
 `slash-escrow`, or `get-escrow` when an operator only has the public

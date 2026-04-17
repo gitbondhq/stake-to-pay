@@ -9,10 +9,7 @@ import { loadConfig } from './config.js'
 import { loadDocument } from './content.js'
 import { getOrigin, sendWebResponse, toWebRequest } from './web.js'
 
-function deriveScope(parameters: {
-  policy?: string
-  resource: string
-}) {
+function deriveScope(parameters: { policy?: string; resource: string }) {
   return `0x${createHash('sha256')
     .update(`${parameters.policy ?? ''}:${parameters.resource}`)
     .digest('hex')}` as `0x${string}`
@@ -20,7 +17,7 @@ function deriveScope(parameters: {
 
 const config = loadConfig()
 const document = loadDocument()
-const { chainId, escrow, methodName } = config.repoConfig
+const { chainId, escrow } = config.repoConfig
 const documentScope = deriveScope({
   policy: escrow.policy,
   resource: document.resource,
@@ -31,7 +28,6 @@ const configuredStakeMethod = serverStake({
   counterparty: escrow.counterparty,
   token: escrow.token,
   description: escrow.description,
-  name: methodName,
 })
 const stakeIntent = `${configuredStakeMethod.name}/${configuredStakeMethod.intent}`
 
@@ -59,7 +55,6 @@ app.get('/', (req, res) => {
       documentSlug: document.slug,
       documentTitle: document.title,
       host: config.host,
-      methodName,
       port: config.port,
       stakeAmount: escrow.amount,
       stakeChainId: chainId,
@@ -95,9 +90,9 @@ app.get(document.path, async (req, res) => {
       throw new Error('Stake method is not configured.')
     }
 
-    const result = await stakeMethod(
-      createStakeRouteRequest(),
-    )(toWebRequest(req, { host: config.host, port: config.port }))
+    const result = await stakeMethod(createStakeRouteRequest())(
+      toWebRequest(req, { host: config.host, port: config.port }),
+    )
 
     if (result.status === 402) {
       await sendWebResponse(res, result.challenge)
@@ -136,9 +131,7 @@ const server = app.listen(config.port, config.host, () => {
   const origin = `http://${displayHost}:${config.port}`
 
   console.log(`[mpp-server] listening on ${origin}`)
-  console.log(
-    `[mpp-server] preview route: ${origin}${document.previewPath}`,
-  )
+  console.log(`[mpp-server] preview route: ${origin}${document.previewPath}`)
   console.log(`[mpp-server] protected route: ${origin}${document.path}`)
   console.log(
     `[mpp-server] stake amount=${escrow.amount} chainId=${chainId} contract=${escrow.contract}`,

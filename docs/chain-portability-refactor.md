@@ -164,23 +164,23 @@ The repo should stop treating "Tempo" as the base method family. It should treat
 Use a registry shape like:
 
 ```ts
-type NetworkFamily = "evm" | "solana";
+type NetworkFamily = 'evm' | 'solana'
 
 type NetworkCapabilities = {
-  supportsBatchCalls: boolean;
-  supportsFeePayer: boolean;
-  supportsEscrowContract: boolean;
-};
+  supportsBatchCalls: boolean
+  supportsFeePayer: boolean
+  supportsEscrowContract: boolean
+}
 
 type NetworkPreset = {
-  id: "tempoModerato" | "tempo" | "base" | "ethereum";
-  family: NetworkFamily;
-  chainId?: number;
-  rpcUrlEnv: string;
-  defaultRpcUrl?: string;
-  escrowContractEnv?: string;
-  capabilities: NetworkCapabilities;
-};
+  id: 'tempoModerato' | 'tempo' | 'base' | 'ethereum'
+  family: NetworkFamily
+  chainId?: number
+  rpcUrlEnv: string
+  defaultRpcUrl?: string
+  escrowContractEnv?: string
+  capabilities: NetworkCapabilities
+}
 ```
 
 `permit` should not be modeled as a chain capability. It is a token feature and
@@ -245,12 +245,32 @@ Example direction:
 ```ts
 // mpp.config.ts
 export default defineMppConfig({
-  network: "tempoModerato",
+  network: 'tempoModerato',
   presets: {
-    tempoModerato: { family: "evm", chainId: 365, supportsBatchCalls: true, supportsFeePayer: true },
-    tempo: { family: "evm", chainId: 360, supportsBatchCalls: true, supportsFeePayer: true },
-    base: { family: "evm", chainId: 8453, supportsBatchCalls: false, supportsFeePayer: false },
-    ethereum: { family: "evm", chainId: 1, supportsBatchCalls: false, supportsFeePayer: false },
+    tempoModerato: {
+      family: 'evm',
+      chainId: 365,
+      supportsBatchCalls: true,
+      supportsFeePayer: true,
+    },
+    tempo: {
+      family: 'evm',
+      chainId: 360,
+      supportsBatchCalls: true,
+      supportsFeePayer: true,
+    },
+    base: {
+      family: 'evm',
+      chainId: 8453,
+      supportsBatchCalls: false,
+      supportsFeePayer: false,
+    },
+    ethereum: {
+      family: 'evm',
+      chainId: 1,
+      supportsBatchCalls: false,
+      supportsFeePayer: false,
+    },
   },
 })
 ```
@@ -260,8 +280,8 @@ And then at the app layer:
 ```ts
 // apps/mpp-server/mpp.config.ts
 export default defineServerConfig({
-  network: "tempoModerato",
-  escrowContract: "0x...",
+  network: 'tempoModerato',
+  escrowContract: '0x...',
 })
 ```
 
@@ -403,13 +423,13 @@ Recommended docs-only additions in this phase:
 Suggested placeholder shape:
 
 ```ts
-type AdapterFamily = "evm" | "solana";
+type AdapterFamily = 'evm' | 'solana'
 
 type ChallengeAdapter = {
-  family: AdapterFamily;
-  createCredential(input: unknown): Promise<unknown>;
-  verifyCredential(input: unknown): Promise<unknown>;
-};
+  family: AdapterFamily
+  createCredential(input: unknown): Promise<unknown>
+  verifyCredential(input: unknown): Promise<unknown>
+}
 ```
 
 Important rule:
@@ -456,22 +476,22 @@ Checked-in config:
 ```ts
 // mpp.config.ts
 export default defineMppConfig({
-  network: "tempoModerato",
+  network: 'tempoModerato',
   presets: {
     tempoModerato: {
-      family: "evm",
+      family: 'evm',
       chainId: 365,
-      escrowContract: "0x...",
+      escrowContract: '0x...',
     },
     base: {
-      family: "evm",
+      family: 'evm',
       chainId: 8453,
-      escrowContract: "0x...",
+      escrowContract: '0x...',
     },
     ethereum: {
-      family: "evm",
+      family: 'evm',
       chainId: 1,
-      escrowContract: "0x...",
+      escrowContract: '0x...',
     },
   },
 })
