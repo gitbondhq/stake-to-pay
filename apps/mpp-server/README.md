@@ -24,12 +24,12 @@ npx mppx http://127.0.0.1:4020/documents/document
 
 ## Routes
 
-| Route | Auth | Description |
-|-------|------|-------------|
-| `GET /healthz` | Public | Health check |
-| `GET /` | Public | Server metadata + example commands |
-| `GET /documents/document/preview` | Public | Document teaser |
-| `GET /documents/document` | Stake | Full document (402 challenge if no credential) |
+| Route                             | Auth   | Description                                    |
+| --------------------------------- | ------ | ---------------------------------------------- |
+| `GET /healthz`                    | Public | Health check                                   |
+| `GET /`                           | Public | Server metadata + example commands             |
+| `GET /documents/document/preview` | Public | Document teaser                                |
+| `GET /documents/document`         | Stake  | Full document (402 challenge if no credential) |
 
 ## Flow
 
@@ -62,15 +62,15 @@ Examples:
 
 **Required:**
 
-| Variable | Description |
-|----------|-------------|
+| Variable         | Description                                 |
+| ---------------- | ------------------------------------------- |
 | `MPP_SECRET_KEY` | Secret for signing/verifying MPP challenges |
 
 **Optional:**
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `4020` | Server port |
-| `HOST` | `127.0.0.1` | Bind address |
+| Variable | Default     | Description  |
+| -------- | ----------- | ------------ |
+| `PORT`   | `4020`      | Server port  |
+| `HOST`   | `127.0.0.1` | Bind address |
 
-Stake defaults are loaded directly from the repo-level `config.json` (`methodName`, `chainId`, and the `escrow` block) and parsed locally in `src/config.ts`. RPC endpoints fall back to viem's built-in default for the chain — set one explicitly in `serverStake({ rpcUrl })` if you need to point at a private node. The paywalled content lives in `apps/mpp-server/content/document.md`; the title comes from its H1 and the route slug comes from the filename.
+Stake defaults are loaded directly from the repo-level `config.json` (`chainId` and the `escrow` block) and parsed locally in `src/config.ts`. RPC endpoints fall back to viem's built-in default for the chain — set one explicitly in `serverStake({ rpcUrl })` if you need to point at a private node. The paywalled content lives in `apps/mpp-server/content/document.md`; the title comes from its H1 and the route slug comes from the filename.

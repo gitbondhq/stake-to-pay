@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { parseStakeChallenge, type StakeChallenge } from '@gitbondhq/mppx-stake'
 import { Credential } from 'mppx'
 
-import { repoConfig, resolveProtectedResourceUrl } from './context.js'
+import { resolveProtectedResourceUrl } from './context.js'
 import { fetchWithOptions } from './http.js'
 import { requiredString } from './parsing.js'
 
@@ -48,9 +48,7 @@ export async function loadStakeChallengeFromFile(
       ? parsed.challenge
       : parsed
 
-  return parseStakeChallenge(challenge, {
-    methodName: repoConfig.methodName,
-  })
+  return parseStakeChallenge(challenge)
 }
 
 export async function resolveSerializedCredential(options: {
@@ -96,20 +94,18 @@ async function fetchStakeChallenge(url: string): Promise<StakeChallenge> {
     )
   }
 
-  return parseStakeChallenge(response, {
-    methodName: repoConfig.methodName,
-  })
+  return parseStakeChallenge(response)
 }
 
-export async function resolveChallengeOutputPath(path?: string): Promise<string> {
+export async function resolveChallengeOutputPath(
+  path?: string,
+): Promise<string> {
   const resolvedPath = path?.trim() || createTimestampedChallengeFilePath()
   await mkdir(dirname(resolvedPath), { recursive: true })
   return resolvedPath
 }
 
-export async function resolveChallengeFilePath(
-  path?: string,
-): Promise<string> {
+export async function resolveChallengeFilePath(path?: string): Promise<string> {
   if (path?.trim()) {
     return path.trim()
   }
@@ -143,7 +139,8 @@ async function resolveLatestChallengeFilePath(): Promise<string | undefined> {
   })
   const latest = entries
     .filter(
-      entry => entry.isFile() && entry.name.toLowerCase().endsWith('-challenge.json'),
+      entry =>
+        entry.isFile() && entry.name.toLowerCase().endsWith('-challenge.json'),
     )
     .map(entry => entry.name)
     .sort()

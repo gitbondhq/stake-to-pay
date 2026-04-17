@@ -21,7 +21,7 @@ Use this playbook for requests in the `apps/mpp-server` domain.
   - `GET /documents/document/preview`
 - Protected route:
   - `GET /documents/document`
-- The protected route returns a `tempo/stake` challenge until the caller submits a valid credential.
+- The protected route returns an `evm/stake` challenge until the caller submits a valid credential.
 - The full document response is JSON and carries a `Payment-Receipt` header on success.
 
 ## Config
@@ -72,4 +72,4 @@ If you change `packages/mppx-stake`, rebuild it before testing the server:
 - Keep secrets out of public responses and logs.
 - Derive a stable `scope` for each protected resource or policy.
 - Let `serverStake()` reuse echoed challenge values that must stay stable on credential retries, especially `scope`.
-- Register only `serverStake()` from `@gitbondhq/mppx-stake` unless the user explicitly wants charge or session flows; `tempo()` pulls in extra methods that need additional configuration.
+- Register only `serverStake()` from `@gitbondhq/mppx-stake` unless the user explicitly wants charge or session flows; other transport methods pull in extra configuration.
