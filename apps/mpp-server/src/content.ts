@@ -17,12 +17,16 @@ export const loadDocument = (): LoadedDocument => {
   const source = readFileSync(documentFileUrl, 'utf8').replace(/\r\n/g, '\n')
   const [heading, ...rest] = source.trim().split('\n')
   if (!heading?.startsWith('# ')) {
-    throw new Error('apps/mpp-server/content/document.md must start with an H1 heading.')
+    throw new Error(
+      'apps/mpp-server/content/document.md must start with an H1 heading.',
+    )
   }
 
   const title = heading.slice(2).trim()
   if (!title) {
-    throw new Error('apps/mpp-server/content/document.md H1 heading cannot be empty.')
+    throw new Error(
+      'apps/mpp-server/content/document.md H1 heading cannot be empty.',
+    )
   }
 
   const sections = rest

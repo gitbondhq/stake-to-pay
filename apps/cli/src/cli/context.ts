@@ -43,5 +43,8 @@ export function resolveProtectedResourceUrl(url?: string): string {
   const host = process.env.HOST?.trim() || defaultDemoHost
   const port = process.env.PORT?.trim() || defaultDemoPort
 
-  return new URL(defaultProtectedResourcePath, `http://${host}:${port}`).toString()
+  return new URL(
+    defaultProtectedResourcePath,
+    `http://${host}:${port}`,
+  ).toString()
 }

@@ -21,7 +21,10 @@ type WebResponseTarget = {
   status(code: number): WebResponseTarget
 }
 
-export const getOrigin = (req: OriginRequest, server: ServerBinding): string => {
+export const getOrigin = (
+  req: OriginRequest,
+  server: ServerBinding,
+): string => {
   const hostHeader = req.headers.host
   const host =
     typeof hostHeader === 'string' && hostHeader.length > 0

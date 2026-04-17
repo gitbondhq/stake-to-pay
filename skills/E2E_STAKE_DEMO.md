@@ -13,14 +13,14 @@ Use this playbook when a user wants to run the stake demo end-to-end, try the pr
 
 ## Testnet defaults
 
-| Item | Value |
-|------|-------|
-| Network | Tempo Moderato |
-| Chain ID | 42431 |
-| RPC | `https://rpc.moderato.tempo.xyz` |
+| Item            | Value                                        |
+| --------------- | -------------------------------------------- |
+| Network         | Tempo Moderato                               |
+| Chain ID        | 42431                                        |
+| RPC             | `https://rpc.moderato.tempo.xyz`             |
 | Escrow contract | `0xd334C82df572789E1EEF2eF7814dF6f6aE2D7Cce` |
 | Token (pathUSD) | `0x20c0000000000000000000000000000000000000` |
-| Stake amount | `5000000` (base units) |
+| Stake amount    | `5000000` (base units)                       |
 
 These are configured in the repo-level `config.json`.
 
@@ -163,16 +163,16 @@ npx --workspace @stake-mpp/cli stake-mpp escrow slash-escrow \
 
 ## Troubleshooting
 
-| Problem | Fix |
-|---------|-----|
-| `402` after submitting credential | Escrow may not be confirmed yet, or the active escrow may not match the challenged `scope`. Check the on-chain active escrow for `(scope, beneficiary)`. |
-| `MPP_SECRET_KEY` error on server start | Set it in the repo-root `.env`. |
-| `createEscrow` reverts | Check: token is whitelisted, sufficient token balance, token approval in place. |
-| `corrupt keystore` | If `cast wallet address --keystore ... --password-file ...` works, rebuild the CLI so it picks up the cast-wallet fix, then retry. |
-| CLI says `No TTY available for passphrase prompt` | Set `MPP_ESCROW_PASSWORD_FILE` in the repo-root `.env`, or pass `--password-file`. |
-| CLI says `fetch failed` against `127.0.0.1` | In Codex, rerun the CLI command unsandboxed before treating it as an application bug. |
-| CLI can't find `stake-mpp` binary | Run `npm run build --workspace @stake-mpp/cli` first. |
-| Server doesn't see `config.json` | Run from repo root, or check the relative path in `apps/mpp-server/src/config.ts`. |
+| Problem                                           | Fix                                                                                                                                                      |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `402` after submitting credential                 | Escrow may not be confirmed yet, or the active escrow may not match the challenged `scope`. Check the on-chain active escrow for `(scope, beneficiary)`. |
+| `MPP_SECRET_KEY` error on server start            | Set it in the repo-root `.env`.                                                                                                                          |
+| `createEscrow` reverts                            | Check: token is whitelisted, sufficient token balance, token approval in place.                                                                          |
+| `corrupt keystore`                                | If `cast wallet address --keystore ... --password-file ...` works, rebuild the CLI so it picks up the cast-wallet fix, then retry.                       |
+| CLI says `No TTY available for passphrase prompt` | Set `MPP_ESCROW_PASSWORD_FILE` in the repo-root `.env`, or pass `--password-file`.                                                                       |
+| CLI says `fetch failed` against `127.0.0.1`       | In Codex, rerun the CLI command unsandboxed before treating it as an application bug.                                                                    |
+| CLI can't find `stake-mpp` binary                 | Run `npm run build --workspace @stake-mpp/cli` first.                                                                                                    |
+| Server doesn't see `config.json`                  | Run from repo root, or check the relative path in `apps/mpp-server/src/config.ts`.                                                                       |
 
 ---
 

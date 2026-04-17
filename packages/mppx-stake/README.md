@@ -136,7 +136,7 @@ await redis.connect()
 serverStake({
   chainId: 42431,
   contract: '0x...',
-  consumeChallenge: async (challengeId) => {
+  consumeChallenge: async challengeId => {
     // Atomic claim — `SET NX` returns null if the key already exists.
     const claimed = await redis.set(
       `mppx:stake:challenge:${challengeId}`,
@@ -195,17 +195,17 @@ The challenge request shape both sides agree on:
 
 ```ts
 type StakeChallengeRequest = {
-  amount: string                       // base-unit integer string
-  beneficiary?: Address                // defaults to the credential signer
-  contract: Address                    // escrow contract
-  counterparty: Address                // the other party
+  amount: string // base-unit integer string
+  beneficiary?: Address // defaults to the credential signer
+  contract: Address // escrow contract
+  counterparty: Address // the other party
   description?: string
-  externalId?: string                  // application-side identifier
-  mode: StakeAuthorizationMode         // 'scope-beneficiary-active' | 'scope-active'
-  policy?: string                      // application-side policy tag
-  resource?: string                    // application-side resource tag
-  scope: Hex                           // bytes32, the per-resource identifier
-  token: Address                       // ERC-20 token address
+  externalId?: string // application-side identifier
+  mode: StakeAuthorizationMode // 'scope-beneficiary-active' | 'scope-active'
+  policy?: string // application-side policy tag
+  resource?: string // application-side resource tag
+  scope: Hex // bytes32, the per-resource identifier
+  token: Address // ERC-20 token address
   methodDetails: { chainId: number }
 }
 ```
@@ -214,8 +214,8 @@ The credential payload is a discriminated union based on `mode`:
 
 ```ts
 type StakeCredentialPayload =
-  | { signature: Hex; type: 'scope-beneficiary-active' }  // BENEFICIARY_BOUND
-  | { type: 'scope-active' }                              // OWNER_AGNOSTIC
+  | { signature: Hex; type: 'scope-beneficiary-active' } // BENEFICIARY_BOUND
+  | { type: 'scope-active' } // OWNER_AGNOSTIC
 ```
 
 The `scope` is whatever bytes32 your application uses to uniquely identify
@@ -274,9 +274,9 @@ full wire compatibility depends on the peer understanding that request field.
 
 ## Subpath exports
 
-| Entry                            | Use                                                              |
-| -------------------------------- | ---------------------------------------------------------------- |
-| `@gitbondhq/mppx-stake`          | Schema, types, chain helpers, challenge parser.                  |
-| `@gitbondhq/mppx-stake/client`   | `clientStake()` — configures a client method that signs proofs.  |
-| `@gitbondhq/mppx-stake/server`   | `serverStake()` — configures a server method that verifies them. |
-| `@gitbondhq/mppx-stake/abi`      | `escrowAbi`.                                                     |
+| Entry                          | Use                                                              |
+| ------------------------------ | ---------------------------------------------------------------- |
+| `@gitbondhq/mppx-stake`        | Schema, types, chain helpers, challenge parser.                  |
+| `@gitbondhq/mppx-stake/client` | `clientStake()` — configures a client method that signs proofs.  |
+| `@gitbondhq/mppx-stake/server` | `serverStake()` — configures a server method that verifies them. |
+| `@gitbondhq/mppx-stake/abi`    | `escrowAbi`.                                                     |
